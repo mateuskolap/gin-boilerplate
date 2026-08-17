@@ -22,6 +22,25 @@ import (
 	"gorm.io/gorm"
 )
 
+// @title                      Gin Boilerplate API
+// @version                    1.0
+// @description                Production-ready API boilerplate built with Gin, GORM, and Redis.
+// @termsOfService             http://swagger.io/terms/
+
+// @contact.name               API Support
+// @contact.url                http://www.swagger.io/support
+// @contact.email              support@swagger.io
+
+// @license.name               MIT
+// @license.url                https://opensource.org/licenses/MIT
+
+// @host                       localhost:8080
+// @BasePath                   /
+
+// @securityDefinitions.apikey BearerAuth
+// @in                         header
+// @name                       Authorization
+// @description                Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").
 func main() {
 	cfg := config.LoadConfig()
 

@@ -1,0 +1,292 @@
+basePath: /
+definitions:
+  dto.LoginRequest:
+    properties:
+      email:
+        example: john.doe@example.com
+        type: string
+      password:
+        example: secret12345
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.LoginResponse:
+    properties:
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    type: object
+  dto.RegisterRequest:
+    properties:
+      email:
+        example: john.doe@example.com
+        type: string
+      name:
+        example: John Doe
+        maxLength: 100
+        minLength: 2
+        type: string
+      password:
+        example: secret12345
+        minLength: 8
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  dto.UpdateProfileRequest:
+    properties:
+      name:
+        example: John Doe Updated
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - name
+    type: object
+  dto.UserResponse:
+    properties:
+      created_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      email:
+        example: john.doe@example.com
+        type: string
+      id:
+        example: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        type: string
+      name:
+        example: John Doe
+        type: string
+      updated_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+    type: object
+  middleware.ApiResponse:
+    properties:
+      data: {}
+      error:
+        example: Error description
+        type: string
+      message:
+        example: Operation completed successfully
+        type: string
+      success:
+        example: true
+        type: boolean
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: Production-ready API boilerplate built with Gin, GORM, and Redis.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Gin Boilerplate API
+  version: "1.0"
+paths:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user credentials and return a JWT token
+      parameters:
+      - description: User login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LoginResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      summary: User login
+      tags:
+      - Auth
+  /api/v1/auth/logout:
+    post:
+      description: Invalidate current user JWT token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: User logout
+      tags:
+      - Auth
+  /api/v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user account with name, email and password
+      parameters:
+      - description: User registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      summary: Register a new user
+      tags:
+      - Auth
+  /api/v1/users/profile:
+    get:
+      description: Get current authenticated user profile details
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user profile
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Update current authenticated user profile information
+      parameters:
+      - description: User profile update details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user profile
+      tags:
+      - Users
+  /health:
+    get:
+      description: Check if the API server is alive and running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - Health
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

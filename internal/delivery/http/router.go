@@ -1,11 +1,14 @@
 package http
 
 import (
+	_ "gin-boilerplate/docs"
 	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type RouterConfig struct {
@@ -15,12 +18,23 @@ type RouterConfig struct {
 	JWTSecret      string
 }
 
+// HealthCheck godoc
+// @Summary      Health check
+// @Description  Check if the API server is alive and running
+// @Tags         Health
+// @Produce      json
+// @Success      200  {object}  map[string]string
+// @Router       /health [get]
+func healthCheck(c *gin.Context) {
+	c.JSON(200, gin.H{"status": "ok"})
+}
+
 func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.Default()
 
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	r.GET("/health", healthCheck)
 
 	api := r.Group("/api/v1")
 	{

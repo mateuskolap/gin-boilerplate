@@ -9,10 +9,10 @@ import (
 )
 
 type ApiResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message,omitempty"`
+	Success bool        `json:"success" example:"true"`
+	Message string      `json:"message,omitempty" example:"Operation completed successfully"`
 	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty"`
+	Error   string      `json:"error,omitempty" example:"Error description"`
 }
 
 func Success(c *gin.Context, statusCode int, message string, data interface{}) {

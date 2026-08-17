@@ -19,6 +19,19 @@ func NewAuthHandler(userUseCase domain.UserUseCase) *AuthHandler {
 	}
 }
 
+// Register godoc
+// @Summary      Register a new user
+// @Description  Register a new user account with name, email and password
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.RegisterRequest true "User registration details"
+// @Success      201  {object}  middleware.ApiResponse{data=dto.UserResponse}
+// @Failure      400  {object}  middleware.ApiResponse
+// @Failure      409  {object}  middleware.ApiResponse
+// @Failure      422  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	req, err := bindJSON[dto.RegisterRequest](c)
 	if err != nil {
@@ -40,6 +53,18 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	middleware.Success(c, http.StatusCreated, "User registered successfully", dto.ToUserResponse(user))
 }
 
+// Login godoc
+// @Summary      User login
+// @Description  Authenticate user credentials and return a JWT token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.LoginRequest true "User login credentials"
+// @Success      200  {object}  middleware.ApiResponse{data=dto.LoginResponse}
+// @Failure      400  {object}  middleware.ApiResponse
+// @Failure      401  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	req, err := bindJSON[dto.LoginRequest](c)
 	if err != nil {
@@ -56,6 +81,16 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	middleware.Success(c, http.StatusOK, "Login successful", dto.LoginResponse{Token: token})
 }
 
+// Logout godoc
+// @Summary      User logout
+// @Description  Invalidate current user JWT token
+// @Tags         Auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  middleware.ApiResponse
+// @Failure      401  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	token, err := extractToken(c)
 	if err != nil {
