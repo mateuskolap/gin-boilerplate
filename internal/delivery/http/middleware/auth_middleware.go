@@ -56,7 +56,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 		if !ok {
 			HandleError(c, domain.NewAppError(
 				domain.ErrTypeUnauthorized,
-				"Invalid token claims",
+				"Invalid or expired token",
 				nil,
 			))
 			c.Abort()
@@ -77,7 +77,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 		if isRevoked {
 			HandleError(c, domain.NewAppError(
 				domain.ErrTypeUnauthorized,
-				"Token has been revoked",
+				"Invalid or expired token",
 				nil,
 			))
 			c.Abort()
