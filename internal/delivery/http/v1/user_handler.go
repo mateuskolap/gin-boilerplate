@@ -33,17 +33,17 @@ func NewUserHandler(userUseCase domain.UserUseCase) *UserHandler {
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userID, err := extractUserID(c)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
 	user, err := h.userUseCase.GetProfile(c.Request.Context(), userID)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Profile retrieved successfully", dto.ToUserResponse(user))
+	middleware.Success(c, http.StatusOK, "Profile retrieved successfully", dto.ToUserProfileResponse(user))
 }
 
 // UpdateProfile godoc
@@ -63,13 +63,13 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	userID, err := extractUserID(c)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
 	req, err := bindJSON[dto.UpdateProfileRequest](c)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	user.ID = userID
 
 	if err := h.userUseCase.UpdateProfile(c.Request.Context(), user); err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 

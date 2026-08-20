@@ -23,6 +23,17 @@ func Success(c *gin.Context, statusCode int, message string, data interface{}) {
 	})
 }
 
+func ErrorHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+
+		if len(c.Errors) > 0 && !c.Writer.Written() {
+			err := c.Errors.Last().Err
+			HandleError(c, err)
+		}
+	}
+}
+
 func HandleError(c *gin.Context, err error) {
 	var appErr *domain.AppError
 	if errors.As(err, &appErr) {

@@ -13,7 +13,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			HandleError(c, domain.NewAppError(
+			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeUnauthorized,
 				"Authorization header is required",
 				nil,
@@ -24,7 +24,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			HandleError(c, domain.NewAppError(
+			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeUnauthorized,
 				"Authorization format must be Bearer <token>",
 				nil,
@@ -43,7 +43,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 		})
 
 		if err != nil || !token.Valid {
-			HandleError(c, domain.NewAppError(
+			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeUnauthorized,
 				"Invalid or expired token",
 				err,
@@ -54,7 +54,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 
 		claims, ok := token.Claims.(*jwt.RegisteredClaims)
 		if !ok {
-			HandleError(c, domain.NewAppError(
+			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeUnauthorized,
 				"Invalid or expired token",
 				nil,
@@ -65,7 +65,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 
 		isRevoked, err := blacklist.IsRevoked(c.Request.Context(), claims.ID)
 		if err != nil {
-			HandleError(c, domain.NewAppError(
+			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeInternal,
 				"Failed to check token revocation status",
 				err,
@@ -75,7 +75,7 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 		}
 
 		if isRevoked {
-			HandleError(c, domain.NewAppError(
+			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeUnauthorized,
 				"Invalid or expired token",
 				nil,

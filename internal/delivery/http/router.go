@@ -14,6 +14,7 @@ import (
 type RouterConfig struct {
 	AuthHandler    *v1.AuthHandler
 	UserHandler    *v1.UserHandler
+	RoleHandler    *v1.RoleHandler
 	TokenBlacklist domain.TokenBlackList
 	JWTSecret      string
 }
@@ -31,6 +32,8 @@ func healthCheck(c *gin.Context) {
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.Default()
+
+	r.Use(middleware.ErrorHandler())
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -53,6 +56,12 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			{
 				users.GET("/profile", cfg.UserHandler.GetProfile)
 				users.PUT("/profile", cfg.UserHandler.UpdateProfile)
+			}
+
+			roles := protected.Group("/roles")
+			{
+				roles.GET("", cfg.RoleHandler.ListRoles)
+				roles.GET("/:id", cfg.RoleHandler.FindRole)
 			}
 		}
 	}

@@ -13,6 +13,8 @@ const (
 	OperatorLessThanOrEqual    FilterOperator = "<="
 	OperatorLike               FilterOperator = "LIKE"
 	OperatorNotLike            FilterOperator = "NOT LIKE"
+	OperatorILike              FilterOperator = "ILIKE"
+	OperatorNotILike           FilterOperator = "NOT ILIKE"
 	OperatorIn                 FilterOperator = "IN"
 	OperatorNotIn              FilterOperator = "NOT IN"
 )
@@ -22,6 +24,7 @@ var validOperators = map[FilterOperator]bool{
 	OperatorGreaterThan: true, OperatorLessThan: true,
 	OperatorGreaterThanOrEqual: true, OperatorLessThanOrEqual: true,
 	OperatorLike: true, OperatorNotLike: true,
+	OperatorILike: true, OperatorNotILike: true,
 	OperatorIn: true, OperatorNotIn: true,
 }
 

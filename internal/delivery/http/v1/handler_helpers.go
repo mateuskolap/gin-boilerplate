@@ -2,6 +2,8 @@ package v1
 
 import (
 	"gin-boilerplate/internal/domain"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -51,4 +53,59 @@ func extractToken(c *gin.Context) (string, error) {
 		)
 	}
 	return tokenString.(string), nil
+}
+
+// extractPaginationParams extracts page, limit, and sort parameters from query parameters.
+// Note: Preloads is intentionally left empty so that only UseCases control relationship preloading.
+func extractPaginationParams(c *gin.Context) domain.PaginationParams {
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	params := domain.PaginationParams{
+		Page:  page,
+		Limit: limit,
+	}
+
+	sortQuery := c.Query("sort")
+	if sortQuery != "" {
+		sortFields := strings.Split(sortQuery, ",")
+
+		params.Sort = make([]domain.SortParam, 0, len(sortFields))
+
+		for _, s := range sortFields {
+			s = strings.TrimSpace(s)
+
+			if s == "" {
+				continue
+			}
+
+			field, direction := parseSortOption(s)
+
+			if field != "" {
+				params.Sort = append(params.Sort, domain.SortParam{
+					Field:     field,
+					Direction: direction,
+				})
+			}
+		}
+	}
+
+	params.Sanitize()
+	return params
+}
+
+func parseSortOption(s string) (field string, direction domain.SortDirection) {
+	if strings.HasPrefix(s, "-") {
+		field := strings.TrimSpace(strings.TrimPrefix(s, "-"))
+		return field, domain.SortDesc
+	}
+
+	return s, domain.SortAsc
 }

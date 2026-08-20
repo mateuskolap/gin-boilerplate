@@ -35,7 +35,7 @@ func NewAuthHandler(userUseCase domain.UserUseCase) *AuthHandler {
 func (h *AuthHandler) Register(c *gin.Context) {
 	req, err := bindJSON[dto.RegisterRequest](c)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -46,11 +46,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := h.userUseCase.Register(c.Request.Context(), user); err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
-	middleware.Success(c, http.StatusCreated, "User registered successfully", dto.ToUserResponse(user))
+	middleware.Success(c, http.StatusCreated, "User registered successfully", dto.ToUserProfileResponse(user))
 }
 
 // Login godoc
@@ -68,13 +68,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	req, err := bindJSON[dto.LoginRequest](c)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
 	token, err := h.userUseCase.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -94,12 +94,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Logout(c *gin.Context) {
 	token, err := extractToken(c)
 	if err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 
 	if err := h.userUseCase.Logout(c.Request.Context(), token); err != nil {
-		middleware.HandleError(c, err)
+		_ = c.Error(err)
 		return
 	}
 

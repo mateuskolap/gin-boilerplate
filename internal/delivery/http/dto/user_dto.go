@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type UserResponse struct {
+type UserProfileResponse struct {
 	ID        uuid.UUID `json:"id" example:"a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"`
 	Name      string    `json:"name" example:"John Doe"`
 	Email     string    `json:"email" example:"john.doe@example.com"`
@@ -16,11 +16,11 @@ type UserResponse struct {
 }
 
 type UpdateProfileRequest struct {
-	Name string `json:"name" binding:"required,min=2,max=100" example:"John Doe Updated"`
+	Name string `json:"name" binding:"required,min=2" example:"John Doe Updated"`
 }
 
-func ToUserResponse(user *domain.User) UserResponse {
-	return UserResponse{
+func ToUserProfileResponse(user *domain.User) UserProfileResponse {
+	return UserProfileResponse{
 		ID:        user.ID,
 		Name:      user.Name,
 		Email:     user.Email,

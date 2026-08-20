@@ -77,17 +77,21 @@ func main() {
 	cacheRepo := repository.NewRedisCache(redisClient)
 	tokenBlacklistRepo := repository.NewTokenBlackListRepository(cacheRepo)
 	userRepo := repository.NewUserRepository(db)
+	roleRepo := repository.NewRoleRepository(db)
 
 	// UseCases
 	userUseCase := usecase.NewUserUseCase(userRepo, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
+	roleUseCase := usecase.NewRoleUseCase(roleRepo)
 
 	// Handlers & Router
 	authHandler := v1.NewAuthHandler(userUseCase)
 	userHandler := v1.NewUserHandler(userUseCase)
+	roleHandler := v1.NewRoleHandler(roleUseCase)
 
 	router := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
 		AuthHandler:    authHandler,
 		UserHandler:    userHandler,
+		RoleHandler:    roleHandler,
 		TokenBlacklist: tokenBlacklistRepo,
 		JWTSecret:      cfg.JWTSecret,
 	})
