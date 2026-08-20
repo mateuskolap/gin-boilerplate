@@ -25,6 +25,7 @@ func (e *AppError) Error() string {
 	return e.Message
 }
 
+// NewAppError constructs a new AppError instance.
 func NewAppError(errType ErrorType, message string, err error) *AppError {
 	return &AppError{
 		Type:    errType,

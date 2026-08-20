@@ -19,45 +19,20 @@ type BaseSoftDeleteModel struct {
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
-type PaginationParams struct {
-	Page     int
-	Limit    int
-	Preloads []string
-}
-
-type PaginatedResult[T any] struct {
-	Items      []*T  `json:"items"`
-	Total      int64 `json:"total"`
-	Page       int   `json:"page"`
-	Limit      int   `json:"limit"`
-	TotalPages int   `json:"total_pages"`
-}
-
-type FilterOperator string
-
-const (
-	OperatorEquals             FilterOperator = "="
-	OperatorNotEquals          FilterOperator = "!="
-	OperatorGreaterThan        FilterOperator = ">"
-	OperatorLessThan           FilterOperator = "<"
-	OperatorGreaterThanOrEqual FilterOperator = ">="
-	OperatorLessThanOrEqual    FilterOperator = "<="
-	OperatorLike               FilterOperator = "LIKE"
-	OperatorNotLike            FilterOperator = "NOT LIKE"
-	OperatorIn                 FilterOperator = "IN"
-	OperatorNotIn              FilterOperator = "NOT IN"
-)
-
-type Filter struct {
-	Field    string
-	Operator FilterOperator
-	Value    interface{}
-}
-
 type BaseRepository[T any] interface {
+	// Create persists a new entity in the database.
 	Create(ctx context.Context, entity *T) error
+
+	// GetByID fetches an entity by its UUID, optionally preloading relationships.
+	// Returns (nil, nil) if the record does not exist.
 	GetByID(ctx context.Context, id uuid.UUID, preloads ...string) (*T, error)
+
+	// Update saves changes made to an existing entity.
 	Update(ctx context.Context, entity *T) error
+
+	// Delete removes an entity by its UUID (or soft-deletes if supported).
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// List queries a paginated slice of entities applying preloads, filters, and sorting.
 	List(ctx context.Context, params PaginationParams, filters []Filter) (*PaginatedResult[T], error)
 }

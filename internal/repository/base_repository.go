@@ -17,9 +17,7 @@ type baseRepository[T any] struct {
 }
 
 func NewBaseRepository[T any](db *gorm.DB) domain.BaseRepository[T] {
-	return &baseRepository[T]{
-		db: db,
-	}
+	return &baseRepository[T]{db: db}
 }
 
 func (r *baseRepository[T]) Create(ctx context.Context, entity *T) error {
@@ -35,9 +33,7 @@ func (r *baseRepository[T]) GetByID(ctx context.Context, id uuid.UUID, preloads 
 		query = query.Preload(preload)
 	}
 
-	err := query.Where("id = ?", id).First(&entity).Error
-
-	if err != nil {
+	if err := query.Where("id = ?", id).First(&entity).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -61,71 +57,30 @@ func (r *baseRepository[T]) List(
 	params domain.PaginationParams,
 	filters []domain.Filter,
 ) (*domain.PaginatedResult[T], error) {
-	var entities []*T
-	var total int64
+	params.Sanitize()
 
 	query := r.db.WithContext(ctx).Model(new(T))
 
-	for _, preload := range params.Preloads {
-		query = query.Preload(preload)
+	for _, p := range params.Preloads {
+		query = query.Preload(p)
 	}
 
-	joinedRelations := make(map[string]bool)
-
-	for _, f := range filters {
-		var clause string
-		var fieldName string = f.Field
-
-		if strings.Contains(f.Field, ".") {
-			parts := strings.Split(f.Field, ".")
-
-			column := parts[len(parts)-1]
-
-			var currentPath string
-			var lastRelation string
-
-			for i := 0; i < len(parts)-1; i++ {
-				if currentPath == "" {
-					currentPath = parts[i]
-				} else {
-					currentPath = currentPath + "." + parts[i]
-				}
-
-				if !joinedRelations[currentPath] {
-					query = query.Joins(currentPath)
-					joinedRelations[currentPath] = true
-				}
-
-				lastRelation = parts[i]
-			}
-
-			fieldName = fmt.Sprintf(`"%s.%s"`, lastRelation, column)
-		}
-
-		if f.Operator == domain.OperatorIn || f.Operator == domain.OperatorNotIn {
-			clause = fmt.Sprintf("%s %s (?)", fieldName, string(f.Operator))
-		} else {
-			clause = fmt.Sprintf("%s %s ?", fieldName, string(f.Operator))
-		}
-
-		query = query.Where(clause, f.Value)
+	query, err := applyFilters(query, filters)
+	if err != nil {
+		return nil, err
 	}
 
+	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
 	}
 
-	if params.Page <= 0 {
-		params.Page = 1
+	for _, s := range params.Sort {
+		query = query.Order(fmt.Sprintf("%s %s", s.Field, s.Direction))
 	}
 
-	if params.Limit <= 0 || params.Limit > 100 {
-		params.Limit = 10
-	}
-
-	offset := (params.Page - 1) * params.Limit
-
-	if err := query.Offset(offset).Limit(params.Limit).Find(&entities).Error; err != nil {
+	var entities []*T
+	if err := query.Offset(params.Offset()).Limit(params.Limit).Find(&entities).Error; err != nil {
 		return nil, err
 	}
 
@@ -138,4 +93,49 @@ func (r *baseRepository[T]) List(
 		Limit:      params.Limit,
 		TotalPages: totalPages,
 	}, nil
+}
+
+func applyFilters(query *gorm.DB, filters []domain.Filter) (*gorm.DB, error) {
+	joined := make(map[string]bool)
+
+	for _, f := range filters {
+		if err := f.Validate(); err != nil {
+			return nil, err
+		}
+
+		field := f.Field
+
+		if strings.Contains(f.Field, ".") {
+			parts := strings.Split(f.Field, ".")
+			column := parts[len(parts)-1]
+
+			var currentPath string
+			var lastRelation string
+
+			for i := 0; i < len(parts)-1; i++ {
+				if currentPath == "" {
+					currentPath = parts[i]
+				} else {
+					currentPath += "." + parts[i]
+				}
+
+				if !joined[currentPath] {
+					query = query.Joins(currentPath)
+					joined[currentPath] = true
+				}
+
+				lastRelation = parts[i]
+			}
+
+			field = fmt.Sprintf(`"%s"."%s"`, lastRelation, column)
+		}
+
+		if f.IsSetOperator() {
+			query = query.Where(fmt.Sprintf("%s %s (?)", field, string(f.Operator)), f.Value)
+		} else {
+			query = query.Where(fmt.Sprintf("%s %s ?", field, string(f.Operator)), f.Value)
+		}
+	}
+
+	return query, nil
 }
