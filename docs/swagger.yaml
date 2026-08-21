@@ -18,6 +18,21 @@ definitions:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
     type: object
+  dto.PaginatedRoleResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.RoleResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
   dto.RegisterRequest:
     properties:
       email:
@@ -37,17 +52,31 @@ definitions:
     - name
     - password
     type: object
+  dto.RoleResponse:
+    properties:
+      created_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      id:
+        example: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        type: string
+      name:
+        example: Admin
+        type: string
+      updated_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+    type: object
   dto.UpdateProfileRequest:
     properties:
       name:
         example: John Doe Updated
-        maxLength: 100
         minLength: 2
         type: string
     required:
     - name
     type: object
-  dto.UserResponse:
+  dto.UserProfileResponse:
     properties:
       created_at:
         example: "2026-01-01T00:00:00Z"
@@ -80,15 +109,11 @@ definitions:
     type: object
 host: localhost:8080
 info:
-  contact:
-    email: support@swagger.io
-    name: API Support
-    url: http://www.swagger.io/support
+  contact: {}
   description: Production-ready API boilerplate built with Gin, GORM, and Redis.
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  termsOfService: http://swagger.io/terms/
   title: Gin Boilerplate API
   version: "1.0"
 paths:
@@ -176,7 +201,7 @@ paths:
             - $ref: '#/definitions/middleware.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.UserResponse'
+                  $ref: '#/definitions/dto.UserProfileResponse'
               type: object
         "400":
           description: Bad Request
@@ -197,6 +222,55 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /api/v1/roles:
+    get:
+      description: Get paginated list of roles with optional filters and sorting
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Sorting criteria (e.g. name:asc, created_at:desc or -created_at)
+        in: query
+        name: sort
+        type: string
+      - description: Filter by role name (partial match)
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PaginatedRoleResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: List roles
+      tags:
+      - Roles
   /api/v1/users/profile:
     get:
       description: Get current authenticated user profile details
@@ -210,7 +284,7 @@ paths:
             - $ref: '#/definitions/middleware.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.UserResponse'
+                  $ref: '#/definitions/dto.UserProfileResponse'
               type: object
         "401":
           description: Unauthorized
@@ -268,21 +342,6 @@ paths:
       summary: Update user profile
       tags:
       - Users
-  /health:
-    get:
-      description: Check if the API server is alive and running
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Health check
-      tags:
-      - Health
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").

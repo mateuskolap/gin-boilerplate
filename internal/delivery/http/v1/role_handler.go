@@ -42,7 +42,7 @@ func (h *RoleHandler) FindRole(c *gin.Context) {
 // @Param        limit  query     int     false  "Items per page (default: 10, max: 100)"
 // @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
 // @Param        name   query     string  false  "Filter by role name (partial match)"
-// @Success      200    {object}  middleware.ApiResponse{data=dto.PaginatedResponse[dto.RoleResponse]}
+// @Success      200    {object}  middleware.ApiResponse{data=dto.PaginatedRoleResponse}
 // @Failure      401    {object}  middleware.ApiResponse
 // @Failure      422    {object}  middleware.ApiResponse
 // @Failure      500    {object}  middleware.ApiResponse

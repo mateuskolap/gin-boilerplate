@@ -14,6 +14,8 @@ type RoleResponse struct {
 	UpdatedAt time.Time `json:"updated_at" example:"2026-01-01T00:00:00Z"`
 }
 
+type PaginatedRoleResponse = PaginatedResponse[RoleResponse]
+
 type CreateRoleRequest struct {
 	Name string `json:"name" binding:"required,min=2" example:"Admin"`
 }

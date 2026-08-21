@@ -26,7 +26,7 @@ func NewAuthHandler(userUseCase domain.UserUseCase) *AuthHandler {
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.RegisterRequest true "User registration details"
-// @Success      201  {object}  middleware.ApiResponse{data=dto.UserResponse}
+// @Success      201  {object}  middleware.ApiResponse{data=dto.UserProfileResponse}
 // @Failure      400  {object}  middleware.ApiResponse
 // @Failure      409  {object}  middleware.ApiResponse
 // @Failure      422  {object}  middleware.ApiResponse

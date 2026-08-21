@@ -25,7 +25,7 @@ func NewUserHandler(userUseCase domain.UserUseCase) *UserHandler {
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {object}  middleware.ApiResponse{data=dto.UserResponse}
+// @Success      200  {object}  middleware.ApiResponse{data=dto.UserProfileResponse}
 // @Failure      401  {object}  middleware.ApiResponse
 // @Failure      404  {object}  middleware.ApiResponse
 // @Failure      500  {object}  middleware.ApiResponse
