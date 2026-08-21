@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -37,6 +38,10 @@ import (
 // @name                       Authorization
 // @description                Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").
 func main() {
+	seedFlag := flag.Bool("seed", false, "Run database seeders and run the application")
+	seedOnlyFlag := flag.Bool("seed-only", false, "Run database seeders only")
+	flag.Parse()
+
 	cfg := config.LoadConfig()
 
 	// GORM & Postgres
@@ -55,7 +60,11 @@ func main() {
 	}
 
 	if cfg.Env == "development" {
-		if err := db.AutoMigrate(&domain.User{}); err != nil {
+		if err := db.AutoMigrate(
+			&domain.User{},
+			&domain.Role{},
+			&domain.Permission{},
+		); err != nil {
 			log.Fatalf("Failed to run database migrations: %v", err)
 		}
 	}
@@ -78,10 +87,12 @@ func main() {
 	tokenBlacklistRepo := repository.NewTokenBlackListRepository(cacheRepo)
 	userRepo := repository.NewUserRepository(db)
 	roleRepo := repository.NewRoleRepository(db)
+	permissionRepo := repository.NewPermissionRepository(db)
 
 	// UseCases
 	userUseCase := usecase.NewUserUseCase(userRepo, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
 	roleUseCase := usecase.NewRoleUseCase(roleRepo)
+	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
 
 	// Handlers & Router
 	authHandler := v1.NewAuthHandler(userUseCase)
@@ -95,6 +106,24 @@ func main() {
 		TokenBlacklist: tokenBlacklistRepo,
 		JWTSecret:      cfg.JWTSecret,
 	})
+
+	// Seeders
+	if *seedFlag {
+		log.Println("Running seeders...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := permissionUseCase.SeedPermissions(ctx); err != nil {
+			log.Fatalf("Failed to seed permissions: %v", err)
+		}
+
+		log.Println("Seeders executed successfully!")
+
+		if *seedOnlyFlag {
+			return
+		}
+	}
 
 	// Server config
 	srv := &http.Server{
