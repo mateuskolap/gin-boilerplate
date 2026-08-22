@@ -9,6 +9,8 @@ import (
 type Role struct {
 	BaseModel
 	Name string `json:"name" gorm:"not null;unique"`
+
+	Permissions []Permission `json:"permissions,omitempty" gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE;"`
 }
 
 type RoleRepository interface {
@@ -20,8 +22,9 @@ type RoleRepository interface {
 }
 
 type RoleUseCase interface {
-	// Find retrieves a role by its UUID.
-	Find(ctx context.Context, id uuid.UUID) (*Role, error)
+	BaseListUseCase[Role]
+
+	BaseFindUseCase[Role]
 
 	// Create creates a new role.
 	Create(ctx context.Context, role *Role) error
@@ -31,7 +34,4 @@ type RoleUseCase interface {
 
 	// Delete removes a role by its UUID.
 	Delete(ctx context.Context, id uuid.UUID) error
-
-	// List retrieves a paginated collection of roles.
-	List(ctx context.Context, params PaginationParams, filters []Filter) (*PaginatedResult[Role], error)
 }

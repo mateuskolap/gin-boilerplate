@@ -34,5 +34,15 @@ type BaseRepository[T any] interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	// List queries a paginated slice of entities applying preloads, filters, and sorting.
+	List(ctx context.Context, params PaginationParams, filters []Filter, preloads ...string) (*PaginatedResult[T], error)
+}
+
+type BaseFindUseCase[T any] interface {
+	// Find retrieves an entity by its UUID.
+	Find(ctx context.Context, id uuid.UUID) (*T, error)
+}
+
+type BaseListUseCase[T any] interface {
+	// List retrieves a paginated list of entities based on provided parameters and filters.
 	List(ctx context.Context, params PaginationParams, filters []Filter) (*PaginatedResult[T], error)
 }

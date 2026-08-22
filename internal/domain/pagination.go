@@ -13,10 +13,9 @@ type SortParam struct {
 }
 
 type PaginationParams struct {
-	Page     int
-	Limit    int
-	Sort     []SortParam
-	Preloads []string
+	Page  int
+	Limit int
+	Sort  []SortParam
 }
 
 type PaginatedResult[T any] struct {

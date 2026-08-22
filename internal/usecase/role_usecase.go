@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"gin-boilerplate/internal/domain"
 
 	"github.com/google/uuid"
@@ -13,11 +12,21 @@ var allowedRoleFilterFields = map[string]bool{
 }
 
 type roleUseCase struct {
+	domain.BaseListUseCase[domain.Role]
+	domain.BaseFindUseCase[domain.Role]
 	roleRepo domain.RoleRepository
 }
 
 func NewRoleUseCase(roleRepo domain.RoleRepository) domain.RoleUseCase {
 	return &roleUseCase{
+		BaseListUseCase: NewBaseListUseCase(
+			roleRepo,
+			allowedRoleFilterFields,
+		),
+		BaseFindUseCase: NewBaseFindUseCase(
+			roleRepo,
+			"Permissions",
+		),
 		roleRepo: roleRepo,
 	}
 }
@@ -60,54 +69,6 @@ func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 		)
 	}
 	return nil
-}
-
-func (r *roleUseCase) Find(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
-	role, err := r.roleRepo.GetByID(ctx, id)
-	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to retrieve role",
-			err,
-		)
-	}
-
-	if role == nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeNotFound,
-			"Role not found",
-			nil,
-		)
-	}
-
-	return role, nil
-}
-
-func (r *roleUseCase) List(
-	ctx context.Context,
-	params domain.PaginationParams,
-	filters []domain.Filter,
-) (*domain.PaginatedResult[domain.Role], error) {
-	for _, f := range filters {
-		if !allowedRoleFilterFields[f.Field] {
-			return nil, domain.NewAppError(
-				domain.ErrTypeValidation,
-				fmt.Sprintf("filtering by field '%s' is not allowed", f.Field),
-				nil,
-			)
-		}
-	}
-
-	result, err := r.roleRepo.List(ctx, params, filters)
-	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to retrieve roles",
-			err,
-		)
-	}
-
-	return result, nil
 }
 
 func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {

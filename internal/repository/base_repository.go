@@ -56,12 +56,13 @@ func (r *baseRepository[T]) List(
 	ctx context.Context,
 	params domain.PaginationParams,
 	filters []domain.Filter,
+	preloads ...string,
 ) (*domain.PaginatedResult[T], error) {
 	params.Sanitize()
 
 	query := r.db.WithContext(ctx).Model(new(T))
 
-	for _, p := range params.Preloads {
+	for _, p := range preloads {
 		query = query.Preload(p)
 	}
 

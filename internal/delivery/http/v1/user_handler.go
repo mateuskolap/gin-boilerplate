@@ -37,7 +37,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userUseCase.GetProfile(c.Request.Context(), userID)
+	user, err := h.userUseCase.Find(c.Request.Context(), userID)
 	if err != nil {
 		_ = c.Error(err)
 		return

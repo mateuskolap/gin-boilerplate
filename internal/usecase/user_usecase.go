@@ -11,7 +11,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var allowedUserFilterFields = map[string]bool{
+	"name":  true,
+	"email": true,
+}
+
 type userUseCase struct {
+	domain.BaseListUseCase[domain.User]
+	domain.BaseFindUseCase[domain.User]
 	userRepo       domain.UserRepository
 	tokenBlacklist domain.TokenBlackList
 	jwtSecret      string
@@ -25,6 +32,13 @@ func NewUserUseCase(
 	jwtExpiration time.Duration,
 ) domain.UserUseCase {
 	return &userUseCase{
+		BaseListUseCase: NewBaseListUseCase(
+			userRepo,
+			allowedUserFilterFields,
+		),
+		BaseFindUseCase: NewBaseFindUseCase(
+			userRepo,
+		),
 		userRepo:       userRepo,
 		tokenBlacklist: tokenBlacklist,
 		jwtSecret:      jwtSecret,
@@ -168,27 +182,6 @@ func (u *userUseCase) Logout(ctx context.Context, tokenString string) error {
 	}
 
 	return nil
-}
-
-func (u *userUseCase) GetProfile(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	user, err := u.userRepo.GetByID(ctx, id)
-	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to retrieve user profile",
-			err,
-		)
-	}
-
-	if user == nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeNotFound,
-			"User not found",
-			nil,
-		)
-	}
-
-	return user, nil
 }
 
 func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) error {

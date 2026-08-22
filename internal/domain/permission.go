@@ -2,9 +2,27 @@ package domain
 
 import "context"
 
+type PermissionName string
+
+const (
+	PermissionCreateRole PermissionName = "create_role"
+	PermissionUpdateRole PermissionName = "update_role"
+	PermissionDeleteRole PermissionName = "delete_role"
+	PermissionViewRole   PermissionName = "view_role"
+)
+
+var AllPermissions = []PermissionName{
+	PermissionCreateRole,
+	PermissionUpdateRole,
+	PermissionDeleteRole,
+	PermissionViewRole,
+}
+
 type Permission struct {
 	BaseModel
 	Name string `json:"name" gorm:"unique;not null"`
+
+	Roles []Role `json:"roles,omitempty" gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE;"`
 }
 
 type PermissionRepository interface {
@@ -14,5 +32,7 @@ type PermissionRepository interface {
 }
 
 type PermissionUseCase interface {
+	BaseListUseCase[Permission]
+
 	SeedPermissions(ctx context.Context) error
 }

@@ -2,8 +2,6 @@ package domain
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 type User struct {
@@ -22,6 +20,10 @@ type UserRepository interface {
 }
 
 type UserUseCase interface {
+	BaseListUseCase[User]
+
+	BaseFindUseCase[User]
+
 	// Register validates, hashes credentials, and creates a new user account.
 	Register(ctx context.Context, user *User) error
 
@@ -30,9 +32,6 @@ type UserUseCase interface {
 
 	// Logout invalidates a JWT token by adding its ID to the blacklist.
 	Logout(ctx context.Context, tokenString string) error
-
-	// GetProfile retrieves user profile details by their UUID.
-	GetProfile(ctx context.Context, id uuid.UUID) (*User, error)
 
 	// UpdateProfile updates editable user profile fields.
 	UpdateProfile(ctx context.Context, user *User) error

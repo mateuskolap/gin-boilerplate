@@ -56,7 +56,6 @@ func extractToken(c *gin.Context) (string, error) {
 }
 
 // extractPaginationParams extracts page, limit, and sort parameters from query parameters.
-// Note: Preloads is intentionally left empty so that only UseCases control relationship preloading.
 func extractPaginationParams(c *gin.Context) domain.PaginationParams {
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
