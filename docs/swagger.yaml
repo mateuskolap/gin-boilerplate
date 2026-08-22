@@ -342,6 +342,21 @@ paths:
       summary: Update user profile
       tags:
       - Users
+  /health:
+    get:
+      description: Check if the API server is alive and running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - Health
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").
