@@ -61,6 +61,10 @@ func (r *roleUseCase) Create(ctx context.Context, role *domain.Role) error {
 }
 
 func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
+	if _, err := r.Find(ctx, id); err != nil {
+		return err
+	}
+
 	if err := r.roleRepo.Delete(ctx, id); err != nil {
 		return domain.NewAppError(
 			domain.ErrTypeInternal,
@@ -72,21 +76,9 @@ func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
-	existingRole, err := r.roleRepo.GetByID(ctx, role.ID)
+	existingRole, err := r.Find(ctx, role.ID)
 	if err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to retrieve existing role",
-			err,
-		)
-	}
-
-	if existingRole == nil {
-		return domain.NewAppError(
-			domain.ErrTypeNotFound,
-			"Role not found",
-			nil,
-		)
+		return err
 	}
 
 	existingRole.Name = role.Name

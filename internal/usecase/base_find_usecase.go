@@ -23,7 +23,7 @@ func NewBaseFindUseCase[T any](
 }
 
 func (uc *baseFindUseCase[T]) Find(ctx context.Context, id uuid.UUID) (*T, error) {
-	entity, err := uc.repo.GetByID(ctx, id)
+	entity, err := uc.repo.GetByID(ctx, id, uc.preloads...)
 	if err != nil {
 		return nil, domain.NewAppError(
 			domain.ErrTypeInternal,

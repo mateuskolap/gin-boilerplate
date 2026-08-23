@@ -27,12 +27,17 @@ type Permission struct {
 
 type PermissionRepository interface {
 	BaseRepository[Permission]
+
+	// UpsertByName inserts or updates permissions based on their names.
 	UpsertByName(ctx context.Context, permissions []Permission) error
+
+	// DeleteByNames removes permissions based on their names.
 	DeleteByNames(ctx context.Context, names []string) error
 }
 
 type PermissionUseCase interface {
 	BaseListUseCase[Permission]
 
+	// Find populates the permissions table with the predefined permissions.
 	SeedPermissions(ctx context.Context) error
 }

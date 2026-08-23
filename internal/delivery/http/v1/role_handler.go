@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type RoleHandler struct {
@@ -21,7 +20,11 @@ func NewRoleHandler(roleUseCase domain.RoleUseCase) *RoleHandler {
 }
 
 func (h *RoleHandler) FindRole(c *gin.Context) {
-	roleID, _ := uuid.Parse(c.Param("id"))
+	roleID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
 
 	role, err := h.roleUseCase.Find(c.Request.Context(), roleID)
 	if err != nil {

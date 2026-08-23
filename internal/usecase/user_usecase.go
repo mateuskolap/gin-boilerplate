@@ -185,21 +185,9 @@ func (u *userUseCase) Logout(ctx context.Context, tokenString string) error {
 }
 
 func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) error {
-	existingUser, err := u.userRepo.GetByID(ctx, user.ID)
+	existingUser, err := u.Find(ctx, user.ID)
 	if err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to retrieve existing user",
-			err,
-		)
-	}
-
-	if existingUser == nil {
-		return domain.NewAppError(
-			domain.ErrTypeNotFound,
-			"User not found",
-			nil,
-		)
+		return err
 	}
 
 	existingUser.Name = user.Name

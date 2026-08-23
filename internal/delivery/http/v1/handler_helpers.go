@@ -31,6 +31,19 @@ func extractUserID(c *gin.Context) (uuid.UUID, error) {
 	return userID, nil
 }
 
+func extractParamID(c *gin.Context, paramName string) (uuid.UUID, error) {
+	idStr := c.Param(paramName)
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		return uuid.Nil, domain.NewAppError(
+			domain.ErrTypeValidation,
+			"Invalid ID format",
+			err,
+		)
+	}
+	return id, nil
+}
+
 func bindJSON[T any](c *gin.Context) (T, error) {
 	var req T
 	if err := c.ShouldBindJSON(&req); err != nil {
