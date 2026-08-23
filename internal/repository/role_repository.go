@@ -5,6 +5,7 @@ import (
 	"errors"
 	"gin-boilerplate/internal/domain"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -33,4 +34,30 @@ func (r *roleRepository) GetByName(ctx context.Context, name string) (*domain.Ro
 	}
 
 	return &role, nil
+}
+
+func (r *roleRepository) AddPermissions(ctx context.Context, role domain.Role, permissionIDs []uuid.UUID) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+
+	permissions := make([]domain.Permission, len(permissionIDs))
+	for i, id := range permissionIDs {
+		permissions[i].ID = id
+	}
+
+	return r.db.WithContext(ctx).Model(&role).Association("Permissions").Append(&permissions)
+}
+
+func (r *roleRepository) RemovePermissions(ctx context.Context, role domain.Role, permissionIDs []uuid.UUID) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+
+	permissions := make([]domain.Permission, len(permissionIDs))
+	for i, id := range permissionIDs {
+		permissions[i].ID = id
+	}
+
+	return r.db.WithContext(ctx).Model(&role).Association("Permissions").Delete(&permissions)
 }

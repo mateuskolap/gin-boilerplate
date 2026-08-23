@@ -93,3 +93,21 @@ func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
 
 	return nil
 }
+
+func (r *roleUseCase) AddPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
+	role, err := r.Find(ctx, roleID)
+	if err != nil {
+		return err
+	}
+
+	return r.roleRepo.AddPermissions(ctx, *role, permissionIDs)
+}
+
+func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
+	role, err := r.Find(ctx, roleID)
+	if err != nil {
+		return err
+	}
+
+	return r.roleRepo.RemovePermissions(ctx, *role, permissionIDs)
+}

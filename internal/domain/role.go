@@ -19,6 +19,12 @@ type RoleRepository interface {
 	// GetByName finds a role by its unique name.
 	// Returns (nil, nil) if no role matches the name.
 	GetByName(ctx context.Context, name string) (*Role, error)
+
+	// AddPermissions adds permissions to a role.
+	AddPermissions(ctx context.Context, role Role, permissionIDs []uuid.UUID) error
+
+	// RemovePermissions removes permissions from a role.
+	RemovePermissions(ctx context.Context, role Role, permissionIDs []uuid.UUID) error
 }
 
 type RoleUseCase interface {
@@ -34,4 +40,10 @@ type RoleUseCase interface {
 
 	// Delete removes a role by its UUID.
 	Delete(ctx context.Context, id uuid.UUID) error
+
+	// AddPermissions adds permissions to a role.
+	AddPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error
+
+	// RemovePermissions removes permissions from a role.
+	RemovePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error
 }

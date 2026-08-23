@@ -62,6 +62,8 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			{
 				roles.GET("", cfg.RoleHandler.ListRoles)
 				roles.GET("/:id", cfg.RoleHandler.FindRole)
+				roles.POST("/:id", cfg.RoleHandler.AddPermissions)
+				roles.DELETE("/:id", cfg.RoleHandler.RemovePermissions)
 			}
 		}
 	}

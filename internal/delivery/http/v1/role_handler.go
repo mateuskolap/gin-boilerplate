@@ -71,3 +71,44 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 	response := dto.ToPaginatedResponse(result, dto.ToRoleResponse)
 	middleware.Success(c, http.StatusOK, "Roles retrieved successfully", response)
 }
+
+func (h *RoleHandler) AddPermissions(c *gin.Context) {
+	roleID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	req, err := bindJSON[dto.UpdatePermissionsRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.roleUseCase.AddPermissions(c.Request.Context(), roleID, req.PermissionIDs); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusCreated, "Permissions added successfully", nil)
+}
+
+func (h *RoleHandler) RemovePermissions(c *gin.Context) {
+	roleID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+	}
+
+	req, err := bindJSON[dto.UpdatePermissionsRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.roleUseCase.RemovePermissions(c.Request.Context(), roleID, req.PermissionIDs); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusOK, "Permissions removed successfully", nil)
+}

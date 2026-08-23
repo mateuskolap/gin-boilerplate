@@ -24,6 +24,10 @@ type UpdateRoleRequest struct {
 	Name string `json:"name" binding:"required,min=2" example:"Admin Updated"`
 }
 
+type UpdatePermissionsRequest struct {
+	PermissionIDs []uuid.UUID `json:"permission_ids" binding:"required,min=1,dive,required" example:"a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d,f9e8d7c6-b5a4-3210-fedc-ba0987654321"`
+}
+
 func ToRoleResponse(role *domain.Role) RoleResponse {
 	return RoleResponse{
 		ID:        role.ID,
