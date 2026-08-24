@@ -6,8 +6,9 @@ import (
 	"gin-boilerplate/internal/domain"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"uuid"
+
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -201,4 +202,22 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) erro
 	}
 
 	return nil
+}
+
+func (u *userUseCase) AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
+	user, err := u.Find(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	return u.userRepo.AddRoles(ctx, *user, roleIDs)
+}
+
+func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
+	user, err := u.Find(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	return u.userRepo.RemoveRoles(ctx, *user, roleIDs)
 }

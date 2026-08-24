@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"gin-boilerplate/internal/domain"
+	"uuid"
 
 	"gorm.io/gorm"
 )
@@ -33,4 +34,30 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	}
 
 	return &user, nil
+}
+
+func (r *userRepository) AddRoles(ctx context.Context, user domain.User, roleIDs []uuid.UUID) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+
+	roles := make([]domain.Role, len(roleIDs))
+	for i, id := range roleIDs {
+		roles[i] = domain.Role{ID: id}
+	}
+
+	return r.db.WithContext(ctx).Model(&user).Association("Roles").Append(&roles)
+}
+
+func (r *userRepository) RemoveRoles(ctx context.Context, user domain.User, roleIDs []uuid.UUID) error {
+	if len(roleIDs) == 0 {
+		return nil
+	}
+
+	roles := make([]domain.Role, len(roleIDs))
+	for i, id := range roleIDs {
+		roles[i] = domain.Role{ID: id}
+	}
+
+	return r.db.WithContext(ctx).Model(&user).Association("Roles").Delete(&roles)
 }

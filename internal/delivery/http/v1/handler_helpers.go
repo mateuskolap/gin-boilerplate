@@ -5,11 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gin-gonic/gin"
 	"uuid"
+
+	"github.com/gin-gonic/gin"
 )
 
-func extractUserID(c *gin.Context) (uuid.UUID, error) {
+func extractCurrentUserID(c *gin.Context) (uuid.UUID, error) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		return uuid.Nil(), domain.NewAppError(

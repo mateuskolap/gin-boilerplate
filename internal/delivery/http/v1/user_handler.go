@@ -31,7 +31,7 @@ func NewUserHandler(userUseCase domain.UserUseCase) *UserHandler {
 // @Failure      500  {object}  middleware.ApiResponse
 // @Router       /api/v1/users/profile [get]
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	userID, err := extractUserID(c)
+	userID, err := extractCurrentUserID(c)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -61,7 +61,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // @Failure      500  {object}  middleware.ApiResponse
 // @Router       /api/v1/users/profile [put]
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
-	userID, err := extractUserID(c)
+	userID, err := extractCurrentUserID(c)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -84,4 +84,46 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	middleware.Success(c, http.StatusOK, "Profile updated successfully", nil)
+}
+
+func (h *UserHandler) AddRoles(c *gin.Context) {
+	userID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	req, err := bindJSON[dto.UpdateUserRolesRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.userUseCase.AddRoles(c.Request.Context(), userID, req.RoleIDs); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusOK, "Roles added to user successfully", nil)
+}
+
+func (h *UserHandler) RemoveRoles(c *gin.Context) {
+	userID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	req, err := bindJSON[dto.UpdateUserRolesRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.userUseCase.RemoveRoles(c.Request.Context(), userID, req.RoleIDs); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusOK, "Roles removed from user successfully", nil)
 }

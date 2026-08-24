@@ -40,7 +40,7 @@ func (r *roleUseCase) Create(ctx context.Context, role *domain.Role) error {
 	if err != nil {
 		return domain.NewAppError(
 			domain.ErrTypeInternal,
-			"There was a poblem verifying the role name",
+			"There was a problem verifying the role name",
 			err,
 		)
 	}
