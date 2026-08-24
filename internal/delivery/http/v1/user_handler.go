@@ -74,9 +74,9 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	user := &domain.User{
+		ID:   userID,
 		Name: req.Name,
 	}
-	user.ID = userID
 
 	if err := h.userUseCase.UpdateProfile(c.Request.Context(), user); err != nil {
 		_ = c.Error(err)

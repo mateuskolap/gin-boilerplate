@@ -5,7 +5,7 @@ import (
 	"errors"
 	"gin-boilerplate/internal/domain"
 
-	"github.com/google/uuid"
+	"uuid"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +43,7 @@ func (r *roleRepository) AddPermissions(ctx context.Context, role domain.Role, p
 
 	permissions := make([]domain.Permission, len(permissionIDs))
 	for i, id := range permissionIDs {
-		permissions[i].ID = id
+		permissions[i] = domain.Permission{ID: id}
 	}
 
 	return r.db.WithContext(ctx).Model(&role).Association("Permissions").Append(&permissions)
@@ -56,7 +56,7 @@ func (r *roleRepository) RemovePermissions(ctx context.Context, role domain.Role
 
 	permissions := make([]domain.Permission, len(permissionIDs))
 	for i, id := range permissionIDs {
-		permissions[i].ID = id
+		permissions[i] = domain.Permission{ID: id}
 	}
 
 	return r.db.WithContext(ctx).Model(&role).Association("Permissions").Delete(&permissions)

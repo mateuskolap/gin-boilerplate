@@ -4,7 +4,7 @@ import (
 	"gin-boilerplate/internal/domain"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type UserProfileResponse struct {

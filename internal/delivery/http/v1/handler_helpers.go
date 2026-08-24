@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func extractUserID(c *gin.Context) (uuid.UUID, error) {
 	userIDStr, exists := c.Get("user_id")
 	if !exists {
-		return uuid.Nil, domain.NewAppError(
+		return uuid.Nil(), domain.NewAppError(
 			domain.ErrTypeUnauthorized,
 			"Unauthorized",
 			nil,
@@ -21,7 +21,7 @@ func extractUserID(c *gin.Context) (uuid.UUID, error) {
 
 	userID, err := uuid.Parse(userIDStr.(string))
 	if err != nil {
-		return uuid.Nil, domain.NewAppError(
+		return uuid.Nil(), domain.NewAppError(
 			domain.ErrTypeValidation,
 			"Invalid user ID format",
 			err,
@@ -35,7 +35,7 @@ func extractParamID(c *gin.Context, paramName string) (uuid.UUID, error) {
 	idStr := c.Param(paramName)
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		return uuid.Nil, domain.NewAppError(
+		return uuid.Nil(), domain.NewAppError(
 			domain.ErrTypeValidation,
 			"Invalid ID format",
 			err,

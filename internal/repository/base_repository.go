@@ -8,7 +8,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/google/uuid"
+	"uuid"
 	"gorm.io/gorm"
 )
 

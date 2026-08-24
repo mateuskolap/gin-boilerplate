@@ -4,7 +4,7 @@ import (
 	"context"
 	"gin-boilerplate/internal/domain"
 
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type baseFindUseCase[T any] struct {
