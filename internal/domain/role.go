@@ -32,14 +32,13 @@ type RoleUseCase interface {
 
 	BaseFindUseCase[Role]
 
+	BaseDeleteUseCase
+
 	// Create creates a new role.
 	Create(ctx context.Context, role *Role) error
 
 	// Update updates an existing role.
 	Update(ctx context.Context, role *Role) error
-
-	// Delete removes a role by its UUID.
-	Delete(ctx context.Context, id uuid.UUID) error
 
 	// AddPermissions adds permissions to a role.
 	AddPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error

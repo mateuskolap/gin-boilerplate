@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"uuid"
+
 	"gorm.io/gorm"
 )
 
@@ -45,4 +46,9 @@ type BaseFindUseCase[T any] interface {
 type BaseListUseCase[T any] interface {
 	// List retrieves a paginated list of entities based on provided parameters and filters.
 	List(ctx context.Context, params PaginationParams, filters []Filter) (*PaginatedResult[T], error)
+}
+
+type BaseDeleteUseCase interface {
+	// Delete removes an entity by its UUID.
+	Delete(ctx context.Context, id uuid.UUID) error
 }

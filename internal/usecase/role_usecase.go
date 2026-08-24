@@ -14,6 +14,7 @@ var allowedRoleFilterFields = map[string]bool{
 type roleUseCase struct {
 	domain.BaseListUseCase[domain.Role]
 	domain.BaseFindUseCase[domain.Role]
+	domain.BaseDeleteUseCase
 	roleRepo domain.RoleRepository
 }
 
@@ -26,6 +27,9 @@ func NewRoleUseCase(roleRepo domain.RoleRepository) domain.RoleUseCase {
 		BaseFindUseCase: NewBaseFindUseCase(
 			roleRepo,
 			"Permissions",
+		),
+		BaseDeleteUseCase: NewBaseDeleteUseCase(
+			roleRepo,
 		),
 		roleRepo: roleRepo,
 	}
@@ -57,21 +61,6 @@ func (r *roleUseCase) Create(ctx context.Context, role *domain.Role) error {
 		)
 	}
 
-	return nil
-}
-
-func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
-	if _, err := r.Find(ctx, id); err != nil {
-		return err
-	}
-
-	if err := r.roleRepo.Delete(ctx, id); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to delete role",
-			err,
-		)
-	}
 	return nil
 }
 
