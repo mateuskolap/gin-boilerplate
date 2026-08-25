@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
-	"time"
 	"uuid"
 
 	"gorm.io/gorm"
@@ -33,11 +32,4 @@ func (r *refreshTokenRepository) ListByUserID(ctx context.Context, userID uuid.U
 	})
 
 	return r.List(ctx, params, sanitizedFilters)
-}
-
-func (r *refreshTokenRepository) Revoke(ctx context.Context, token *domain.RefreshToken) error {
-	now := time.Now().UTC()
-	token.RevokedAt = &now
-
-	return r.Update(ctx, token)
 }

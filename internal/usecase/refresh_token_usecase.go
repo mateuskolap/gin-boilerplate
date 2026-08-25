@@ -2,11 +2,18 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/pkg/security"
 	"time"
+
 	"uuid"
 )
+
+var allowedRefreshTokenFilterFields = map[string]bool{
+	"user_agent": true,
+	"expires_at": true,
+}
 
 type refreshTokenUseCase struct {
 	refreshTokenRepo domain.RefreshTokenRepository
@@ -51,13 +58,75 @@ func (r *refreshTokenUseCase) Create(ctx context.Context, token *domain.RefreshT
 }
 
 func (r *refreshTokenUseCase) FindByTokenHash(ctx context.Context, token string) (*domain.RefreshToken, error) {
-	panic("unimplemented")
+	tokenHash := security.HashSHA256(token)
+	existingRefreshToken, err := r.refreshTokenRepo.FindByTokenHash(ctx, tokenHash)
+	if err != nil {
+		return nil, domain.NewAppError(
+			domain.ErrTypeInternal,
+			"There was a problem verifying the token existence",
+			err,
+		)
+	}
+
+	if existingRefreshToken == nil {
+		return nil, domain.NewAppError(
+			domain.ErrTypeNotFound,
+			"Refresh token not found",
+			nil,
+		)
+	}
+
+	return existingRefreshToken, nil
 }
 
-func (r *refreshTokenUseCase) ListByUserID(ctx context.Context, userID uuid.UUID, params domain.PaginationParams, filters []domain.Filter) (*domain.PaginatedResult[domain.RefreshToken], error) {
-	panic("unimplemented")
+func (r *refreshTokenUseCase) ListByUserID(
+	ctx context.Context,
+	userID uuid.UUID,
+	params domain.PaginationParams,
+	filters []domain.Filter,
+) (*domain.PaginatedResult[domain.RefreshToken], error) {
+	for _, f := range filters {
+		if !allowedRefreshTokenFilterFields[f.Field] {
+			return nil, domain.NewAppError(
+				domain.ErrTypeValidation,
+				fmt.Sprintf("filtering by field '%s' is not allowed", f.Field),
+				nil,
+			)
+		}
+	}
+
+	result, err := r.refreshTokenRepo.ListByUserID(ctx, userID, params, filters)
+	if err != nil {
+		return nil, domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to list refresh tokens",
+			err,
+		)
+	}
+
+	return result, nil
 }
 
 func (r *refreshTokenUseCase) Revoke(ctx context.Context, token string) error {
-	panic("unimplemented")
+	existingRefreshToken, err := r.FindByTokenHash(ctx, token)
+	if err != nil {
+		return err
+	}
+
+	if existingRefreshToken.RevokedAt != nil {
+		return nil
+	}
+
+	now := time.Now().UTC()
+	existingRefreshToken.RevokedAt = &now
+
+	if err := r.refreshTokenRepo.Update(ctx, existingRefreshToken); err != nil {
+		return domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to revoke refresh token",
+			err,
+		)
+	}
+
+	return nil
 }
