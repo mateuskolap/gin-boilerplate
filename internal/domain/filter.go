@@ -1,6 +1,9 @@
 package domain
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
 
 type FilterOperator string
 
@@ -45,4 +48,13 @@ func (f Filter) Validate() error {
 // IsSetOperator returns true if the operator requires set syntax (IN, NOT IN).
 func (f Filter) IsSetOperator() bool {
 	return f.Operator == OperatorIn || f.Operator == OperatorNotIn
+}
+
+type Filters []Filter
+
+// Without returns a new copy of Filters excluding any filter whose Field matches one of the given fields.
+func (f Filters) Without(fields ...string) Filters {
+	return slices.DeleteFunc(slices.Clone(f), func(filter Filter) bool {
+		return slices.Contains(fields, filter.Field)
+	})
 }

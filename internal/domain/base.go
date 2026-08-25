@@ -28,6 +28,10 @@ type BaseRepository[T any] interface {
 	// Returns (nil, nil) if the record does not exist.
 	GetByID(ctx context.Context, id uuid.UUID, preloads ...string) (*T, error)
 
+	// FindOneBy queries a single entity matching the condition, optionally preloading relationships.
+	// Returns (nil, nil) if the record does not exist.
+	FindOneBy(ctx context.Context, query string, args []any, preloads ...string) (*T, error)
+
 	// Update saves changes made to an existing entity.
 	Update(ctx context.Context, entity *T) error
 

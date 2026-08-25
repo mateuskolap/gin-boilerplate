@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"gin-boilerplate/internal/domain"
 	"uuid"
 
@@ -22,18 +21,7 @@ func NewUserRepository(db *gorm.DB) domain.UserRepository {
 }
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	var user domain.User
-
-	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-
-		return nil, err
-	}
-
-	return &user, nil
+	return r.FindOneBy(ctx, "email = ?", []any{email})
 }
 
 func (r *userRepository) AddRoles(ctx context.Context, user domain.User, roleIDs []uuid.UUID) error {

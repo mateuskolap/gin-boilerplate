@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"uuid"
+
 	"gorm.io/gorm"
 )
 
@@ -25,15 +26,19 @@ func (r *baseRepository[T]) Create(ctx context.Context, entity *T) error {
 }
 
 func (r *baseRepository[T]) GetByID(ctx context.Context, id uuid.UUID, preloads ...string) (*T, error) {
+	return r.FindOneBy(ctx, "id = ?", []any{id}, preloads...)
+}
+
+func (r *baseRepository[T]) FindOneBy(ctx context.Context, query string, args []any, preloads ...string) (*T, error) {
 	var entity T
 
-	query := r.db.WithContext(ctx)
+	dbQuery := r.db.WithContext(ctx)
 
 	for _, preload := range preloads {
-		query = query.Preload(preload)
+		dbQuery = dbQuery.Preload(preload)
 	}
 
-	if err := query.Where("id = ?", id).First(&entity).Error; err != nil {
+	if err := dbQuery.Where(query, args...).First(&entity).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
