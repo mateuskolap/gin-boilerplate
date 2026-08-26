@@ -30,4 +30,5 @@ type RefreshTokenUseCase interface {
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
 	Revoke(ctx context.Context, token string) error
+	Validate(ctx context.Context, token string) (*RefreshToken, error)
 }

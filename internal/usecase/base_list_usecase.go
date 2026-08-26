@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"gin-boilerplate/internal/domain"
 )
 
@@ -29,14 +28,8 @@ func (uc *baseListUseCase[T]) List(
 	params domain.PaginationParams,
 	filters []domain.Filter,
 ) (*domain.PaginatedResult[T], error) {
-	for _, f := range filters {
-		if !uc.allowedFields[f.Field] {
-			return nil, domain.NewAppError(
-				domain.ErrTypeValidation,
-				fmt.Sprintf("filtering by field '%s' is not allowed", f.Field),
-				nil,
-			)
-		}
+	if err := domain.Filters(filters).ValidateAllowed(uc.allowedFields); err != nil {
+		return nil, err
 	}
 
 	result, err := uc.repo.List(ctx, params, filters, uc.preloads...)

@@ -39,6 +39,9 @@ type UserUseCase interface {
 	// Login verifies credentials and generates a signed JWT token string.
 	Login(ctx context.Context, email string, password string) (token string, err error)
 
+	// Refresh verifies user has a valid refresh token and generates a signed JWT token string
+	Refresh(ctx context.Context, refreshToken string) (token string, err error)
+
 	// Logout invalidates a JWT token by adding its ID to the blacklist.
 	Logout(ctx context.Context, tokenString string) error
 

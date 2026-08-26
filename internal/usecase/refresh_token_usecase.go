@@ -2,7 +2,7 @@ package usecase
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/pkg/security"
 	"time"
@@ -85,14 +85,8 @@ func (r *refreshTokenUseCase) ListByUserID(
 	params domain.PaginationParams,
 	filters []domain.Filter,
 ) (*domain.PaginatedResult[domain.RefreshToken], error) {
-	for _, f := range filters {
-		if !allowedRefreshTokenFilterFields[f.Field] {
-			return nil, domain.NewAppError(
-				domain.ErrTypeValidation,
-				fmt.Sprintf("filtering by field '%s' is not allowed", f.Field),
-				nil,
-			)
-		}
+	if err := domain.Filters(filters).ValidateAllowed(allowedRefreshTokenFilterFields); err != nil {
+		return nil, err
 	}
 
 	result, err := r.refreshTokenRepo.ListByUserID(ctx, userID, params, filters)
@@ -129,4 +123,46 @@ func (r *refreshTokenUseCase) Revoke(ctx context.Context, token string) error {
 	}
 
 	return nil
+}
+
+func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*domain.RefreshToken, error) {
+	if token == "" {
+		return nil, domain.NewAppError(
+			domain.ErrTypeValidation,
+			"Refresh token is required",
+			nil,
+		)
+	}
+
+	storedToken, err := r.FindByTokenHash(ctx, token)
+	if err != nil {
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) && appErr.Type == domain.ErrTypeNotFound {
+			return nil, domain.NewAppError(
+				domain.ErrTypeUnauthorized,
+				"Invalid refresh token",
+				nil,
+			)
+		}
+
+		return nil, err
+	}
+
+	if storedToken.RevokedAt != nil {
+		return nil, domain.NewAppError(
+			domain.ErrTypeUnauthorized,
+			"Refresh token has been revoked",
+			nil,
+		)
+	}
+
+	if time.Now().UTC().After(storedToken.ExpiresAt) {
+		return nil, domain.NewAppError(
+			domain.ErrTypeUnauthorized,
+			"Refresh token has expired",
+			nil,
+		)
+	}
+
+	return storedToken, nil
 }

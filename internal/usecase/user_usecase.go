@@ -2,8 +2,8 @@ package usecase
 
 import (
 	"context"
-	"errors"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/pkg/security"
 	"time"
 
 	"uuid"
@@ -20,14 +20,16 @@ var allowedUserFilterFields = map[string]bool{
 type userUseCase struct {
 	domain.BaseListUseCase[domain.User]
 	domain.BaseFindUseCase[domain.User]
-	userRepo       domain.UserRepository
-	tokenBlacklist domain.TokenBlackList
-	jwtSecret      string
-	jwtExpiration  time.Duration
+	userRepo            domain.UserRepository
+	refreshTokenUseCase domain.RefreshTokenUseCase
+	tokenBlacklist      domain.TokenBlackList
+	jwtSecret           string
+	jwtExpiration       time.Duration
 }
 
 func NewUserUseCase(
 	userRepo domain.UserRepository,
+	refreshTokenUseCase domain.RefreshTokenUseCase,
 	tokenBlacklist domain.TokenBlackList,
 	jwtSecret string,
 	jwtExpiration time.Duration,
@@ -40,10 +42,11 @@ func NewUserUseCase(
 		BaseFindUseCase: NewBaseFindUseCase(
 			userRepo,
 		),
-		userRepo:       userRepo,
-		tokenBlacklist: tokenBlacklist,
-		jwtSecret:      jwtSecret,
-		jwtExpiration:  jwtExpiration,
+		userRepo:            userRepo,
+		refreshTokenUseCase: refreshTokenUseCase,
+		tokenBlacklist:      tokenBlacklist,
+		jwtSecret:           jwtSecret,
+		jwtExpiration:       jwtExpiration,
 	}
 }
 
@@ -114,9 +117,13 @@ func (u *userUseCase) Login(ctx context.Context, email string, password string) 
 		)
 	}
 
+	return u.generateAccessToken(user.ID)
+}
+
+func (u *userUseCase) generateAccessToken(userID uuid.UUID) (string, error) {
 	now := time.Now()
 	claims := jwt.RegisteredClaims{
-		Subject:   user.ID.String(),
+		Subject:   userID.String(),
 		ID:        uuid.New().String(),
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(u.jwtExpiration)),
@@ -137,27 +144,12 @@ func (u *userUseCase) Login(ctx context.Context, email string, password string) 
 }
 
 func (u *userUseCase) Logout(ctx context.Context, tokenString string) error {
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return []byte(u.jwtSecret), nil
-	})
-
+	claims, err := security.ParseAndValidateJWT(tokenString, u.jwtSecret)
 	if err != nil {
 		return domain.NewAppError(
 			domain.ErrTypeUnauthorized,
 			"Invalid token",
 			err,
-		)
-	}
-
-	claims, ok := token.Claims.(*jwt.RegisteredClaims)
-	if !ok || !token.Valid {
-		return domain.NewAppError(
-			domain.ErrTypeUnauthorized,
-			"Invalid token claims",
-			nil,
 		)
 	}
 
@@ -220,4 +212,22 @@ func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs
 	}
 
 	return u.userRepo.RemoveRoles(ctx, *user, roleIDs)
+}
+
+func (u *userUseCase) Refresh(ctx context.Context, refreshToken string) (token string, err error) {
+	storedToken, err := u.refreshTokenUseCase.Validate(ctx, refreshToken)
+	if err != nil {
+		return "", err
+	}
+
+	user, err := u.Find(ctx, storedToken.UserID)
+	if err != nil {
+		return "", domain.NewAppError(
+			domain.ErrTypeUnauthorized,
+			"User no longer exists",
+			err,
+		)
+	}
+
+	return u.generateAccessToken(user.ID)
 }

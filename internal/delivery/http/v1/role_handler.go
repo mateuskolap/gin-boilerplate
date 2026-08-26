@@ -97,6 +97,7 @@ func (h *RoleHandler) RemovePermissions(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
 	if err != nil {
 		_ = c.Error(err)
+		return
 	}
 
 	req, err := bindJSON[dto.UpdatePermissionsRequest](c)

@@ -64,6 +64,7 @@ func main() {
 			&domain.User{},
 			&domain.Role{},
 			&domain.Permission{},
+			&domain.RefreshToken{},
 		); err != nil {
 			log.Fatalf("Failed to run database migrations: %v", err)
 		}
@@ -88,9 +89,11 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	roleRepo := repository.NewRoleRepository(db)
 	permissionRepo := repository.NewPermissionRepository(db)
+	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 
 	// UseCases
-	userUseCase := usecase.NewUserUseCase(userRepo, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
+	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, time.Hour*24*7)
+	userUseCase := usecase.NewUserUseCase(userRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
 	roleUseCase := usecase.NewRoleUseCase(roleRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
 

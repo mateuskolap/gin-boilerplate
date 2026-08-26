@@ -1,12 +1,11 @@
 package middleware
 
 import (
-	"errors"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/pkg/security"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.HandlerFunc {
@@ -35,29 +34,12 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.Handl
 
 		tokenString := parts[1]
 
-		token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-				return nil, errors.New("unexpected signing method")
-			}
-			return []byte(jwtSecret), nil
-		})
-
-		if err != nil || !token.Valid {
+		claims, err := security.ParseAndValidateJWT(tokenString, jwtSecret)
+		if err != nil {
 			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeUnauthorized,
 				"Invalid or expired token",
 				err,
-			))
-			c.Abort()
-			return
-		}
-
-		claims, ok := token.Claims.(*jwt.RegisteredClaims)
-		if !ok {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeUnauthorized,
-				"Invalid or expired token",
-				nil,
 			))
 			c.Abort()
 			return

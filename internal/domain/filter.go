@@ -58,3 +58,17 @@ func (f Filters) Without(fields ...string) Filters {
 		return slices.Contains(fields, filter.Field)
 	})
 }
+
+// ValidateAllowed checks if all filters in the slice belong to the allowedFields set.
+func (f Filters) ValidateAllowed(allowedFields map[string]bool) error {
+	for _, filter := range f {
+		if !allowedFields[filter.Field] {
+			return NewAppError(
+				ErrTypeValidation,
+				fmt.Sprintf("filtering by field '%s' is not allowed", filter.Field),
+				nil,
+			)
+		}
+	}
+	return nil
+}
