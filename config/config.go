@@ -10,20 +10,21 @@ import (
 )
 
 type Config struct {
-	Env           string
-	Port          string
-	DBHost        string
-	DBPort        string
-	DBUser        string
-	DBPassword    string
-	DBName        string
-	DBSSLMode     string
-	RedisHost     string
-	RedisPort     string
-	RedisPassword string
-	RedisDB       int
-	JWTSecret     string
-	JWTExpiration time.Duration
+	Env               string
+	Port              string
+	DBHost            string
+	DBPort            string
+	DBUser            string
+	DBPassword        string
+	DBName            string
+	DBSSLMode         string
+	RedisHost         string
+	RedisPort         string
+	RedisPassword     string
+	RedisDB           int
+	JWTSecret         string
+	JWTExpiration     time.Duration
+	RefreshExpiration time.Duration
 }
 
 func LoadConfig() *Config {
@@ -43,6 +44,11 @@ func LoadConfig() *Config {
 		jwtExpMinutes = 10
 	}
 
+	refreshExpMinutes, err := strconv.Atoi(getEnv("REFRESH_EXPIRATION_MINUTES", "1440"))
+	if err != nil || refreshExpMinutes <= 0 {
+		refreshExpMinutes = 1440
+	}
+
 	redisDB, _ := strconv.Atoi(getEnv("REDIS_DB", "0"))
 
 	jwtSecret := getEnv("JWT_SECRET", "gin-boilerplate-super-secure-jwt-secret-key-32-bytes!")
@@ -51,20 +57,21 @@ func LoadConfig() *Config {
 	}
 
 	return &Config{
-		Env:           env,
-		Port:          getEnv("PORT", "8080"),
-		DBHost:        getEnv("DB_HOST", "localhost"),
-		DBPort:        getEnv("DB_PORT", "5432"),
-		DBUser:        getEnv("DB_USER", "postgres"),
-		DBPassword:    getEnv("DB_PASSWORD", "postgres"),
-		DBName:        getEnv("DB_NAME", "boilerplate"),
-		DBSSLMode:     getEnv("DB_SSLMODE", defaultSSLMode),
-		RedisHost:     getEnv("REDIS_HOST", "localhost"),
-		RedisPort:     getEnv("REDIS_PORT", "6379"),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		RedisDB:       redisDB,
-		JWTSecret:     jwtSecret,
-		JWTExpiration: time.Minute * time.Duration(jwtExpMinutes),
+		Env:               env,
+		Port:              getEnv("PORT", "8080"),
+		DBHost:            getEnv("DB_HOST", "localhost"),
+		DBPort:            getEnv("DB_PORT", "5432"),
+		DBUser:            getEnv("DB_USER", "postgres"),
+		DBPassword:        getEnv("DB_PASSWORD", "postgres"),
+		DBName:            getEnv("DB_NAME", "boilerplate"),
+		DBSSLMode:         getEnv("DB_SSLMODE", defaultSSLMode),
+		RedisHost:         getEnv("REDIS_HOST", "localhost"),
+		RedisPort:         getEnv("REDIS_PORT", "6379"),
+		RedisPassword:     getEnv("REDIS_PASSWORD", ""),
+		RedisDB:           redisDB,
+		JWTSecret:         jwtSecret,
+		JWTExpiration:     time.Minute * time.Duration(jwtExpMinutes),
+		RefreshExpiration: time.Minute * time.Duration(refreshExpMinutes),
 	}
 }
 

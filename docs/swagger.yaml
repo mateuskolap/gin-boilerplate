@@ -14,9 +14,33 @@ definitions:
     type: object
   dto.LoginResponse:
     properties:
-      token:
+      access_token:
         example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         type: string
+      refresh_token:
+        example: a1b2c3d4e5f6...
+        type: string
+    type: object
+  dto.LogoutRequest:
+    properties:
+      refresh_token:
+        example: a1b2c3d4e5f6...
+        type: string
+    type: object
+  dto.PaginatedPermissionResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.PermissionResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
     type: object
   dto.PaginatedRoleResponse:
     properties:
@@ -32,6 +56,38 @@ definitions:
         type: integer
       total_pages:
         type: integer
+    type: object
+  dto.PaginatedUserResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.UserResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  dto.PermissionResponse:
+    properties:
+      id:
+        example: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        type: string
+      name:
+        example: create_user
+        type: string
+    type: object
+  dto.RefreshRequest:
+    properties:
+      refresh_token:
+        example: a1b2c3d4e5f6...
+        type: string
+    required:
+    - refresh_token
     type: object
   dto.RegisterRequest:
     properties:
@@ -67,6 +123,19 @@ definitions:
         example: "2026-01-01T00:00:00Z"
         type: string
     type: object
+  dto.UpdatePermissionsRequest:
+    properties:
+      permission_ids:
+        example:
+        - a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        - f9e8d7c6-b5a4-3210-fedc-ba0987654321
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - permission_ids
+    type: object
   dto.UpdateProfileRequest:
     properties:
       name:
@@ -76,7 +145,20 @@ definitions:
     required:
     - name
     type: object
-  dto.UserProfileResponse:
+  dto.UpdateUserRolesRequest:
+    properties:
+      role_ids:
+        example:
+        - a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        - f9e8d7c6-b5a4-3210-fedc-ba0987654321
+        items:
+          type: string
+        minItems: 1
+        type: array
+    required:
+    - role_ids
+    type: object
+  dto.UserResponse:
     properties:
       created_at:
         example: "2026-01-01T00:00:00Z"
@@ -121,7 +203,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticate user credentials and return a JWT token
+      description: Authenticate user credentials and return access and refresh tokens
       parameters:
       - description: User login credentials
         in: body
@@ -141,12 +223,12 @@ paths:
                 data:
                   $ref: '#/definitions/dto.LoginResponse'
               type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/middleware.ApiResponse'
         "401":
           description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
           schema:
             $ref: '#/definitions/middleware.ApiResponse'
         "500":
@@ -158,7 +240,15 @@ paths:
       - Auth
   /api/v1/auth/logout:
     post:
-      description: Invalidate current user JWT token
+      consumes:
+      - application/json
+      description: Invalidate current user JWT token and optional refresh token
+      parameters:
+      - description: Optional refresh token to revoke
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/dto.LogoutRequest'
       produces:
       - application/json
       responses:
@@ -177,6 +267,46 @@ paths:
       security:
       - BearerAuth: []
       summary: User logout
+      tags:
+      - Auth
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange a valid refresh token for a new access token and refresh
+        token pair
+      parameters:
+      - description: Refresh token payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.LoginResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      summary: Refresh access token
       tags:
       - Auth
   /api/v1/auth/register:
@@ -201,12 +331,8 @@ paths:
             - $ref: '#/definitions/middleware.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.UserProfileResponse'
+                  $ref: '#/definitions/dto.UserResponse'
               type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/middleware.ApiResponse'
         "409":
           description: Conflict
           schema:
@@ -222,6 +348,51 @@ paths:
       summary: Register a new user
       tags:
       - Auth
+  /api/v1/permissions:
+    get:
+      description: Get paginated list of permissions with optional filters and sorting
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Sorting criteria (e.g. name:asc, created_at:desc or -created_at)
+        in: query
+        name: sort
+        type: string
+      - description: Filter by permission name (partial match)
+        in: query
+        name: name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PaginatedPermissionResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: List permissions
+      tags:
+      - Permissions
   /api/v1/roles:
     get:
       description: Get paginated list of roles with optional filters and sorting
@@ -258,6 +429,48 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: List roles
+      tags:
+      - Roles
+  /api/v1/roles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove one or more permissions from a role by permission UUIDs
+      parameters:
+      - description: Role UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Permission UUIDs to remove
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
         "422":
           description: Unprocessable Entity
           schema:
@@ -268,9 +481,279 @@ paths:
             $ref: '#/definitions/middleware.ApiResponse'
       security:
       - BearerAuth: []
-      summary: List roles
+      summary: Remove permissions from role
       tags:
       - Roles
+    get:
+      description: Retrieve detailed information of a role by UUID
+      parameters:
+      - description: Role UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.RoleResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Get role by ID
+      tags:
+      - Roles
+    post:
+      consumes:
+      - application/json
+      description: Assign one or more permissions to a role by permission UUIDs
+      parameters:
+      - description: Role UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Permission UUIDs to assign
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdatePermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Add permissions to role
+      tags:
+      - Roles
+  /api/v1/users:
+    get:
+      description: Get paginated list of users with optional filters and sorting
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        name: limit
+        type: integer
+      - description: Sorting criteria (e.g. name:asc, created_at:desc or -created_at)
+        in: query
+        name: sort
+        type: string
+      - description: Filter by user name (partial match)
+        in: query
+        name: name
+        type: string
+      - description: Filter by user email (partial match)
+        in: query
+        name: email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PaginatedUserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - Users
+  /api/v1/users/{id}:
+    get:
+      description: Retrieve detailed information of a user by UUID
+      parameters:
+      - description: User UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
+  /api/v1/users/{id}/roles:
+    delete:
+      consumes:
+      - application/json
+      description: Remove one or more assigned roles from a user by role UUIDs
+      parameters:
+      - description: User UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role UUIDs to remove
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateUserRolesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove roles from user
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Assign one or more roles to a user by role UUIDs
+      parameters:
+      - description: User UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role UUIDs to assign
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateUserRolesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Add roles to user
+      tags:
+      - Users
   /api/v1/users/profile:
     get:
       description: Get current authenticated user profile details
@@ -284,7 +767,7 @@ paths:
             - $ref: '#/definitions/middleware.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.UserProfileResponse'
+                  $ref: '#/definitions/dto.UserResponse'
               type: object
         "401":
           description: Unauthorized
@@ -320,11 +803,12 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.UserResponse'
+              type: object
         "401":
           description: Unauthorized
           schema:

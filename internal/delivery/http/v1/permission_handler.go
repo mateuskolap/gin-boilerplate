@@ -4,6 +4,7 @@ import (
 	"gin-boilerplate/internal/delivery/http/dto"
 	"gin-boilerplate/internal/delivery/http/middleware"
 	"gin-boilerplate/internal/domain"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,20 @@ func NewPermissionHandler(permissionUseCase domain.PermissionUseCase) *Permissio
 	}
 }
 
+// ListPermissions godoc
+// @Summary      List permissions
+// @Description  Get paginated list of permissions with optional filters and sorting
+// @Tags         Permissions
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page   query     int     false  "Page number (default: 1)"
+// @Param        limit  query     int     false  "Items per page (default: 10, max: 100)"
+// @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
+// @Param        name   query     string  false  "Filter by permission name (partial match)"
+// @Success      200    {object}  middleware.ApiResponse{data=dto.PaginatedPermissionResponse}
+// @Failure      401    {object}  middleware.ApiResponse
+// @Failure      500    {object}  middleware.ApiResponse
+// @Router       /api/v1/permissions [get]
 func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 	params := extractPaginationParams(c)
 
@@ -38,5 +53,5 @@ func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 
 	response := dto.ToPaginatedResponse(result, dto.ToPermissionResponse)
 
-	middleware.Success(c, 200, "Permissions retrieved successfully", response)
+	middleware.Success(c, http.StatusOK, "Permissions retrieved successfully", response)
 }

@@ -97,7 +97,7 @@ func main() {
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 
 	// UseCases
-	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, time.Hour*24*7)
+	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, cfg.RefreshExpiration)
 	userUseCase := usecase.NewUserUseCase(userRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
 	roleUseCase := usecase.NewRoleUseCase(roleRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)

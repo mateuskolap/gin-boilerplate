@@ -26,8 +26,7 @@ func NewAuthHandler(userUseCase domain.UserUseCase) *AuthHandler {
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.RegisterRequest true "User registration details"
-// @Success      201  {object}  middleware.ApiResponse{data=dto.UserProfileResponse}
-// @Failure      400  {object}  middleware.ApiResponse
+// @Success      201  {object}  middleware.ApiResponse{data=dto.UserResponse}
 // @Failure      409  {object}  middleware.ApiResponse
 // @Failure      422  {object}  middleware.ApiResponse
 // @Failure      500  {object}  middleware.ApiResponse
@@ -55,14 +54,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 // Login godoc
 // @Summary      User login
-// @Description  Authenticate user credentials and return a JWT token
+// @Description  Authenticate user credentials and return access and refresh tokens
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.LoginRequest true "User login credentials"
 // @Success      200  {object}  middleware.ApiResponse{data=dto.LoginResponse}
-// @Failure      400  {object}  middleware.ApiResponse
 // @Failure      401  {object}  middleware.ApiResponse
+// @Failure      422  {object}  middleware.ApiResponse
 // @Failure      500  {object}  middleware.ApiResponse
 // @Router       /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -90,6 +89,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// Refresh godoc
+// @Summary      Refresh access token
+// @Description  Exchange a valid refresh token for a new access token and refresh token pair
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        request body dto.RefreshRequest true "Refresh token payload"
+// @Success      200  {object}  middleware.ApiResponse{data=dto.LoginResponse}
+// @Failure      401  {object}  middleware.ApiResponse
+// @Failure      422  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	req, err := bindJSON[dto.RefreshRequest](c)
 	if err != nil {

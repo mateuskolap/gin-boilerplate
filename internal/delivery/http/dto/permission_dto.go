@@ -10,8 +10,10 @@ type PermissionResponse struct {
 	Name string    `json:"name" example:"create_user"`
 }
 
-func ToPermissionResponse(permission *domain.Permission) *PermissionResponse {
-	return &PermissionResponse{
+type PaginatedPermissionResponse = PaginatedResponse[PermissionResponse]
+
+func ToPermissionResponse(permission *domain.Permission) PermissionResponse {
+	return PermissionResponse{
 		ID:   permission.ID,
 		Name: permission.Name,
 	}

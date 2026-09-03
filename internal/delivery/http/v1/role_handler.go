@@ -19,6 +19,19 @@ func NewRoleHandler(roleUseCase domain.RoleUseCase) *RoleHandler {
 	}
 }
 
+// FindRole godoc
+// @Summary      Get role by ID
+// @Description  Retrieve detailed information of a role by UUID
+// @Tags         Roles
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Role UUID" format(uuid)
+// @Success      200  {object}  middleware.ApiResponse{data=dto.RoleResponse}
+// @Failure      401  {object}  middleware.ApiResponse
+// @Failure      404  {object}  middleware.ApiResponse
+// @Failure      422  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/roles/{id} [get]
 func (h *RoleHandler) FindRole(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
 	if err != nil {
@@ -47,7 +60,6 @@ func (h *RoleHandler) FindRole(c *gin.Context) {
 // @Param        name   query     string  false  "Filter by role name (partial match)"
 // @Success      200    {object}  middleware.ApiResponse{data=dto.PaginatedRoleResponse}
 // @Failure      401    {object}  middleware.ApiResponse
-// @Failure      422    {object}  middleware.ApiResponse
 // @Failure      500    {object}  middleware.ApiResponse
 // @Router       /api/v1/roles [get]
 func (h *RoleHandler) ListRoles(c *gin.Context) {
@@ -72,6 +84,21 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 	middleware.Success(c, http.StatusOK, "Roles retrieved successfully", response)
 }
 
+// AddPermissions godoc
+// @Summary      Add permissions to role
+// @Description  Assign one or more permissions to a role by permission UUIDs
+// @Tags         Roles
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      string                        true  "Role UUID" format(uuid)
+// @Param        request  body      dto.UpdatePermissionsRequest  true  "Permission UUIDs to assign"
+// @Success      201      {object}  middleware.ApiResponse
+// @Failure      401      {object}  middleware.ApiResponse
+// @Failure      404      {object}  middleware.ApiResponse
+// @Failure      422      {object}  middleware.ApiResponse
+// @Failure      500      {object}  middleware.ApiResponse
+// @Router       /api/v1/roles/{id} [post]
 func (h *RoleHandler) AddPermissions(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
 	if err != nil {
@@ -93,6 +120,21 @@ func (h *RoleHandler) AddPermissions(c *gin.Context) {
 	middleware.Success(c, http.StatusCreated, "Permissions added successfully", nil)
 }
 
+// RemovePermissions godoc
+// @Summary      Remove permissions from role
+// @Description  Remove one or more permissions from a role by permission UUIDs
+// @Tags         Roles
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      string                        true  "Role UUID" format(uuid)
+// @Param        request  body      dto.UpdatePermissionsRequest  true  "Permission UUIDs to remove"
+// @Success      200      {object}  middleware.ApiResponse
+// @Failure      401      {object}  middleware.ApiResponse
+// @Failure      404      {object}  middleware.ApiResponse
+// @Failure      422      {object}  middleware.ApiResponse
+// @Failure      500      {object}  middleware.ApiResponse
+// @Router       /api/v1/roles/{id} [delete]
 func (h *RoleHandler) RemovePermissions(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
 	if err != nil {

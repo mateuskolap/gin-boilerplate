@@ -19,6 +19,19 @@ func NewUserHandler(userUseCase domain.UserUseCase) *UserHandler {
 	}
 }
 
+// FindUser godoc
+// @Summary      Get user by ID
+// @Description  Retrieve detailed information of a user by UUID
+// @Tags         Users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User UUID" format(uuid)
+// @Success      200  {object}  middleware.ApiResponse{data=dto.UserResponse}
+// @Failure      401  {object}  middleware.ApiResponse
+// @Failure      404  {object}  middleware.ApiResponse
+// @Failure      422  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/users/{id} [get]
 func (h *UserHandler) FindUser(c *gin.Context) {
 	userID, err := extractParamID(c, "id")
 	if err != nil {
@@ -35,6 +48,21 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 	middleware.Success(c, http.StatusOK, "User retrieved successfully", dto.ToUserResponse(user))
 }
 
+// ListUsers godoc
+// @Summary      List users
+// @Description  Get paginated list of users with optional filters and sorting
+// @Tags         Users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page   query     int     false  "Page number (default: 1)"
+// @Param        limit  query     int     false  "Items per page (default: 10, max: 100)"
+// @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
+// @Param        name   query     string  false  "Filter by user name (partial match)"
+// @Param        email  query     string  false  "Filter by user email (partial match)"
+// @Success      200    {object}  middleware.ApiResponse{data=dto.PaginatedUserResponse}
+// @Failure      401    {object}  middleware.ApiResponse
+// @Failure      500    {object}  middleware.ApiResponse
+// @Router       /api/v1/users [get]
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	params := extractPaginationParams(c)
 
@@ -71,7 +99,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {object}  middleware.ApiResponse{data=dto.UserProfileResponse}
+// @Success      200  {object}  middleware.ApiResponse{data=dto.UserResponse}
 // @Failure      401  {object}  middleware.ApiResponse
 // @Failure      404  {object}  middleware.ApiResponse
 // @Failure      500  {object}  middleware.ApiResponse
@@ -100,8 +128,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request body dto.UpdateProfileRequest true "User profile update details"
-// @Success      200  {object}  middleware.ApiResponse
-// @Failure      400  {object}  middleware.ApiResponse
+// @Success      200  {object}  middleware.ApiResponse{data=dto.UserResponse}
 // @Failure      401  {object}  middleware.ApiResponse
 // @Failure      422  {object}  middleware.ApiResponse
 // @Failure      500  {object}  middleware.ApiResponse
@@ -132,6 +159,21 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	middleware.Success(c, http.StatusOK, "Profile updated successfully", dto.ToUserResponse(user))
 }
 
+// AddRoles godoc
+// @Summary      Add roles to user
+// @Description  Assign one or more roles to a user by role UUIDs
+// @Tags         Users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      string                      true  "User UUID" format(uuid)
+// @Param        request  body      dto.UpdateUserRolesRequest  true  "Role UUIDs to assign"
+// @Success      200      {object}  middleware.ApiResponse
+// @Failure      401      {object}  middleware.ApiResponse
+// @Failure      404      {object}  middleware.ApiResponse
+// @Failure      422      {object}  middleware.ApiResponse
+// @Failure      500      {object}  middleware.ApiResponse
+// @Router       /api/v1/users/{id}/roles [post]
 func (h *UserHandler) AddRoles(c *gin.Context) {
 	userID, err := extractParamID(c, "id")
 	if err != nil {
@@ -153,6 +195,21 @@ func (h *UserHandler) AddRoles(c *gin.Context) {
 	middleware.Success(c, http.StatusOK, "Roles added to user successfully", nil)
 }
 
+// RemoveRoles godoc
+// @Summary      Remove roles from user
+// @Description  Remove one or more assigned roles from a user by role UUIDs
+// @Tags         Users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      string                      true  "User UUID" format(uuid)
+// @Param        request  body      dto.UpdateUserRolesRequest  true  "Role UUIDs to remove"
+// @Success      200      {object}  middleware.ApiResponse
+// @Failure      401      {object}  middleware.ApiResponse
+// @Failure      404      {object}  middleware.ApiResponse
+// @Failure      422      {object}  middleware.ApiResponse
+// @Failure      500      {object}  middleware.ApiResponse
+// @Router       /api/v1/users/{id}/roles [delete]
 func (h *UserHandler) RemoveRoles(c *gin.Context) {
 	userID, err := extractParamID(c, "id")
 	if err != nil {
