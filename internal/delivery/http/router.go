@@ -54,6 +54,8 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 			users := protected.Group("/users")
 			{
+				users.GET("", cfg.UserHandler.ListUsers)
+				users.GET("/:id", cfg.UserHandler.FindUser)
 				users.GET("/profile", cfg.UserHandler.GetProfile)
 				users.PUT("/profile", cfg.UserHandler.UpdateProfile)
 				users.POST("/:id/roles", cfg.UserHandler.AddRoles)

@@ -30,31 +30,30 @@ func NewRefreshTokenUseCase(
 	}
 }
 
-func (r *refreshTokenUseCase) Create(ctx context.Context, token *domain.RefreshToken) (string, error) {
-	plainToken, err := security.GenerateRandomToken(32)
+func (r *refreshTokenUseCase) Create(ctx context.Context, userID uuid.UUID, ipAddress string, userAgent string) (string, error) {
+	expiresAt := time.Now().UTC().Add(r.expiration)
+	plainToken, _, err := r.createTokenWithExpiry(ctx, userID, ipAddress, userAgent, expiresAt)
+	return plainToken, err
+}
+
+func (r *refreshTokenUseCase) Rotate(ctx context.Context, oldToken string, ipAddress string, userAgent string) (string, error) {
+	storedToken, err := r.Validate(ctx, oldToken)
 	if err != nil {
-		return "", domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to generate refresh token",
-			err,
-		)
+		return "", err
 	}
 
-	token.TokenHash = security.HashSHA256(plainToken)
-
-	if token.ExpiresAt.IsZero() {
-		token.ExpiresAt = time.Now().UTC().Add(r.expiration)
+	newPlainToken, newTokenEntity, err := r.createTokenWithExpiry(ctx, storedToken.UserID, ipAddress, userAgent, storedToken.ExpiresAt)
+	if err != nil {
+		return "", err
 	}
 
-	if err := r.refreshTokenRepo.Create(ctx, token); err != nil {
-		return "", domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to create refresh token",
-			err,
-		)
+	storedToken.ReplacedBy = &newTokenEntity.ID
+
+	if err := r.RevokeEntity(ctx, storedToken); err != nil {
+		return "", err
 	}
 
-	return plainToken, nil
+	return newPlainToken, nil
 }
 
 func (r *refreshTokenUseCase) FindByTokenHash(ctx context.Context, token string) (*domain.RefreshToken, error) {
@@ -107,14 +106,18 @@ func (r *refreshTokenUseCase) Revoke(ctx context.Context, token string) error {
 		return err
 	}
 
-	if existingRefreshToken.RevokedAt != nil {
+	return r.RevokeEntity(ctx, existingRefreshToken)
+}
+
+func (r *refreshTokenUseCase) RevokeEntity(ctx context.Context, refreshToken *domain.RefreshToken) error {
+	if refreshToken.RevokedAt != nil {
 		return nil
 	}
 
 	now := time.Now().UTC()
-	existingRefreshToken.RevokedAt = &now
+	refreshToken.RevokedAt = &now
 
-	if err := r.refreshTokenRepo.Update(ctx, existingRefreshToken); err != nil {
+	if err := r.refreshTokenRepo.Update(ctx, refreshToken); err != nil {
 		return domain.NewAppError(
 			domain.ErrTypeInternal,
 			"Failed to revoke refresh token",
@@ -165,4 +168,39 @@ func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*doma
 	}
 
 	return storedToken, nil
+}
+
+func (r *refreshTokenUseCase) createTokenWithExpiry(
+	ctx context.Context,
+	userID uuid.UUID,
+	ipAddress,
+	userAgent string,
+	expiresAt time.Time,
+) (string, *domain.RefreshToken, error) {
+	plainToken, err := security.GenerateRandomToken(32)
+	if err != nil {
+		return "", nil, domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to generate refresh token",
+			err,
+		)
+	}
+
+	token := &domain.RefreshToken{
+		UserID:    userID,
+		TokenHash: security.HashSHA256(plainToken),
+		ExpiresAt: expiresAt,
+		IpAddress: ipAddress,
+		UserAgent: userAgent,
+	}
+
+	if err := r.refreshTokenRepo.Create(ctx, token); err != nil {
+		return "", nil, domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to create refresh token",
+			err,
+		)
+	}
+
+	return plainToken, token, nil
 }

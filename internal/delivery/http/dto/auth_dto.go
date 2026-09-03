@@ -11,6 +11,15 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required" example:"secret12345"`
 }
 
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required" example:"a1b2c3d4e5f6..."`
+}
+
 type LoginResponse struct {
-	Token string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	AccessToken  string `json:"access_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	RefreshToken string `json:"refresh_token" example:"a1b2c3d4e5f6..."`
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token" example:"a1b2c3d4e5f6..."`
 }

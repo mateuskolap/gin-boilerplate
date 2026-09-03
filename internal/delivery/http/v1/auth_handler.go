@@ -50,7 +50,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusCreated, "User registered successfully", dto.ToUserProfileResponse(user))
+	middleware.Success(c, http.StatusCreated, "User registered successfully", dto.ToUserResponse(user))
 }
 
 // Login godoc
@@ -72,13 +72,46 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.userUseCase.Login(c.Request.Context(), req.Email, req.Password)
+	authTokens, err := h.userUseCase.Login(
+		c.Request.Context(),
+		req.Email,
+		req.Password,
+		c.ClientIP(),
+		c.Request.UserAgent(),
+	)
 	if err != nil {
 		_ = c.Error(err)
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Login successful", dto.LoginResponse{Token: token})
+	middleware.Success(c, http.StatusOK, "Login successful", dto.LoginResponse{
+		AccessToken:  authTokens.AccessToken,
+		RefreshToken: authTokens.RefreshToken,
+	})
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	req, err := bindJSON[dto.RefreshRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	authTokens, err := h.userUseCase.Refresh(
+		c.Request.Context(),
+		req.RefreshToken,
+		c.ClientIP(),
+		c.Request.UserAgent(),
+	)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusOK, "Token refreshed successfully", dto.LoginResponse{
+		AccessToken:  authTokens.AccessToken,
+		RefreshToken: authTokens.RefreshToken,
+	})
 }
 
 // Logout godoc

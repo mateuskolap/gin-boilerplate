@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+type AuthTokens struct {
+	AccessToken  string
+	RefreshToken string
+}
+
 type TokenBlackList interface {
 	// RevokeToken marks a token ID (jti) as revoked with a time-to-live matching token expiration.
 	RevokeToken(ctx context.Context, jti string, expiresIn time.Duration) error

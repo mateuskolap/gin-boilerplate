@@ -3,12 +3,12 @@ package usecase
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/pkg"
 	"gin-boilerplate/pkg/security"
 	"time"
 
 	"uuid"
 
-	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -41,6 +41,7 @@ func NewUserUseCase(
 		),
 		BaseFindUseCase: NewBaseFindUseCase(
 			userRepo,
+			"Roles",
 		),
 		userRepo:            userRepo,
 		refreshTokenUseCase: refreshTokenUseCase,
@@ -90,10 +91,10 @@ func (u *userUseCase) Register(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
-func (u *userUseCase) Login(ctx context.Context, email string, password string) (string, error) {
+func (u *userUseCase) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.AuthTokens, error) {
 	user, err := u.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return "", domain.NewAppError(
+		return nil, domain.NewAppError(
 			domain.ErrTypeInternal,
 			"There was a problem verifying credentials",
 			err,
@@ -101,7 +102,7 @@ func (u *userUseCase) Login(ctx context.Context, email string, password string) 
 	}
 
 	if user == nil {
-		return "", domain.NewAppError(
+		return nil, domain.NewAppError(
 			domain.ErrTypeUnauthorized,
 			"Invalid email or password",
 			nil,
@@ -110,41 +111,70 @@ func (u *userUseCase) Login(ctx context.Context, email string, password string) 
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return "", domain.NewAppError(
+		return nil, domain.NewAppError(
 			domain.ErrTypeUnauthorized,
 			"Invalid email or password",
 			nil,
 		)
 	}
 
-	return u.generateAccessToken(user.ID)
-}
+	roles := pkg.Map(user.Roles, func(role domain.Role) string { return role.Name })
 
-func (u *userUseCase) generateAccessToken(userID uuid.UUID) (string, error) {
-	now := time.Now()
-	claims := jwt.RegisteredClaims{
-		Subject:   userID.String(),
-		ID:        uuid.New().String(),
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(u.jwtExpiration)),
-		NotBefore: jwt.NewNumericDate(now),
+	accessToken, err := security.GenerateAccessToken(user.ID, roles, u.jwtSecret, u.jwtExpiration)
+	if err != nil {
+		return nil, err
 	}
 
-	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := jwtToken.SignedString([]byte(u.jwtSecret))
+	refreshToken, err := u.refreshTokenUseCase.Create(ctx, user.ID, ipAddress, userAgent)
 	if err != nil {
-		return "", domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Error signing JWT token",
+		return nil, err
+	}
+
+	authTokens := domain.AuthTokens{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
+
+	return &authTokens, nil
+}
+
+func (u *userUseCase) Refresh(ctx context.Context, refreshToken string, ipAddress, userAgent string) (*domain.AuthTokens, error) {
+	storedToken, err := u.refreshTokenUseCase.Validate(ctx, refreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := u.Find(ctx, storedToken.UserID)
+	if err != nil {
+		return nil, domain.NewAppError(
+			domain.ErrTypeUnauthorized,
+			"User no longer exists",
 			err,
 		)
 	}
 
-	return tokenString, nil
+	roles := pkg.Map(user.Roles, func(role domain.Role) string { return role.Name })
+
+	accessToken, err := security.GenerateAccessToken(user.ID, roles, u.jwtSecret, u.jwtExpiration)
+	if err != nil {
+		return nil, err
+	}
+
+	newRefreshToken, err := u.refreshTokenUseCase.Rotate(ctx, refreshToken, ipAddress, userAgent)
+	if err != nil {
+		return nil, err
+	}
+
+	authTokens := domain.AuthTokens{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+	}
+
+	return &authTokens, nil
 }
 
-func (u *userUseCase) Logout(ctx context.Context, tokenString string) error {
-	claims, err := security.ParseAndValidateJWT(tokenString, u.jwtSecret)
+func (u *userUseCase) Logout(ctx context.Context, accessToken, refreshToken string) error {
+	claims, err := security.ParseAndValidateJWT(accessToken, u.jwtSecret)
 	if err != nil {
 		return domain.NewAppError(
 			domain.ErrTypeUnauthorized,
@@ -172,6 +202,12 @@ func (u *userUseCase) Logout(ctx context.Context, tokenString string) error {
 			"Failed to revoke token",
 			err,
 		)
+	}
+
+	if refreshToken != "" {
+		if err := u.refreshTokenUseCase.Revoke(ctx, refreshToken); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -212,22 +248,4 @@ func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs
 	}
 
 	return u.userRepo.RemoveRoles(ctx, *user, roleIDs)
-}
-
-func (u *userUseCase) Refresh(ctx context.Context, refreshToken string) (token string, err error) {
-	storedToken, err := u.refreshTokenUseCase.Validate(ctx, refreshToken)
-	if err != nil {
-		return "", err
-	}
-
-	user, err := u.Find(ctx, storedToken.UserID)
-	if err != nil {
-		return "", domain.NewAppError(
-			domain.ErrTypeUnauthorized,
-			"User no longer exists",
-			err,
-		)
-	}
-
-	return u.generateAccessToken(user.ID)
 }

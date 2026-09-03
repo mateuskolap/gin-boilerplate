@@ -19,6 +19,52 @@ func NewUserHandler(userUseCase domain.UserUseCase) *UserHandler {
 	}
 }
 
+func (h *UserHandler) FindUser(c *gin.Context) {
+	userID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	user, err := h.userUseCase.Find(c.Request.Context(), userID)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusOK, "User retrieved successfully", dto.ToUserResponse(user))
+}
+
+func (h *UserHandler) ListUsers(c *gin.Context) {
+	params := extractPaginationParams(c)
+
+	var filters []domain.Filter
+
+	if name := c.Query("name"); name != "" {
+		filters = append(filters, domain.Filter{
+			Field:    "name",
+			Operator: domain.OperatorILike,
+			Value:    "%" + name + "%",
+		})
+	}
+	if email := c.Query("email"); email != "" {
+		filters = append(filters, domain.Filter{
+			Field:    "email",
+			Operator: domain.OperatorILike,
+			Value:    "%" + email + "%",
+		})
+	}
+
+	result, err := h.userUseCase.List(c.Request.Context(), params, filters)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	response := dto.ToPaginatedResponse(result, dto.ToUserResponse)
+	middleware.Success(c, http.StatusOK, "Users retrieved successfully", response)
+}
+
 // GetProfile godoc
 // @Summary      Get user profile
 // @Description  Get current authenticated user profile details
@@ -43,7 +89,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Profile retrieved successfully", dto.ToUserProfileResponse(user))
+	middleware.Success(c, http.StatusOK, "Profile retrieved successfully", dto.ToUserResponse(user))
 }
 
 // UpdateProfile godoc
@@ -83,7 +129,7 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Profile updated successfully", nil)
+	middleware.Success(c, http.StatusOK, "Profile updated successfully", dto.ToUserResponse(user))
 }
 
 func (h *UserHandler) AddRoles(c *gin.Context) {
