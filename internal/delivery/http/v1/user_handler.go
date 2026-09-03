@@ -26,7 +26,7 @@ func NewUserHandler(userUseCase domain.UserUseCase) *UserHandler {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "User UUID" format(uuid)
-// @Success      200  {object}  middleware.ApiResponse{data=dto.UserResponse}
+// @Success      200  {object}  middleware.ApiResponse{data=dto.UserWithRoleResponse}
 // @Failure      401  {object}  middleware.ApiResponse
 // @Failure      404  {object}  middleware.ApiResponse
 // @Failure      422  {object}  middleware.ApiResponse
@@ -45,7 +45,7 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "User retrieved successfully", dto.ToUserResponse(user))
+	middleware.Success(c, http.StatusOK, "User retrieved successfully", dto.ToUserWithRoleResponse(user))
 }
 
 // ListUsers godoc

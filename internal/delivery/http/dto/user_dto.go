@@ -15,6 +15,11 @@ type UserResponse struct {
 	UpdatedAt time.Time `json:"updated_at" example:"2026-01-01T00:00:00Z"`
 }
 
+type UserWithRoleResponse struct {
+	UserResponse
+	Roles []RoleResponse `json:"roles"`
+}
+
 type PaginatedUserResponse = PaginatedResponse[UserResponse]
 
 type UpdateProfileRequest struct {
@@ -32,5 +37,17 @@ func ToUserResponse(user *domain.User) UserResponse {
 		Email:     user.Email,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
+	}
+}
+
+func ToUserWithRoleResponse(user *domain.User) UserWithRoleResponse {
+	roles := make([]RoleResponse, len(user.Roles))
+	for i, role := range user.Roles {
+		roles[i] = ToRoleResponse(&role)
+	}
+
+	return UserWithRoleResponse{
+		UserResponse: ToUserResponse(user),
+		Roles:        roles,
 	}
 }
