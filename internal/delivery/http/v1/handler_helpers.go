@@ -2,6 +2,7 @@ package v1
 
 import (
 	"gin-boilerplate/internal/domain"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -9,6 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+const maxBodyBytes = 2 * 1024 * 1024
 
 func extractCurrentUserID(c *gin.Context) (uuid.UUID, error) {
 	userIDStr, exists := c.Get("user_id")
@@ -47,6 +50,7 @@ func extractParamID(c *gin.Context, paramName string) (uuid.UUID, error) {
 
 func bindJSON[T any](c *gin.Context) (T, error) {
 	var req T
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return req, domain.NewAppError(
 			domain.ErrTypeValidation,
@@ -111,6 +115,16 @@ func parseSortOption(s string) (field string, direction domain.SortDirection) {
 	if strings.HasPrefix(s, "-") {
 		field := strings.TrimSpace(strings.TrimPrefix(s, "-"))
 		return field, domain.SortDesc
+	}
+
+	if strings.Contains(s, ":") {
+		parts := strings.SplitN(s, ":", 2)
+		field := strings.TrimSpace(parts[0])
+		dir := strings.ToLower(strings.TrimSpace(parts[1]))
+		if dir == "desc" {
+			return field, domain.SortDesc
+		}
+		return field, domain.SortAsc
 	}
 
 	return s, domain.SortAsc

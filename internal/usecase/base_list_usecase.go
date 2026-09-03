@@ -32,6 +32,10 @@ func (uc *baseListUseCase[T]) List(
 		return nil, err
 	}
 
+	if err := params.ValidateSort(uc.allowedFields); err != nil {
+		return nil, err
+	}
+
 	result, err := uc.repo.List(ctx, params, filters, uc.preloads...)
 	if err != nil {
 		return nil, domain.NewAppError(

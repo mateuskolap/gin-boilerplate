@@ -18,6 +18,7 @@ type RouterConfig struct {
 	PermissionHandler *v1.PermissionHandler
 	TokenBlacklist    domain.TokenBlackList
 	JWTSecret         string
+	Env               string
 }
 
 // HealthCheck godoc
@@ -36,7 +37,9 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 	r.Use(middleware.ErrorHandler())
 
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	if cfg.Env != "production" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	r.GET("/health", healthCheck)
 
@@ -46,6 +49,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		{
 			auth.POST("/register", cfg.AuthHandler.Register)
 			auth.POST("/login", cfg.AuthHandler.Login)
+			auth.POST("/refresh", cfg.AuthHandler.Refresh)
 		}
 
 		protected := api.Group("")
@@ -55,10 +59,10 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 			users := protected.Group("/users")
 			{
-				users.GET("", cfg.UserHandler.ListUsers)
-				users.GET("/:id", cfg.UserHandler.FindUser)
 				users.GET("/profile", cfg.UserHandler.GetProfile)
 				users.PUT("/profile", cfg.UserHandler.UpdateProfile)
+				users.GET("", cfg.UserHandler.ListUsers)
+				users.GET("/:id", cfg.UserHandler.FindUser)
 				users.POST("/:id/roles", cfg.UserHandler.AddRoles)
 				users.DELETE("/:id/roles", cfg.UserHandler.RemoveRoles)
 			}

@@ -21,8 +21,8 @@ func NewRoleRepository(db *gorm.DB) domain.RoleRepository {
 	}
 }
 
-func (r *roleRepository) GetByName(ctx context.Context, name string) (*domain.Role, error) {
-	return r.FindOneBy(ctx, "name = ?", []any{name})
+func (r *roleRepository) GetByName(ctx context.Context, name string, preloads ...string) (*domain.Role, error) {
+	return r.FindOneBy(ctx, "name = ?", []any{name}, preloads...)
 }
 
 func (r *roleRepository) AddPermissions(ctx context.Context, role domain.Role, permissionIDs []uuid.UUID) error {

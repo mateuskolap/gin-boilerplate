@@ -17,9 +17,9 @@ type User struct {
 type UserRepository interface {
 	BaseRepository[User]
 
-	// GetByEmail retrieves a user by their unique email address.
+	// GetByEmail retrieves a user by their unique email address, optionally preloading relationships.
 	// Returns (nil, nil) if no user matches the email.
-	GetByEmail(ctx context.Context, email string) (*User, error)
+	GetByEmail(ctx context.Context, email string, preloads ...string) (*User, error)
 
 	// AddRoles associates roles with a user.
 	AddRoles(ctx context.Context, user User, roleIDs []uuid.UUID) error

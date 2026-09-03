@@ -116,23 +116,21 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 // Logout godoc
 // @Summary      User logout
-// @Description  Invalidate current user JWT token
+// @Description  Invalidate current user JWT token and optional refresh token
 // @Tags         Auth
+// @Accept       json
 // @Produce      json
 // @Security     BearerAuth
+// @Param        request body dto.LogoutRequest false "Optional refresh token to revoke"
 // @Success      200  {object}  middleware.ApiResponse
 // @Failure      401  {object}  middleware.ApiResponse
 // @Failure      500  {object}  middleware.ApiResponse
 // @Router       /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
-	var req dto.RefreshRequest
+	var req dto.LogoutRequest
 	_ = c.ShouldBindJSON(&req)
 
-	token, err := extractToken(c)
-	if err != nil {
-		_ = c.Error(err)
-		return
-	}
+	token, _ := extractToken(c)
 
 	if err := h.userUseCase.Logout(c.Request.Context(), token, req.RefreshToken); err != nil {
 		_ = c.Error(err)

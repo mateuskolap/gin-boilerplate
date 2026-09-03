@@ -46,6 +46,8 @@ func HandleError(c *gin.Context, err error) {
 			statusCode = http.StatusConflict
 		case domain.ErrTypeUnauthorized:
 			statusCode = http.StatusUnauthorized
+		case domain.ErrTypeForbidden:
+			statusCode = http.StatusForbidden
 		case domain.ErrTypeValidation:
 			statusCode = http.StatusUnprocessableEntity
 		case domain.ErrTypeInternal:

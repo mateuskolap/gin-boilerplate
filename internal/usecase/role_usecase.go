@@ -8,7 +8,10 @@ import (
 )
 
 var allowedRoleFilterFields = map[string]bool{
-	"name": true,
+	"name":       true,
+	"created_at": true,
+	"updated_at": true,
+	"id":         true,
 }
 
 type roleUseCase struct {

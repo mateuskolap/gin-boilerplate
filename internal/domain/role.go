@@ -17,9 +17,9 @@ type Role struct {
 type RoleRepository interface {
 	BaseRepository[Role]
 
-	// GetByName finds a role by its unique name.
+	// GetByName finds a role by its unique name, optionally preloading relationships.
 	// Returns (nil, nil) if no role matches the name.
-	GetByName(ctx context.Context, name string) (*Role, error)
+	GetByName(ctx context.Context, name string, preloads ...string) (*Role, error)
 
 	// AddPermissions adds permissions to a role.
 	AddPermissions(ctx context.Context, role Role, permissionIDs []uuid.UUID) error

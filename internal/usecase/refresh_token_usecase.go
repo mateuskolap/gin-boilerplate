@@ -13,6 +13,8 @@ import (
 var allowedRefreshTokenFilterFields = map[string]bool{
 	"user_agent": true,
 	"expires_at": true,
+	"ip_address": true,
+	"created_at": true,
 }
 
 type refreshTokenUseCase struct {
@@ -85,6 +87,10 @@ func (r *refreshTokenUseCase) ListByUserID(
 	filters []domain.Filter,
 ) (*domain.PaginatedResult[domain.RefreshToken], error) {
 	if err := domain.Filters(filters).ValidateAllowed(allowedRefreshTokenFilterFields); err != nil {
+		return nil, err
+	}
+
+	if err := params.ValidateSort(allowedRefreshTokenFilterFields); err != nil {
 		return nil, err
 	}
 

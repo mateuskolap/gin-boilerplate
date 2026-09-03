@@ -18,6 +18,7 @@ import (
 	"gin-boilerplate/internal/repository"
 	"gin-boilerplate/internal/usecase"
 
+	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -43,6 +44,10 @@ func main() {
 	flag.Parse()
 
 	cfg := config.LoadConfig()
+
+	if cfg.Env == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	// GORM & Postgres
 	dsn := fmt.Sprintf(
@@ -110,6 +115,7 @@ func main() {
 		PermissionHandler: permissionHandler,
 		TokenBlacklist:    tokenBlacklistRepo,
 		JWTSecret:         cfg.JWTSecret,
+		Env:               cfg.Env,
 	})
 
 	// Seeders

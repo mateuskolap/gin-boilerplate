@@ -13,8 +13,11 @@ import (
 )
 
 var allowedUserFilterFields = map[string]bool{
-	"name":  true,
-	"email": true,
+	"name":       true,
+	"email":      true,
+	"created_at": true,
+	"updated_at": true,
+	"id":         true,
 }
 
 type userUseCase struct {
@@ -92,7 +95,7 @@ func (u *userUseCase) Register(ctx context.Context, user *domain.User) error {
 }
 
 func (u *userUseCase) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.AuthTokens, error) {
-	user, err := u.userRepo.GetByEmail(ctx, email)
+	user, err := u.userRepo.GetByEmail(ctx, email, "Roles")
 	if err != nil {
 		return nil, domain.NewAppError(
 			domain.ErrTypeInternal,
@@ -174,40 +177,36 @@ func (u *userUseCase) Refresh(ctx context.Context, refreshToken string, ipAddres
 }
 
 func (u *userUseCase) Logout(ctx context.Context, accessToken, refreshToken string) error {
-	claims, err := security.ParseAndValidateJWT(accessToken, u.jwtSecret)
-	if err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeUnauthorized,
-			"Invalid token",
-			err,
-		)
-	}
+	var tokenErr error
 
-	if claims.ExpiresAt == nil {
-		return domain.NewAppError(
-			domain.ErrTypeValidation,
-			"Token without expiration cannot be revoked",
-			nil,
-		)
-	}
-
-	remainingTTL := time.Until(claims.ExpiresAt.Time)
-	if remainingTTL <= 0 {
-		return nil
-	}
-
-	if err := u.tokenBlacklist.RevokeToken(ctx, claims.ID, remainingTTL); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to revoke token",
-			err,
-		)
+	if accessToken != "" {
+		claims, err := security.ParseAndValidateJWT(accessToken, u.jwtSecret)
+		if err != nil {
+			tokenErr = err
+		} else if claims != nil && claims.ExpiresAt != nil {
+			remainingTTL := time.Until(claims.ExpiresAt.Time)
+			if remainingTTL > 0 {
+				if err := u.tokenBlacklist.RevokeToken(ctx, claims.ID, remainingTTL); err != nil {
+					return domain.NewAppError(
+						domain.ErrTypeInternal,
+						"Failed to revoke access token",
+						err,
+					)
+				}
+			}
+		}
 	}
 
 	if refreshToken != "" {
 		if err := u.refreshTokenUseCase.Revoke(ctx, refreshToken); err != nil {
 			return err
 		}
+	} else if tokenErr != nil {
+		return domain.NewAppError(
+			domain.ErrTypeUnauthorized,
+			"Invalid token",
+			tokenErr,
+		)
 	}
 
 	return nil

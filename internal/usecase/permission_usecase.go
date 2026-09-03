@@ -6,7 +6,9 @@ import (
 )
 
 var allowedPermissionFilterFields = map[string]bool{
-	"name": true,
+	"name":       true,
+	"created_at": true,
+	"id":         true,
 }
 
 type permissionUseCase struct {
