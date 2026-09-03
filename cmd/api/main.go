@@ -101,13 +101,15 @@ func main() {
 	authHandler := v1.NewAuthHandler(userUseCase)
 	userHandler := v1.NewUserHandler(userUseCase)
 	roleHandler := v1.NewRoleHandler(roleUseCase)
+	permissionHandler := v1.NewPermissionHandler(permissionUseCase)
 
 	router := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
-		AuthHandler:    authHandler,
-		UserHandler:    userHandler,
-		RoleHandler:    roleHandler,
-		TokenBlacklist: tokenBlacklistRepo,
-		JWTSecret:      cfg.JWTSecret,
+		AuthHandler:       authHandler,
+		UserHandler:       userHandler,
+		RoleHandler:       roleHandler,
+		PermissionHandler: permissionHandler,
+		TokenBlacklist:    tokenBlacklistRepo,
+		JWTSecret:         cfg.JWTSecret,
 	})
 
 	// Seeders

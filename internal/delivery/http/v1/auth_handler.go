@@ -125,13 +125,16 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 // @Failure      500  {object}  middleware.ApiResponse
 // @Router       /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
+	var req dto.RefreshRequest
+	_ = c.ShouldBindJSON(&req)
+
 	token, err := extractToken(c)
 	if err != nil {
 		_ = c.Error(err)
 		return
 	}
 
-	if err := h.userUseCase.Logout(c.Request.Context(), token); err != nil {
+	if err := h.userUseCase.Logout(c.Request.Context(), token, req.RefreshToken); err != nil {
 		_ = c.Error(err)
 		return
 	}

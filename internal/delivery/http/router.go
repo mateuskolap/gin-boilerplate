@@ -12,11 +12,12 @@ import (
 )
 
 type RouterConfig struct {
-	AuthHandler    *v1.AuthHandler
-	UserHandler    *v1.UserHandler
-	RoleHandler    *v1.RoleHandler
-	TokenBlacklist domain.TokenBlackList
-	JWTSecret      string
+	AuthHandler       *v1.AuthHandler
+	UserHandler       *v1.UserHandler
+	RoleHandler       *v1.RoleHandler
+	PermissionHandler *v1.PermissionHandler
+	TokenBlacklist    domain.TokenBlackList
+	JWTSecret         string
 }
 
 // HealthCheck godoc
@@ -68,6 +69,11 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 				roles.GET("/:id", cfg.RoleHandler.FindRole)
 				roles.POST("/:id", cfg.RoleHandler.AddPermissions)
 				roles.DELETE("/:id", cfg.RoleHandler.RemovePermissions)
+			}
+
+			permissions := protected.Group("/permissions")
+			{
+				permissions.GET("", cfg.PermissionHandler.ListPermissions)
 			}
 		}
 	}
