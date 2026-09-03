@@ -7,7 +7,7 @@ RUN adduser -D -u 10001 -g '' appuser
 WORKDIR /app
 
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=go/pkg/mod \
+RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download && go mod verify
 
 COPY . .
@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
-    -o /app/bin/app ./cmd/app
+    -o /app/server ./cmd/api
 
 FROM scratch
 
