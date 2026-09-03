@@ -70,9 +70,12 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			roles := protected.Group("/roles")
 			{
 				roles.GET("", cfg.RoleHandler.ListRoles)
+				roles.POST("", cfg.RoleHandler.CreateRole)
 				roles.GET("/:id", cfg.RoleHandler.FindRole)
-				roles.POST("/:id", cfg.RoleHandler.AddPermissions)
-				roles.DELETE("/:id", cfg.RoleHandler.RemovePermissions)
+				roles.PUT("/:id", cfg.RoleHandler.UpdateRole)
+				roles.DELETE("/:id", cfg.RoleHandler.DeleteRole)
+				roles.POST("/:id/permissions", cfg.RoleHandler.AddPermissions)
+				roles.DELETE("/:id/permissions", cfg.RoleHandler.RemovePermissions)
 			}
 
 			permissions := protected.Group("/permissions")

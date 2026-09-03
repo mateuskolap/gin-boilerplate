@@ -1,5 +1,14 @@
 basePath: /
 definitions:
+  dto.CreateRoleRequest:
+    properties:
+      name:
+        example: Admin
+        minLength: 2
+        type: string
+    required:
+    - name
+    type: object
   dto.LoginRequest:
     properties:
       email:
@@ -140,6 +149,15 @@ definitions:
     properties:
       name:
         example: John Doe Updated
+        minLength: 2
+        type: string
+    required:
+    - name
+    type: object
+  dto.UpdateRoleRequest:
+    properties:
+      name:
+        example: Admin Updated
         minLength: 2
         type: string
     required:
@@ -438,7 +456,181 @@ paths:
       summary: List roles
       tags:
       - Roles
+    post:
+      consumes:
+      - application/json
+      description: Create a new role with the specified name
+      parameters:
+      - description: Role creation details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.RoleResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new role
+      tags:
+      - Roles
   /api/v1/roles/{id}:
+    delete:
+      description: Delete a role by UUID
+      parameters:
+      - description: Role UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete role
+      tags:
+      - Roles
+    get:
+      description: Retrieve detailed information of a role by UUID
+      parameters:
+      - description: Role UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.RoleResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Get role by ID
+      tags:
+      - Roles
+    put:
+      consumes:
+      - application/json
+      description: Update role information by UUID
+      parameters:
+      - description: Role UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role update details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/middleware.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.RoleResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/middleware.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Update role
+      tags:
+      - Roles
+  /api/v1/roles/{id}/permissions:
     delete:
       consumes:
       - application/json
@@ -482,48 +674,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Remove permissions from role
-      tags:
-      - Roles
-    get:
-      description: Retrieve detailed information of a role by UUID
-      parameters:
-      - description: Role UUID
-        format: uuid
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/dto.RoleResponse'
-              type: object
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/middleware.ApiResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/middleware.ApiResponse'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/middleware.ApiResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/middleware.ApiResponse'
-      security:
-      - BearerAuth: []
-      summary: Get role by ID
       tags:
       - Roles
     post:

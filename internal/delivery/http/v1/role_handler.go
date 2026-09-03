@@ -84,6 +84,108 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 	middleware.Success(c, http.StatusOK, "Roles retrieved successfully", response)
 }
 
+// CreateRole godoc
+// @Summary      Create a new role
+// @Description  Create a new role with the specified name
+// @Tags         Roles
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.CreateRoleRequest true "Role creation details"
+// @Success      201  {object}  middleware.ApiResponse{data=dto.RoleResponse}
+// @Failure      401  {object}  middleware.ApiResponse
+// @Failure      409  {object}  middleware.ApiResponse
+// @Failure      422  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/roles [post]
+func (h *RoleHandler) CreateRole(c *gin.Context) {
+	req, err := bindJSON[dto.CreateRoleRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	role := &domain.Role{
+		Name: req.Name,
+	}
+
+	if err := h.roleUseCase.Create(c.Request.Context(), role); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusCreated, "Role created successfully", dto.ToRoleResponse(role))
+}
+
+// UpdateRole godoc
+// @Summary      Update role
+// @Description  Update role information by UUID
+// @Tags         Roles
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      string                 true  "Role UUID" format(uuid)
+// @Param        request  body      dto.UpdateRoleRequest  true  "Role update details"
+// @Success      200      {object}  middleware.ApiResponse{data=dto.RoleResponse}
+// @Failure      401      {object}  middleware.ApiResponse
+// @Failure      404      {object}  middleware.ApiResponse
+// @Failure      422      {object}  middleware.ApiResponse
+// @Failure      500      {object}  middleware.ApiResponse
+// @Router       /api/v1/roles/{id} [put]
+func (h *RoleHandler) UpdateRole(c *gin.Context) {
+	roleID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	req, err := bindJSON[dto.UpdateRoleRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	role := &domain.Role{
+		ID:   roleID,
+		Name: req.Name,
+	}
+
+	if err := h.roleUseCase.Update(c.Request.Context(), role); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusOK, "Role updated successfully", dto.ToRoleResponse(role))
+}
+
+// DeleteRole godoc
+// @Summary      Delete role
+// @Description  Delete a role by UUID
+// @Tags         Roles
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "Role UUID" format(uuid)
+// @Success      200  {object}  middleware.ApiResponse
+// @Failure      401  {object}  middleware.ApiResponse
+// @Failure      404  {object}  middleware.ApiResponse
+// @Failure      422  {object}  middleware.ApiResponse
+// @Failure      500  {object}  middleware.ApiResponse
+// @Router       /api/v1/roles/{id} [delete]
+func (h *RoleHandler) DeleteRole(c *gin.Context) {
+	roleID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.roleUseCase.Delete(c.Request.Context(), roleID); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	middleware.Success(c, http.StatusOK, "Role deleted successfully", nil)
+}
+
 // AddPermissions godoc
 // @Summary      Add permissions to role
 // @Description  Assign one or more permissions to a role by permission UUIDs
@@ -98,7 +200,7 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 // @Failure      404      {object}  middleware.ApiResponse
 // @Failure      422      {object}  middleware.ApiResponse
 // @Failure      500      {object}  middleware.ApiResponse
-// @Router       /api/v1/roles/{id} [post]
+// @Router       /api/v1/roles/{id}/permissions [post]
 func (h *RoleHandler) AddPermissions(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
 	if err != nil {
@@ -134,7 +236,7 @@ func (h *RoleHandler) AddPermissions(c *gin.Context) {
 // @Failure      404      {object}  middleware.ApiResponse
 // @Failure      422      {object}  middleware.ApiResponse
 // @Failure      500      {object}  middleware.ApiResponse
-// @Router       /api/v1/roles/{id} [delete]
+// @Router       /api/v1/roles/{id}/permissions [delete]
 func (h *RoleHandler) RemovePermissions(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
 	if err != nil {
