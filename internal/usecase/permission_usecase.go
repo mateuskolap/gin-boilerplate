@@ -37,4 +37,3 @@ func (p *permissionUseCase) SeedPermissions(ctx context.Context) error {
 
 	return p.permissionRepo.UpsertByName(ctx, permissions)
 }
-

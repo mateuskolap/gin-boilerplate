@@ -11,7 +11,7 @@ type tokenBlacklistRepository struct {
 	cache domain.CacheRepository
 }
 
-func NewTokenBlackListRepository(cache domain.CacheRepository) domain.TokenBlackList {
+func NewTokenBlackListRepository(cache domain.CacheRepository) domain.TokenBlackListRepository {
 	return &tokenBlacklistRepository{
 		cache: cache,
 	}

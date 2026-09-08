@@ -25,7 +25,7 @@ type userUseCase struct {
 	domain.BaseFindUseCase[domain.User]
 	userRepo            domain.UserRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
-	tokenBlacklist      domain.TokenBlackList
+	tokenBlacklist      domain.TokenBlackListRepository
 	jwtSecret           string
 	jwtExpiration       time.Duration
 }
@@ -33,7 +33,7 @@ type userUseCase struct {
 func NewUserUseCase(
 	userRepo domain.UserRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
-	tokenBlacklist domain.TokenBlackList,
+	tokenBlacklist domain.TokenBlackListRepository,
 	jwtSecret string,
 	jwtExpiration time.Duration,
 ) domain.UserUseCase {

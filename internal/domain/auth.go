@@ -10,7 +10,7 @@ type AuthTokens struct {
 	RefreshToken string
 }
 
-type TokenBlackList interface {
+type TokenBlackListRepository interface {
 	// RevokeToken marks a token ID (jti) as revoked with a time-to-live matching token expiration.
 	RevokeToken(ctx context.Context, jti string, expiresIn time.Duration) error
 

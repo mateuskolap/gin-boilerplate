@@ -16,7 +16,7 @@ type RouterConfig struct {
 	UserHandler       *v1.UserHandler
 	RoleHandler       *v1.RoleHandler
 	PermissionHandler *v1.PermissionHandler
-	TokenBlacklist    domain.TokenBlackList
+	TokenBlacklist    domain.TokenBlackListRepository
 	JWTSecret         string
 	Env               string
 }

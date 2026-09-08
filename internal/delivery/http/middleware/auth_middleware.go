@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackList) gin.HandlerFunc {
+func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackListRepository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
