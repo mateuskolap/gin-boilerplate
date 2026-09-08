@@ -21,17 +21,6 @@ type RouterConfig struct {
 	Env               string
 }
 
-// HealthCheck godoc
-// @Summary      Health check
-// @Description  Check if the API server is alive and running
-// @Tags         Health
-// @Produce      json
-// @Success      200  {object}  map[string]string
-// @Router       /health [get]
-func healthCheck(c *gin.Context) {
-	c.JSON(200, gin.H{"status": "ok"})
-}
-
 func SetupRouter(cfg RouterConfig) *gin.Engine {
 	r := gin.Default()
 
@@ -40,8 +29,6 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	if cfg.Env != "production" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
-
-	r.GET("/health", healthCheck)
 
 	api := r.Group("/api/v1")
 	{
