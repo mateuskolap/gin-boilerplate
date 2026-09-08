@@ -37,3 +37,29 @@ func (p *permissionUseCase) SeedPermissions(ctx context.Context) error {
 
 	return p.permissionRepo.UpsertByName(ctx, permissions)
 }
+
+func (p *permissionUseCase) ListByRoleName(
+	ctx context.Context,
+	roleName string,
+	params domain.PaginationParams,
+	filters []domain.Filter,
+) (*domain.PaginatedResult[domain.Permission], error) {
+	if err := domain.Filters(filters).ValidateAllowed(allowedPermissionFilterFields); err != nil {
+		return nil, err
+	}
+
+	if err := params.ValidateSort(allowedPermissionFilterFields); err != nil {
+		return nil, err
+	}
+
+	result, err := p.permissionRepo.ListByRoleName(ctx, roleName, params, filters)
+	if err != nil {
+		return nil, domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to list permissions by role name",
+			err,
+		)
+	}
+
+	return result, nil
+}

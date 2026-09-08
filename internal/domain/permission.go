@@ -1,6 +1,8 @@
 package domain
 
-import "context"
+import (
+	"context"
+)
 
 type PermissionName string
 
@@ -33,6 +35,8 @@ type PermissionRepository interface {
 
 	// DeleteByNames removes permissions based on their names.
 	DeleteByNames(ctx context.Context, names []string) error
+
+	ListByRoleName(ctx context.Context, roleName string, params PaginationParams, filters []Filter) (*PaginatedResult[Permission], error)
 }
 
 type PermissionUseCase interface {
@@ -40,4 +44,7 @@ type PermissionUseCase interface {
 
 	// Find populates the permissions table with the predefined permissions.
 	SeedPermissions(ctx context.Context) error
+
+	// FindByRole retrieves permissions associated with a specific role.
+	ListByRoleName(ctx context.Context, roleName string, params PaginationParams, filters []Filter) (*PaginatedResult[Permission], error)
 }
