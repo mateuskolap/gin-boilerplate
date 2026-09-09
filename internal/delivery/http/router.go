@@ -12,13 +12,14 @@ import (
 )
 
 type RouterConfig struct {
-	AuthHandler       *v1.AuthHandler
-	UserHandler       *v1.UserHandler
-	RoleHandler       *v1.RoleHandler
-	PermissionHandler *v1.PermissionHandler
-	TokenBlacklist    domain.TokenBlackListRepository
-	JWTSecret         string
-	Env               string
+	AuthHandler         *v1.AuthHandler
+	UserHandler         *v1.UserHandler
+	RoleHandler         *v1.RoleHandler
+	PermissionHandler   *v1.PermissionHandler
+	RefreshTokenHandler *v1.RefreshTokenHandler
+	TokenBlacklist      domain.TokenBlackListRepository
+	JWTSecret           string
+	Env                 string
 }
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {
@@ -43,6 +44,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret, cfg.TokenBlacklist))
 		{
 			protected.POST("/auth/logout", cfg.AuthHandler.Logout)
+			protected.GET("/auth/sessions", cfg.RefreshTokenHandler.ListRefreshTokensByAuthUser)
 
 			users := protected.Group("/users")
 			{
