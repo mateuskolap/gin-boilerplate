@@ -24,6 +24,7 @@ type userUseCase struct {
 	domain.BaseListUseCase[domain.User]
 	domain.BaseFindUseCase[domain.User]
 	userRepo            domain.UserRepository
+	roleRepo            domain.RoleRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
 	tokenBlacklist      domain.TokenBlackListRepository
 	jwtSecret           string
@@ -32,6 +33,7 @@ type userUseCase struct {
 
 func NewUserUseCase(
 	userRepo domain.UserRepository,
+	roleRepo domain.RoleRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
 	tokenBlacklist domain.TokenBlackListRepository,
 	jwtSecret string,
@@ -47,6 +49,7 @@ func NewUserUseCase(
 			"Roles",
 		),
 		userRepo:            userRepo,
+		roleRepo:            roleRepo,
 		refreshTokenUseCase: refreshTokenUseCase,
 		tokenBlacklist:      tokenBlacklist,
 		jwtSecret:           jwtSecret,
@@ -82,6 +85,11 @@ func (u *userUseCase) Register(ctx context.Context, user *domain.User) error {
 	}
 
 	user.Password = string(hashedPassword)
+
+	defaultRole, err := u.roleRepo.GetByName(ctx, domain.RoleUser)
+	if err == nil && defaultRole != nil {
+		user.Roles = []domain.Role{*defaultRole}
+	}
 
 	if err := u.userRepo.Create(ctx, user); err != nil {
 		return domain.NewAppError(

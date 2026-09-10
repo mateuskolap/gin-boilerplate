@@ -6,6 +6,11 @@ import (
 	"uuid"
 )
 
+const (
+	RoleAdmin = "Admin"
+	RoleUser  = "User"
+)
+
 type Role struct {
 	BaseModel
 	Name string `json:"name" gorm:"not null;unique"`

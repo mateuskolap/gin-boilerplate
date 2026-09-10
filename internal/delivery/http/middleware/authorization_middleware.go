@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RequirePermission(permission string, permissionChecker domain.PermissionChecker) gin.HandlerFunc {
+func RequirePermission(permission domain.PermissionName, permissionChecker domain.PermissionCheckerUseCase) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		val, exists := c.Get("user_roles")
 		if !exists {
@@ -24,6 +24,27 @@ func RequirePermission(permission string, permissionChecker domain.PermissionChe
 			_ = c.Error(domain.NewAppError(
 				domain.ErrTypeForbidden,
 				"User roles are invalid or empty",
+				nil,
+			))
+			c.Abort()
+			return
+		}
+
+		allowed, err := permissionChecker.HasPermission(c.Request.Context(), roles, string(permission))
+		if err != nil {
+			_ = c.Error(domain.NewAppError(
+				domain.ErrTypeInternal,
+				"Failed to check permissions",
+				err,
+			))
+			c.Abort()
+			return
+		}
+
+		if !allowed {
+			_ = c.Error(domain.NewAppError(
+				domain.ErrTypeForbidden,
+				"Insufficient permissions",
 				nil,
 			))
 			c.Abort()

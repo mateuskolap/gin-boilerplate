@@ -18,6 +18,7 @@ type RouterConfig struct {
 	PermissionHandler   *v1.PermissionHandler
 	RefreshTokenHandler *v1.RefreshTokenHandler
 	TokenBlacklist      domain.TokenBlackListRepository
+	PermissionChecker   domain.PermissionCheckerUseCase
 	JWTSecret           string
 	Env                 string
 }
@@ -29,6 +30,10 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 
 	if cfg.Env != "production" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
+
+	requirePermission := func(perm domain.PermissionName) gin.HandlerFunc {
+		return middleware.RequirePermission(perm, cfg.PermissionChecker)
 	}
 
 	api := r.Group("/api/v1")
@@ -50,26 +55,26 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			{
 				users.GET("/profile", cfg.UserHandler.GetProfile)
 				users.PUT("/profile", cfg.UserHandler.UpdateProfile)
-				users.GET("", cfg.UserHandler.ListUsers)
-				users.GET("/:id", cfg.UserHandler.FindUser)
-				users.POST("/:id/roles", cfg.UserHandler.AddRoles)
-				users.DELETE("/:id/roles", cfg.UserHandler.RemoveRoles)
+				users.GET("", requirePermission(domain.PermissionViewUser), cfg.UserHandler.ListUsers)
+				users.GET("/:id", requirePermission(domain.PermissionViewUser), cfg.UserHandler.FindUser)
+				users.POST("/:id/roles", requirePermission(domain.PermissionAddUserRole), cfg.UserHandler.AddRoles)
+				users.DELETE("/:id/roles", requirePermission(domain.PermissionRemoveUserRole), cfg.UserHandler.RemoveRoles)
 			}
 
 			roles := protected.Group("/roles")
 			{
-				roles.GET("", cfg.RoleHandler.ListRoles)
-				roles.POST("", cfg.RoleHandler.CreateRole)
-				roles.GET("/:id", cfg.RoleHandler.FindRole)
-				roles.PUT("/:id", cfg.RoleHandler.UpdateRole)
-				roles.DELETE("/:id", cfg.RoleHandler.DeleteRole)
-				roles.POST("/:id/permissions", cfg.RoleHandler.AddPermissions)
-				roles.DELETE("/:id/permissions", cfg.RoleHandler.RemovePermissions)
+				roles.GET("", requirePermission(domain.PermissionViewRole), cfg.RoleHandler.ListRoles)
+				roles.POST("", requirePermission(domain.PermissionCreateRole), cfg.RoleHandler.CreateRole)
+				roles.GET("/:id", requirePermission(domain.PermissionViewRole), cfg.RoleHandler.FindRole)
+				roles.PUT("/:id", requirePermission(domain.PermissionUpdateRole), cfg.RoleHandler.UpdateRole)
+				roles.DELETE("/:id", requirePermission(domain.PermissionDeleteRole), cfg.RoleHandler.DeleteRole)
+				roles.POST("/:id/permissions", requirePermission(domain.PermissionAddRolePermission), cfg.RoleHandler.AddPermissions)
+				roles.DELETE("/:id/permissions", requirePermission(domain.PermissionRemoveRolePermission), cfg.RoleHandler.RemovePermissions)
 			}
 
 			permissions := protected.Group("/permissions")
 			{
-				permissions.GET("", cfg.PermissionHandler.ListPermissions)
+				permissions.GET("", requirePermission(domain.PermissionViewPermission), cfg.PermissionHandler.ListPermissions)
 			}
 		}
 	}

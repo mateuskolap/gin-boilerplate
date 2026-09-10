@@ -7,10 +7,26 @@ import (
 type PermissionName string
 
 const (
-	PermissionCreateRole PermissionName = "create_role"
-	PermissionUpdateRole PermissionName = "update_role"
-	PermissionDeleteRole PermissionName = "delete_role"
-	PermissionViewRole   PermissionName = "view_role"
+	// Roles
+	PermissionCreateRole           PermissionName = "create_role"
+	PermissionUpdateRole           PermissionName = "update_role"
+	PermissionDeleteRole           PermissionName = "delete_role"
+	PermissionViewRole             PermissionName = "view_role"
+	PermissionAddRolePermission    PermissionName = "add_role_permission"
+	PermissionRemoveRolePermission PermissionName = "remove_role_permission"
+
+	// Permissions
+	PermissionViewPermission PermissionName = "view_permission"
+
+	// Users
+	PermissionViewUser       PermissionName = "view_user"
+	PermissionAddUserRole    PermissionName = "add_user_role"
+	PermissionRemoveUserRole PermissionName = "remove_user_role"
+	PermissionViewProfile    PermissionName = "view_profile"
+	PermissionUpdateProfile  PermissionName = "update_profile"
+
+	// Sessions
+	PermissionViewSession PermissionName = "view_session"
 )
 
 var AllPermissions = []PermissionName{
@@ -18,6 +34,15 @@ var AllPermissions = []PermissionName{
 	PermissionUpdateRole,
 	PermissionDeleteRole,
 	PermissionViewRole,
+	PermissionAddRolePermission,
+	PermissionRemoveRolePermission,
+	PermissionViewPermission,
+	PermissionViewUser,
+	PermissionAddUserRole,
+	PermissionRemoveUserRole,
+	PermissionViewProfile,
+	PermissionUpdateProfile,
+	PermissionViewSession,
 }
 
 type Permission struct {

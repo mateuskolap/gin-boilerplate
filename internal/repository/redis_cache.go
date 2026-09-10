@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"gin-boilerplate/internal/domain"
 	"time"
 
@@ -19,19 +21,29 @@ func NewRedisCache(client *redis.Client) domain.CacheRepository {
 	}
 }
 
-func (r *redisCache) Set(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
-	return r.client.Set(ctx, key, value, ttl).Err()
+func (r *redisCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return fmt.Errorf("erro ao serializar para o cache: %w", err)
+	}
+
+	return r.client.Set(ctx, key, data, ttl).Err()
 }
 
-func (r *redisCache) Get(ctx context.Context, key string) (string, error) {
-	val, err := r.client.Get(ctx, key).Result()
+func (r *redisCache) Get(ctx context.Context, key string, dest any) error {
+	bytes, err := r.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			return "", nil
+			return nil
 		}
-		return "", err
+		return err
 	}
-	return val, nil
+
+	if err := json.Unmarshal(bytes, dest); err != nil {
+		return fmt.Errorf("erro ao desserializar do cache: %w", err)
+	}
+
+	return nil
 }
 
 func (r *redisCache) Delete(ctx context.Context, key string) error {

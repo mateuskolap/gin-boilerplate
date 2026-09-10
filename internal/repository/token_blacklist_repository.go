@@ -26,8 +26,8 @@ func (b *tokenBlacklistRepository) RevokeToken(ctx context.Context, jti string, 
 func (b *tokenBlacklistRepository) IsRevoked(ctx context.Context, jti string) (bool, error) {
 	key := fmt.Sprintf("blacklist:jti:%s", jti)
 
-	val, err := b.cache.Get(ctx, key)
-	if err != nil {
+	var val string
+	if err := b.cache.Get(ctx, key, &val); err != nil {
 		return false, err
 	}
 

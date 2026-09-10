@@ -95,27 +95,32 @@ func main() {
 	roleRepo := repository.NewRoleRepository(db)
 	permissionRepo := repository.NewPermissionRepository(db)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
+	rolePermissionRepo := repository.NewRolePermissionRepository(cacheRepo)
 
 	// UseCases
 	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, cfg.RefreshExpiration)
-	userUseCase := usecase.NewUserUseCase(userRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
-	roleUseCase := usecase.NewRoleUseCase(roleRepo)
+	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
+	roleUseCase := usecase.NewRoleUseCase(roleRepo, rolePermissionRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
+	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(rolePermissionRepo, roleRepo)
 
 	// Handlers & Router
 	authHandler := v1.NewAuthHandler(userUseCase)
 	userHandler := v1.NewUserHandler(userUseCase)
 	roleHandler := v1.NewRoleHandler(roleUseCase)
 	permissionHandler := v1.NewPermissionHandler(permissionUseCase)
+	refreshTokenHandler := v1.NewRefreshTokenHandler(refreshTokenUseCase)
 
 	router := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
-		AuthHandler:       authHandler,
-		UserHandler:       userHandler,
-		RoleHandler:       roleHandler,
-		PermissionHandler: permissionHandler,
-		TokenBlacklist:    tokenBlacklistRepo,
-		JWTSecret:         cfg.JWTSecret,
-		Env:               cfg.Env,
+		AuthHandler:         authHandler,
+		UserHandler:         userHandler,
+		RoleHandler:         roleHandler,
+		PermissionHandler:   permissionHandler,
+		RefreshTokenHandler: refreshTokenHandler,
+		TokenBlacklist:      tokenBlacklistRepo,
+		PermissionChecker:   permissionCheckerUseCase,
+		JWTSecret:           cfg.JWTSecret,
+		Env:                 cfg.Env,
 	})
 
 	// Seeders
