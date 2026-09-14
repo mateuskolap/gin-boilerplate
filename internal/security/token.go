@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"gin-boilerplate/internal/domain"
 	"time"
 	"uuid"
 
@@ -44,11 +43,7 @@ func GenerateAccessToken(userID uuid.UUID, roles []string, secret string, expira
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := jwtToken.SignedString([]byte(secret))
 	if err != nil {
-		return "", domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Error signing JWT token",
-			err,
-		)
+		return "", err
 	}
 
 	return tokenString, nil

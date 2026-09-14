@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/pkg/security"
+	"gin-boilerplate/internal/security"
 	"time"
 
 	"uuid"

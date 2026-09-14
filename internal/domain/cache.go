@@ -6,13 +6,16 @@ import (
 )
 
 type CacheRepository interface {
-	// Set stores a value under the given key with an expiration duration.
+	// Standard Key-Value
 	Set(ctx context.Context, key string, value any, ttl time.Duration) error
-
-	// Get retrieves a value by key and unmarshals it into dest.
-	// Returns nil if the key does not exist.
 	Get(ctx context.Context, key string, dest any) error
-
-	// Delete removes a key and its value from cache.
 	Delete(ctx context.Context, key string) error
+
+	// Native Sets
+	SetAdd(ctx context.Context, key string, members []string, ttl time.Duration) error
+	SetMembers(ctx context.Context, key string) ([]string, error)
+	CheckSetMembers(ctx context.Context, keys []string, member string) (hasMember bool, missingKeys []string, err error)
+
+	// Pattern Invalidation
+	DeleteByPattern(ctx context.Context, pattern string) error
 }

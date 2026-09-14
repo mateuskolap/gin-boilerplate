@@ -2,7 +2,7 @@ package v1
 
 import (
 	"gin-boilerplate/internal/delivery/http/dto"
-	"gin-boilerplate/internal/delivery/http/middleware"
+	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
 	"net/http"
 
@@ -10,26 +10,26 @@ import (
 )
 
 type AuthHandler struct {
-	userUseCase domain.UserUseCase
+	authUseCase domain.AuthUseCase
 }
 
-func NewAuthHandler(userUseCase domain.UserUseCase) *AuthHandler {
+func NewAuthHandler(authUseCase domain.AuthUseCase) *AuthHandler {
 	return &AuthHandler{
-		userUseCase: userUseCase,
+		authUseCase: authUseCase,
 	}
 }
 
 // Register godoc
 // @Summary      Register a new user
-// @Description  Register a new user account with name, email and password
+// @Description  Create a new user account with name, email and password. Assigns default User role.
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.RegisterRequest true "User registration details"
-// @Success      201  {object}  middleware.ApiResponse{data=dto.UserResponse}
-// @Failure      409  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      201  {object}  response.ApiResponse{data=dto.UserResponse} "User registered successfully"
+// @Failure      409  {object}  response.ApiResponse "Conflict - Email already in use"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	req, err := bindJSON[dto.RegisterRequest](c)
@@ -44,25 +44,25 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password: req.Password,
 	}
 
-	if err := h.userUseCase.Register(c.Request.Context(), user); err != nil {
+	if err := h.authUseCase.Register(c.Request.Context(), user); err != nil {
 		_ = c.Error(err)
 		return
 	}
 
-	middleware.Success(c, http.StatusCreated, "User registered successfully", dto.ToUserResponse(user))
+	response.Success(c, http.StatusCreated, "User registered successfully", dto.ToUserResponse(user))
 }
 
 // Login godoc
-// @Summary      User login
-// @Description  Authenticate user credentials and return access and refresh tokens
+// @Summary      User authentication
+// @Description  Authenticate user with email and password, returning JWT access token and refresh token
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.LoginRequest true "User login credentials"
-// @Success      200  {object}  middleware.ApiResponse{data=dto.LoginResponse}
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Param        request body dto.LoginRequest true "Login credentials"
+// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Login successful with token pair"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid email or password"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	req, err := bindJSON[dto.LoginRequest](c)
@@ -71,7 +71,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	authTokens, err := h.userUseCase.Login(
+	authTokens, err := h.authUseCase.Login(
 		c.Request.Context(),
 		req.Email,
 		req.Password,
@@ -83,7 +83,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Login successful", dto.LoginResponse{
+	response.Success(c, http.StatusOK, "Login successful", dto.LoginResponse{
 		AccessToken:  authTokens.AccessToken,
 		RefreshToken: authTokens.RefreshToken,
 	})
@@ -91,15 +91,15 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 // Refresh godoc
 // @Summary      Refresh access token
-// @Description  Exchange a valid refresh token for a new access token and refresh token pair
+// @Description  Exchange a valid refresh token for a newly issued access token and rotated refresh token
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.RefreshRequest true "Refresh token payload"
-// @Success      200  {object}  middleware.ApiResponse{data=dto.LoginResponse}
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Tokens refreshed successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid, expired or revoked refresh token"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(c *gin.Context) {
 	req, err := bindJSON[dto.RefreshRequest](c)
@@ -108,7 +108,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	authTokens, err := h.userUseCase.Refresh(
+	authTokens, err := h.authUseCase.Refresh(
 		c.Request.Context(),
 		req.RefreshToken,
 		c.ClientIP(),
@@ -119,7 +119,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Token refreshed successfully", dto.LoginResponse{
+	response.Success(c, http.StatusOK, "Token refreshed successfully", dto.LoginResponse{
 		AccessToken:  authTokens.AccessToken,
 		RefreshToken: authTokens.RefreshToken,
 	})
@@ -127,15 +127,15 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 
 // Logout godoc
 // @Summary      User logout
-// @Description  Invalidate current user JWT token and optional refresh token
+// @Description  Revoke access token by adding it to the blacklist and optionally revoke the refresh token
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.LogoutRequest false "Optional refresh token to revoke"
-// @Success      200  {object}  middleware.ApiResponse
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Param        request body dto.LogoutRequest false "Optional refresh token to revoke alongside access token"
+// @Success      200  {object}  response.ApiResponse "Logged out successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var req dto.LogoutRequest
@@ -143,10 +143,10 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	token, _ := extractToken(c)
 
-	if err := h.userUseCase.Logout(c.Request.Context(), token, req.RefreshToken); err != nil {
+	if err := h.authUseCase.Logout(c.Request.Context(), token, req.RefreshToken); err != nil {
 		_ = c.Error(err)
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Logged out successfully", nil)
+	response.Success(c, http.StatusOK, "Logged out successfully", nil)
 }

@@ -69,7 +69,7 @@ func (r *roleUseCase) Create(ctx context.Context, role *domain.Role) error {
 		)
 	}
 
-	return nil
+	return r.invalidateRolePermissions(ctx, role.Name)
 }
 
 func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
@@ -89,9 +89,13 @@ func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
 		)
 	}
 
-	_ = r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, oldName)
+	if err := r.invalidateRolePermissions(ctx, oldName); err != nil {
+		return err
+	}
 	if oldName != role.Name {
-		_ = r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, role.Name)
+		if err := r.invalidateRolePermissions(ctx, role.Name); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -107,8 +111,7 @@ func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	_ = r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, existingRole.Name)
-	return nil
+	return r.invalidateRolePermissions(ctx, existingRole.Name)
 }
 
 func (r *roleUseCase) AddPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
@@ -121,8 +124,7 @@ func (r *roleUseCase) AddPermissions(ctx context.Context, roleID uuid.UUID, perm
 		return err
 	}
 
-	_ = r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, role.Name)
-	return nil
+	return r.invalidateRolePermissions(ctx, role.Name)
 }
 
 func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
@@ -135,6 +137,16 @@ func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, p
 		return err
 	}
 
-	_ = r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, role.Name)
+	return r.invalidateRolePermissions(ctx, role.Name)
+}
+
+func (r *roleUseCase) invalidateRolePermissions(ctx context.Context, roleName string) error {
+	if err := r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, roleName); err != nil {
+		return domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to invalidate role permissions",
+			err,
+		)
+	}
 	return nil
 }

@@ -2,13 +2,12 @@ package middleware
 
 import (
 	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/pkg/security"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
-func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackListRepository) gin.HandlerFunc {
+func AuthenticationMiddleware(authUseCase domain.AuthUseCase) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -34,34 +33,9 @@ func AuthMiddleware(jwtSecret string, blacklist domain.TokenBlackListRepository)
 
 		tokenString := parts[1]
 
-		claims, err := security.ParseAndValidateJWT(tokenString, jwtSecret)
+		claims, err := authUseCase.ValidateAccessToken(c.Request.Context(), tokenString)
 		if err != nil {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeUnauthorized,
-				"Invalid or expired token",
-				err,
-			))
-			c.Abort()
-			return
-		}
-
-		isRevoked, err := blacklist.IsRevoked(c.Request.Context(), claims.ID)
-		if err != nil {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeInternal,
-				"Failed to check token revocation status",
-				err,
-			))
-			c.Abort()
-			return
-		}
-
-		if isRevoked {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeUnauthorized,
-				"Invalid or expired token",
-				nil,
-			))
+			_ = c.Error(err)
 			c.Abort()
 			return
 		}

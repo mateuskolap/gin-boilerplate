@@ -17,9 +17,8 @@ type RouterConfig struct {
 	RoleHandler         *v1.RoleHandler
 	PermissionHandler   *v1.PermissionHandler
 	RefreshTokenHandler *v1.RefreshTokenHandler
-	TokenBlacklist      domain.TokenBlackListRepository
+	AuthUseCase         domain.AuthUseCase
 	PermissionChecker   domain.PermissionCheckerUseCase
-	JWTSecret           string
 	Env                 string
 }
 
@@ -46,7 +45,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		}
 
 		protected := api.Group("")
-		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret, cfg.TokenBlacklist))
+		protected.Use(middleware.AuthenticationMiddleware(cfg.AuthUseCase))
 		{
 			protected.POST("/auth/logout", cfg.AuthHandler.Logout)
 			protected.GET("/auth/sessions", cfg.RefreshTokenHandler.ListRefreshTokensByAuthUser)

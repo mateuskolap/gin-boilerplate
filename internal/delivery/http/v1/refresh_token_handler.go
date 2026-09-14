@@ -2,7 +2,7 @@ package v1
 
 import (
 	"gin-boilerplate/internal/delivery/http/dto"
-	"gin-boilerplate/internal/delivery/http/middleware"
+	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
 	"net/http"
 
@@ -19,6 +19,22 @@ func NewRefreshTokenHandler(refreshTokenUseCase domain.RefreshTokenUseCase) *Ref
 	}
 }
 
+// ListRefreshTokensByAuthUser godoc
+// @Summary      List active user sessions
+// @Description  Retrieve paginated active refresh token sessions for the authenticated user, with optional filters and sorting
+// @Tags         Sessions
+// @Produce      json
+// @Security     BearerAuth
+// @Param        page        query     int     false  "Page number (default: 1)" minimum(1)
+// @Param        limit       query     int     false  "Items per page (default: 10, max: 100)" minimum(1) maximum(100)
+// @Param        sort        query     string  false  "Sorting criteria (e.g. created_at:desc, -expires_at)"
+// @Param        user_agent  query     string  false  "Filter by User Agent (partial match)"
+// @Param        ip_address  query     string  false  "Filter by IP Address (partial match)"
+// @Success      200         {object}  response.ApiResponse{data=dto.PaginatedRefreshTokenResponse} "Sessions retrieved successfully"
+// @Failure      401         {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      422         {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"
+// @Failure      500         {object}  response.ApiResponse "Internal server error"
+// @Router       /api/v1/auth/sessions [get]
 func (h *RefreshTokenHandler) ListRefreshTokensByAuthUser(c *gin.Context) {
 	userID, err := extractCurrentUserID(c)
 	if err != nil {
@@ -51,6 +67,6 @@ func (h *RefreshTokenHandler) ListRefreshTokensByAuthUser(c *gin.Context) {
 		return
 	}
 
-	response := dto.ToPaginatedResponse(result, dto.ToRefreshTokenResponse)
-	middleware.Success(c, http.StatusOK, "Refresh tokens retrieved successfully", response)
+	resp := dto.ToPaginatedResponse(result, dto.ToRefreshTokenResponse)
+	response.Success(c, http.StatusOK, "Refresh tokens retrieved successfully", resp)
 }

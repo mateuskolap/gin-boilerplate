@@ -33,18 +33,6 @@ type UserUseCase interface {
 
 	BaseFindUseCase[User]
 
-	// Register validates, hashes credentials, and creates a new user account.
-	Register(ctx context.Context, user *User) error
-
-	// Login verifies credentials and generates access and refresh tokens.
-	Login(ctx context.Context, email string, password, ipAddress, userAgent string) (*AuthTokens, error)
-
-	// Refresh verifies user has a valid refresh token and generates a signed JWT token string
-	Refresh(ctx context.Context, refreshToken string, ipAddress, userAgent string) (*AuthTokens, error)
-
-	// Logout invalidates a JWT token by adding its ID to the blacklist.
-	Logout(ctx context.Context, accessToken, refreshToken string) error
-
 	// UpdateProfile updates editable user profile fields.
 	UpdateProfile(ctx context.Context, user *User) error
 

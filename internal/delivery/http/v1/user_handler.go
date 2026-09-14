@@ -2,7 +2,7 @@ package v1
 
 import (
 	"gin-boilerplate/internal/delivery/http/dto"
-	"gin-boilerplate/internal/delivery/http/middleware"
+	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
 	"net/http"
 
@@ -21,16 +21,17 @@ func NewUserHandler(userUseCase domain.UserUseCase) *UserHandler {
 
 // FindUser godoc
 // @Summary      Get user by ID
-// @Description  Retrieve detailed information of a user by UUID
+// @Description  Retrieve detailed user profile including assigned roles by UUID. Requires 'view_user' permission.
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "User UUID" format(uuid)
-// @Success      200  {object}  middleware.ApiResponse{data=dto.UserWithRoleResponse}
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      404  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      200  {object}  response.ApiResponse{data=dto.UserWithRoleResponse} "User retrieved successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403  {object}  response.ApiResponse "Forbidden - Requires view_user permission"
+// @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/users/{id} [get]
 func (h *UserHandler) FindUser(c *gin.Context) {
 	userID, err := extractParamID(c, "id")
@@ -45,23 +46,25 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "User retrieved successfully", dto.ToUserWithRoleResponse(user))
+	response.Success(c, http.StatusOK, "User retrieved successfully", dto.ToUserWithRoleResponse(user))
 }
 
 // ListUsers godoc
 // @Summary      List users
-// @Description  Get paginated list of users with optional filters and sorting
+// @Description  Get paginated list of users with optional filtering and sorting. Requires 'view_user' permission.
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
-// @Param        page   query     int     false  "Page number (default: 1)"
-// @Param        limit  query     int     false  "Items per page (default: 10, max: 100)"
+// @Param        page   query     int     false  "Page number (default: 1)" minimum(1)
+// @Param        limit  query     int     false  "Items per page (default: 10, max: 100)" minimum(1) maximum(100)
 // @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
 // @Param        name   query     string  false  "Filter by user name (partial match)"
 // @Param        email  query     string  false  "Filter by user email (partial match)"
-// @Success      200    {object}  middleware.ApiResponse{data=dto.PaginatedUserResponse}
-// @Failure      401    {object}  middleware.ApiResponse
-// @Failure      500    {object}  middleware.ApiResponse
+// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedUserResponse} "Users retrieved successfully"
+// @Failure      401    {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403    {object}  response.ApiResponse "Forbidden - Requires view_user permission"
+// @Failure      422    {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"
+// @Failure      500    {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/users [get]
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	params := extractPaginationParams(c)
@@ -89,8 +92,8 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 		return
 	}
 
-	response := dto.ToPaginatedResponse(result, dto.ToUserResponse)
-	middleware.Success(c, http.StatusOK, "Users retrieved successfully", response)
+	resp := dto.ToPaginatedResponse(result, dto.ToUserResponse)
+	response.Success(c, http.StatusOK, "Users retrieved successfully", resp)
 }
 
 // GetProfile godoc
@@ -99,10 +102,10 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {object}  middleware.ApiResponse{data=dto.UserResponse}
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      404  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      200  {object}  response.ApiResponse{data=dto.UserResponse} "User profile retrieved successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/users/profile [get]
 func (h *UserHandler) GetProfile(c *gin.Context) {
 	userID, err := extractCurrentUserID(c)
@@ -117,21 +120,22 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Profile retrieved successfully", dto.ToUserResponse(user))
+	response.Success(c, http.StatusOK, "Profile retrieved successfully", dto.ToUserResponse(user))
 }
 
 // UpdateProfile godoc
 // @Summary      Update user profile
-// @Description  Update current authenticated user profile information
+// @Description  Update current authenticated user profile details (e.g. name)
 // @Tags         Users
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request body dto.UpdateProfileRequest true "User profile update details"
-// @Success      200  {object}  middleware.ApiResponse{data=dto.UserResponse}
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      200  {object}  response.ApiResponse{data=dto.UserResponse} "Profile updated successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid request payload"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/users/profile [put]
 func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	userID, err := extractCurrentUserID(c)
@@ -156,23 +160,24 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Profile updated successfully", dto.ToUserResponse(user))
+	response.Success(c, http.StatusOK, "Profile updated successfully", dto.ToUserResponse(user))
 }
 
 // AddRoles godoc
 // @Summary      Add roles to user
-// @Description  Assign one or more roles to a user by role UUIDs
+// @Description  Assign one or more roles to a user by role UUIDs. Requires 'add_user_role' permission.
 // @Tags         Users
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                      true  "User UUID" format(uuid)
 // @Param        request  body      dto.UpdateUserRolesRequest  true  "Role UUIDs to assign"
-// @Success      200      {object}  middleware.ApiResponse
-// @Failure      401      {object}  middleware.ApiResponse
-// @Failure      404      {object}  middleware.ApiResponse
-// @Failure      422      {object}  middleware.ApiResponse
-// @Failure      500      {object}  middleware.ApiResponse
+// @Success      200      {object}  response.ApiResponse "Roles added to user successfully"
+// @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403      {object}  response.ApiResponse "Forbidden - Requires add_user_role permission"
+// @Failure      404      {object}  response.ApiResponse "Not Found - User not found"
+// @Failure      422      {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format or request payload"
+// @Failure      500      {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/users/{id}/roles [post]
 func (h *UserHandler) AddRoles(c *gin.Context) {
 	userID, err := extractParamID(c, "id")
@@ -192,23 +197,24 @@ func (h *UserHandler) AddRoles(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Roles added to user successfully", nil)
+	response.Success(c, http.StatusOK, "Roles added to user successfully", nil)
 }
 
 // RemoveRoles godoc
 // @Summary      Remove roles from user
-// @Description  Remove one or more assigned roles from a user by role UUIDs
+// @Description  Remove one or more assigned roles from a user by role UUIDs. Requires 'remove_user_role' permission.
 // @Tags         Users
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                      true  "User UUID" format(uuid)
 // @Param        request  body      dto.UpdateUserRolesRequest  true  "Role UUIDs to remove"
-// @Success      200      {object}  middleware.ApiResponse
-// @Failure      401      {object}  middleware.ApiResponse
-// @Failure      404      {object}  middleware.ApiResponse
-// @Failure      422      {object}  middleware.ApiResponse
-// @Failure      500      {object}  middleware.ApiResponse
+// @Success      200      {object}  response.ApiResponse "Roles removed from user successfully"
+// @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403      {object}  response.ApiResponse "Forbidden - Requires remove_user_role permission"
+// @Failure      404      {object}  response.ApiResponse "Not Found - User not found"
+// @Failure      422      {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format or request payload"
+// @Failure      500      {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/users/{id}/roles [delete]
 func (h *UserHandler) RemoveRoles(c *gin.Context) {
 	userID, err := extractParamID(c, "id")
@@ -228,5 +234,5 @@ func (h *UserHandler) RemoveRoles(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Roles removed from user successfully", nil)
+	response.Success(c, http.StatusOK, "Roles removed from user successfully", nil)
 }

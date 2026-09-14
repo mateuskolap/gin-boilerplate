@@ -51,6 +51,21 @@ definitions:
       total_pages:
         type: integer
     type: object
+  dto.PaginatedRefreshTokenResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dto.RefreshTokenResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
   dto.PaginatedRoleResponse:
     properties:
       items:
@@ -97,6 +112,31 @@ definitions:
         type: string
     required:
     - refresh_token
+    type: object
+  dto.RefreshTokenResponse:
+    properties:
+      created_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      expires_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      id:
+        example: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        type: string
+      ip_address:
+        example: 192.168.1.1
+        type: string
+      updated_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      user_agent:
+        example: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+          like Gecko) Chrome/58.0.3029.110 Safari/537.3
+        type: string
+      user_id:
+        example: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        type: string
     type: object
   dto.RegisterRequest:
     properties:
@@ -194,7 +234,29 @@ definitions:
         example: "2026-01-01T00:00:00Z"
         type: string
     type: object
-  middleware.ApiResponse:
+  dto.UserWithRoleResponse:
+    properties:
+      created_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+      email:
+        example: john.doe@example.com
+        type: string
+      id:
+        example: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+        type: string
+      name:
+        example: John Doe
+        type: string
+      roles:
+        items:
+          $ref: '#/definitions/dto.RoleResponse'
+        type: array
+      updated_at:
+        example: "2026-01-01T00:00:00Z"
+        type: string
+    type: object
+  response.ApiResponse:
     properties:
       data: {}
       error:
@@ -221,9 +283,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticate user credentials and return access and refresh tokens
+      description: Authenticate user with email and password, returning JWT access
+        token and refresh token
       parameters:
-      - description: User login credentials
+      - description: Login credentials
         in: body
         name: request
         required: true
@@ -233,36 +296,37 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Login successful with token pair
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.LoginResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Invalid email or password
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid payload validation
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
-      summary: User login
+            $ref: '#/definitions/response.ApiResponse'
+      summary: User authentication
       tags:
       - Auth
   /api/v1/auth/logout:
     post:
       consumes:
       - application/json
-      description: Invalidate current user JWT token and optional refresh token
+      description: Revoke access token by adding it to the blacklist and optionally
+        revoke the refresh token
       parameters:
-      - description: Optional refresh token to revoke
+      - description: Optional refresh token to revoke alongside access token
         in: body
         name: request
         schema:
@@ -271,17 +335,17 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Logged out successfully
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: User logout
@@ -291,8 +355,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Exchange a valid refresh token for a new access token and refresh
-        token pair
+      description: Exchange a valid refresh token for a newly issued access token
+        and rotated refresh token
       parameters:
       - description: Refresh token payload
         in: body
@@ -304,26 +368,26 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Tokens refreshed successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.LoginResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Invalid, expired or revoked refresh token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid payload validation
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       summary: Refresh access token
       tags:
       - Auth
@@ -331,7 +395,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Register a new user account with name, email and password
+      description: Create a new user account with name, email and password. Assigns
+        default User role.
       parameters:
       - description: User registration details
         in: body
@@ -343,39 +408,100 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: User registered successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.UserResponse'
               type: object
         "409":
-          description: Conflict
+          description: Conflict - Email already in use
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid payload validation
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       summary: Register a new user
       tags:
       - Auth
-  /api/v1/permissions:
+  /api/v1/auth/sessions:
     get:
-      description: Get paginated list of permissions with optional filters and sorting
+      description: Retrieve paginated active refresh token sessions for the authenticated
+        user, with optional filters and sorting
       parameters:
       - description: 'Page number (default: 1)'
         in: query
+        minimum: 1
         name: page
         type: integer
       - description: 'Items per page (default: 10, max: 100)'
         in: query
+        maximum: 100
+        minimum: 1
+        name: limit
+        type: integer
+      - description: Sorting criteria (e.g. created_at:desc, -expires_at)
+        in: query
+        name: sort
+        type: string
+      - description: Filter by User Agent (partial match)
+        in: query
+        name: user_agent
+        type: string
+      - description: Filter by IP Address (partial match)
+        in: query
+        name: ip_address
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sessions retrieved successfully
+          schema:
+            allOf:
+            - $ref: '#/definitions/response.ApiResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.PaginatedRefreshTokenResponse'
+              type: object
+        "401":
+          description: Unauthorized - Missing or invalid token
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: Unprocessable Entity - Invalid filter or sorting parameter
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: List active user sessions
+      tags:
+      - Sessions
+  /api/v1/permissions:
+    get:
+      description: Get paginated list of available system permissions with optional
+        filters and sorting. Requires 'view_permission' permission.
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: 'Items per page (default: 10, max: 100)'
+        in: query
+        maximum: 100
+        minimum: 1
         name: limit
         type: integer
       - description: Sorting criteria (e.g. name:asc, created_at:desc or -created_at)
@@ -390,22 +516,30 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Permissions retrieved successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.PaginatedPermissionResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires view_permission permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: Unprocessable Entity - Invalid filter or sorting parameter
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: List permissions
@@ -413,14 +547,18 @@ paths:
       - Permissions
   /api/v1/roles:
     get:
-      description: Get paginated list of roles with optional filters and sorting
+      description: Get paginated list of roles with optional filters and sorting.
+        Requires 'view_role' permission.
       parameters:
       - description: 'Page number (default: 1)'
         in: query
+        minimum: 1
         name: page
         type: integer
       - description: 'Items per page (default: 10, max: 100)'
         in: query
+        maximum: 100
+        minimum: 1
         name: limit
         type: integer
       - description: Sorting criteria (e.g. name:asc, created_at:desc or -created_at)
@@ -435,22 +573,30 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Roles retrieved successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.PaginatedRoleResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires view_role permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: Unprocessable Entity - Invalid filter or sorting parameter
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: List roles
@@ -459,7 +605,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new role with the specified name
+      description: Create a new unique role. Requires 'create_role' permission.
       parameters:
       - description: Role creation details
         in: body
@@ -471,30 +617,34 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Role created successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.RoleResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires create_role permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "409":
-          description: Conflict
+          description: Conflict - Role already exists
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid request payload
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Create a new role
@@ -502,7 +652,7 @@ paths:
       - Roles
   /api/v1/roles/{id}:
     delete:
-      description: Delete a role by UUID
+      description: Delete a role by UUID. Requires 'delete_role' permission.
       parameters:
       - description: Role UUID
         format: uuid
@@ -514,32 +664,37 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Role deleted successfully
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires delete_role permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - Role not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Delete role
       tags:
       - Roles
     get:
-      description: Retrieve detailed information of a role by UUID
+      description: Retrieve detailed information of a role including assigned permissions
+        by UUID. Requires 'view_role' permission.
       parameters:
       - description: Role UUID
         format: uuid
@@ -551,30 +706,34 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Role retrieved successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.RoleResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires view_role permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - Role not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Get role by ID
@@ -583,7 +742,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update role information by UUID
+      description: Update role information by UUID. Requires 'update_role' permission.
       parameters:
       - description: Role UUID
         format: uuid
@@ -601,30 +760,34 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Role updated successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.RoleResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires update_role permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - Role not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format or request payload
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Update role
@@ -634,7 +797,8 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Remove one or more permissions from a role by permission UUIDs
+      description: Remove one or more permissions from a role by permission UUIDs.
+        Requires 'remove_role_permission' permission.
       parameters:
       - description: Role UUID
         format: uuid
@@ -652,25 +816,29 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Permissions removed from role successfully
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires remove_role_permission permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - Role not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format or request payload
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Remove permissions from role
@@ -679,7 +847,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Assign one or more permissions to a role by permission UUIDs
+      description: Assign one or more permissions to a role by permission UUIDs. Requires
+        'add_role_permission' permission.
       parameters:
       - description: Role UUID
         format: uuid
@@ -697,25 +866,29 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created
+          description: Permissions added to role successfully
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires add_role_permission permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - Role not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format or request payload
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Add permissions to role
@@ -723,14 +896,18 @@ paths:
       - Roles
   /api/v1/users:
     get:
-      description: Get paginated list of users with optional filters and sorting
+      description: Get paginated list of users with optional filtering and sorting.
+        Requires 'view_user' permission.
       parameters:
       - description: 'Page number (default: 1)'
         in: query
+        minimum: 1
         name: page
         type: integer
       - description: 'Items per page (default: 10, max: 100)'
         in: query
+        maximum: 100
+        minimum: 1
         name: limit
         type: integer
       - description: Sorting criteria (e.g. name:asc, created_at:desc or -created_at)
@@ -749,22 +926,30 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Users retrieved successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.PaginatedUserResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires view_user permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: Unprocessable Entity - Invalid filter or sorting parameter
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: List users
@@ -772,7 +957,8 @@ paths:
       - Users
   /api/v1/users/{id}:
     get:
-      description: Retrieve detailed information of a user by UUID
+      description: Retrieve detailed user profile including assigned roles by UUID.
+        Requires 'view_user' permission.
       parameters:
       - description: User UUID
         format: uuid
@@ -784,30 +970,34 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: User retrieved successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.UserResponse'
+                  $ref: '#/definitions/dto.UserWithRoleResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires view_user permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - User not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Get user by ID
@@ -817,7 +1007,8 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Remove one or more assigned roles from a user by role UUIDs
+      description: Remove one or more assigned roles from a user by role UUIDs. Requires
+        'remove_user_role' permission.
       parameters:
       - description: User UUID
         format: uuid
@@ -835,25 +1026,29 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Roles removed from user successfully
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires remove_user_role permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - User not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format or request payload
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Remove roles from user
@@ -862,7 +1057,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Assign one or more roles to a user by role UUIDs
+      description: Assign one or more roles to a user by role UUIDs. Requires 'add_user_role'
+        permission.
       parameters:
       - description: User UUID
         format: uuid
@@ -880,25 +1076,29 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Roles added to user successfully
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires add_user_role permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - User not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid UUID format or request payload
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Add roles to user
@@ -911,26 +1111,26 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: User profile retrieved successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.UserResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "404":
-          description: Not Found
+          description: Not Found - User not found
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Get user profile
@@ -939,7 +1139,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update current authenticated user profile information
+      description: Update current authenticated user profile details (e.g. name)
       parameters:
       - description: User profile update details
         in: body
@@ -951,46 +1151,35 @@ paths:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Profile updated successfully
           schema:
             allOf:
-            - $ref: '#/definitions/middleware.ApiResponse'
+            - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
                   $ref: '#/definitions/dto.UserResponse'
               type: object
         "401":
-          description: Unauthorized
+          description: Unauthorized - Missing or invalid token
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
+        "404":
+          description: Not Found - User not found
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
         "422":
-          description: Unprocessable Entity
+          description: Unprocessable Entity - Invalid request payload
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
-            $ref: '#/definitions/middleware.ApiResponse'
+            $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
       summary: Update user profile
       tags:
       - Users
-  /health:
-    get:
-      description: Check if the API server is alive and running
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Health check
-      tags:
-      - Health
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").

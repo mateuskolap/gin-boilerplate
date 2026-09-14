@@ -21,7 +21,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/auth/login": {
             "post": {
-                "description": "Authenticate user credentials and return access and refresh tokens",
+                "description": "Authenticate user with email and password, returning JWT access token and refresh token",
                 "consumes": [
                     "application/json"
                 ],
@@ -31,10 +31,10 @@ const docTemplate = `{
                 "tags": [
                     "Auth"
                 ],
-                "summary": "User login",
+                "summary": "User authentication",
                 "parameters": [
                     {
-                        "description": "User login credentials",
+                        "description": "Login credentials",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -45,11 +45,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Login successful with token pair",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -63,21 +63,21 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Invalid email or password",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid payload validation",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -90,7 +90,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Invalidate current user JWT token and optional refresh token",
+                "description": "Revoke access token by adding it to the blacklist and optionally revoke the refresh token",
                 "consumes": [
                     "application/json"
                 ],
@@ -103,7 +103,7 @@ const docTemplate = `{
                 "summary": "User logout",
                 "parameters": [
                     {
-                        "description": "Optional refresh token to revoke",
+                        "description": "Optional refresh token to revoke alongside access token",
                         "name": "request",
                         "in": "body",
                         "schema": {
@@ -113,21 +113,21 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Logged out successfully",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -135,7 +135,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/refresh": {
             "post": {
-                "description": "Exchange a valid refresh token for a new access token and refresh token pair",
+                "description": "Exchange a valid refresh token for a newly issued access token and rotated refresh token",
                 "consumes": [
                     "application/json"
                 ],
@@ -159,11 +159,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Tokens refreshed successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -177,21 +177,21 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Invalid, expired or revoked refresh token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid payload validation",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -199,7 +199,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "Register a new user account with name, email and password",
+                "description": "Create a new user account with name, email and password. Assigns default User role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -223,11 +223,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "User registered successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -241,21 +241,111 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflict - Email already in use",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid payload validation",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/sessions": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve paginated active refresh token sessions for the authenticated user, with optional filters and sorting",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sessions"
+                ],
+                "summary": "List active user sessions",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Items per page (default: 10, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sorting criteria (e.g. created_at:desc, -expires_at)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by User Agent (partial match)",
+                        "name": "user_agent",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by IP Address (partial match)",
+                        "name": "ip_address",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sessions retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ApiResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.PaginatedRefreshTokenResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid filter or sorting parameter",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -268,7 +358,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get paginated list of permissions with optional filters and sorting",
+                "description": "Get paginated list of available system permissions with optional filters and sorting. Requires 'view_permission' permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -278,12 +368,15 @@ const docTemplate = `{
                 "summary": "List permissions",
                 "parameters": [
                     {
+                        "minimum": 1,
                         "type": "integer",
                         "description": "Page number (default: 1)",
                         "name": "page",
                         "in": "query"
                     },
                     {
+                        "maximum": 100,
+                        "minimum": 1,
                         "type": "integer",
                         "description": "Items per page (default: 10, max: 100)",
                         "name": "limit",
@@ -304,11 +397,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Permissions retrieved successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -322,15 +415,27 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires view_permission permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid filter or sorting parameter",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -343,7 +448,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get paginated list of roles with optional filters and sorting",
+                "description": "Get paginated list of roles with optional filters and sorting. Requires 'view_role' permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -353,12 +458,15 @@ const docTemplate = `{
                 "summary": "List roles",
                 "parameters": [
                     {
+                        "minimum": 1,
                         "type": "integer",
                         "description": "Page number (default: 1)",
                         "name": "page",
                         "in": "query"
                     },
                     {
+                        "maximum": 100,
+                        "minimum": 1,
                         "type": "integer",
                         "description": "Items per page (default: 10, max: 100)",
                         "name": "limit",
@@ -379,11 +487,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Roles retrieved successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -397,15 +505,27 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires view_role permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid filter or sorting parameter",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -416,7 +536,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new role with the specified name",
+                "description": "Create a new unique role. Requires 'create_role' permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -440,11 +560,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Role created successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -458,27 +578,33 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires create_role permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "Conflict - Role already exists",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid request payload",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -491,7 +617,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve detailed information of a role by UUID",
+                "description": "Retrieve detailed information of a role including assigned permissions by UUID. Requires 'view_role' permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -511,11 +637,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Role retrieved successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -529,27 +655,33 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires view_role permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Role not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -560,7 +692,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update role information by UUID",
+                "description": "Update role information by UUID. Requires 'update_role' permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -592,11 +724,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Role updated successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -610,27 +742,33 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires update_role permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Role not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format or request payload",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -641,7 +779,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a role by UUID",
+                "description": "Delete a role by UUID. Requires 'delete_role' permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -661,33 +799,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Role deleted successfully",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires delete_role permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Role not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -700,7 +844,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Assign one or more permissions to a role by permission UUIDs",
+                "description": "Assign one or more permissions to a role by permission UUIDs. Requires 'add_role_permission' permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -732,33 +876,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Permissions added to role successfully",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires add_role_permission permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Role not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format or request payload",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -769,7 +919,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Remove one or more permissions from a role by permission UUIDs",
+                "description": "Remove one or more permissions from a role by permission UUIDs. Requires 'remove_role_permission' permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -801,33 +951,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Permissions removed from role successfully",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires remove_role_permission permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - Role not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format or request payload",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -840,7 +996,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get paginated list of users with optional filters and sorting",
+                "description": "Get paginated list of users with optional filtering and sorting. Requires 'view_user' permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -850,12 +1006,15 @@ const docTemplate = `{
                 "summary": "List users",
                 "parameters": [
                     {
+                        "minimum": 1,
                         "type": "integer",
                         "description": "Page number (default: 1)",
                         "name": "page",
                         "in": "query"
                     },
                     {
+                        "maximum": 100,
+                        "minimum": 1,
                         "type": "integer",
                         "description": "Items per page (default: 10, max: 100)",
                         "name": "limit",
@@ -882,11 +1041,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Users retrieved successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -900,15 +1059,27 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires view_user permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid filter or sorting parameter",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -931,11 +1102,11 @@ const docTemplate = `{
                 "summary": "Get user profile",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "User profile retrieved successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -949,21 +1120,21 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - User not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -974,7 +1145,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update current authenticated user profile information",
+                "description": "Update current authenticated user profile details (e.g. name)",
                 "consumes": [
                     "application/json"
                 ],
@@ -998,11 +1169,11 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Profile updated successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
@@ -1016,21 +1187,27 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found - User not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid request payload",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -1043,7 +1220,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Retrieve detailed information of a user by UUID",
+                "description": "Retrieve detailed user profile including assigned roles by UUID. Requires 'view_user' permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -1063,17 +1240,17 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "User retrieved successfully",
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/middleware.ApiResponse"
+                                    "$ref": "#/definitions/response.ApiResponse"
                                 },
                                 {
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.UserResponse"
+                                            "$ref": "#/definitions/dto.UserWithRoleResponse"
                                         }
                                     }
                                 }
@@ -1081,27 +1258,33 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires view_user permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - User not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -1114,7 +1297,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Assign one or more roles to a user by role UUIDs",
+                "description": "Assign one or more roles to a user by role UUIDs. Requires 'add_user_role' permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1146,33 +1329,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Roles added to user successfully",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires add_user_role permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - User not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format or request payload",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -1183,7 +1372,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Remove one or more assigned roles from a user by role UUIDs",
+                "description": "Remove one or more assigned roles from a user by role UUIDs. Requires 'remove_user_role' permission.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1215,56 +1404,39 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Roles removed from user successfully",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Unauthorized - Missing or invalid token",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires remove_user_role permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Not Found - User not found",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "422": {
-                        "description": "Unprocessable Entity",
+                        "description": "Unprocessable Entity - Invalid UUID format or request payload",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/middleware.ApiResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/health": {
-            "get": {
-                "description": "Check if the API server is alive and running",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Health"
-                ],
-                "summary": "Health check",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
                 }
@@ -1331,6 +1503,29 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/dto.PermissionResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.PaginatedRefreshTokenResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.RefreshTokenResponse"
                     }
                 },
                 "limit": {
@@ -1415,6 +1610,39 @@ const docTemplate = `{
                 "refresh_token": {
                     "type": "string",
                     "example": "a1b2c3d4e5f6..."
+                }
+            }
+        },
+        "dto.RefreshTokenResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "expires_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+                },
+                "ip_address": {
+                    "type": "string",
+                    "example": "192.168.1.1"
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "user_agent": {
+                    "type": "string",
+                    "example": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+                },
+                "user_id": {
+                    "type": "string",
+                    "example": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
                 }
             }
         },
@@ -1553,7 +1781,38 @@ const docTemplate = `{
                 }
             }
         },
-        "middleware.ApiResponse": {
+        "dto.UserWithRoleResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "john.doe@example.com"
+                },
+                "id": {
+                    "type": "string",
+                    "example": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.RoleResponse"
+                    }
+                },
+                "updated_at": {
+                    "type": "string",
+                    "example": "2026-01-01T00:00:00Z"
+                }
+            }
+        },
+        "response.ApiResponse": {
             "type": "object",
             "properties": {
                 "data": {},

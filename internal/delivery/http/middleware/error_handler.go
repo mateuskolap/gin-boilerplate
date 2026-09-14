@@ -2,26 +2,12 @@ package middleware
 
 import (
 	"errors"
+	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
-
-type ApiResponse struct {
-	Success bool        `json:"success" example:"true"`
-	Message string      `json:"message,omitempty" example:"Operation completed successfully"`
-	Data    interface{} `json:"data,omitempty"`
-	Error   string      `json:"error,omitempty" example:"Error description"`
-}
-
-func Success(c *gin.Context, statusCode int, message string, data interface{}) {
-	c.JSON(statusCode, ApiResponse{
-		Success: true,
-		Message: message,
-		Data:    data,
-	})
-}
 
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -54,14 +40,14 @@ func HandleError(c *gin.Context, err error) {
 			statusCode = http.StatusInternalServerError
 		}
 
-		c.JSON(statusCode, ApiResponse{
+		c.JSON(statusCode, response.ApiResponse{
 			Success: false,
 			Error:   appErr.Message,
 		})
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, ApiResponse{
+	c.JSON(http.StatusInternalServerError, response.ApiResponse{
 		Success: false,
 		Error:   "Internal server error",
 	})

@@ -13,16 +13,21 @@ var allowedPermissionFilterFields = map[string]bool{
 
 type permissionUseCase struct {
 	domain.BaseListUseCase[domain.Permission]
-	permissionRepo domain.PermissionRepository
+	permissionRepo     domain.PermissionRepository
+	rolePermissionRepo domain.RolePermissionRepository
 }
 
-func NewPermissionUseCase(permissionRepo domain.PermissionRepository) domain.PermissionUseCase {
+func NewPermissionUseCase(
+	permissionRepo domain.PermissionRepository,
+	rolePermissionRepo domain.RolePermissionRepository,
+) domain.PermissionUseCase {
 	return &permissionUseCase{
 		BaseListUseCase: NewBaseListUseCase(
 			permissionRepo,
 			allowedPermissionFilterFields,
 		),
-		permissionRepo: permissionRepo,
+		permissionRepo:     permissionRepo,
+		rolePermissionRepo: rolePermissionRepo,
 	}
 }
 
@@ -35,31 +40,9 @@ func (p *permissionUseCase) SeedPermissions(ctx context.Context) error {
 		})
 	}
 
-	return p.permissionRepo.UpsertByName(ctx, permissions)
-}
-
-func (p *permissionUseCase) ListByRoleName(
-	ctx context.Context,
-	roleName string,
-	params domain.PaginationParams,
-	filters []domain.Filter,
-) (*domain.PaginatedResult[domain.Permission], error) {
-	if err := domain.Filters(filters).ValidateAllowed(allowedPermissionFilterFields); err != nil {
-		return nil, err
+	if err := p.permissionRepo.UpsertByName(ctx, permissions); err != nil {
+		return err
 	}
 
-	if err := params.ValidateSort(allowedPermissionFilterFields); err != nil {
-		return nil, err
-	}
-
-	result, err := p.permissionRepo.ListByRoleName(ctx, roleName, params, filters)
-	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to list permissions by role name",
-			err,
-		)
-	}
-
-	return result, nil
+	return p.rolePermissionRepo.InvalidateAll(ctx)
 }

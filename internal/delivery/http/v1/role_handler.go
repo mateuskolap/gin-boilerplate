@@ -2,7 +2,7 @@ package v1
 
 import (
 	"gin-boilerplate/internal/delivery/http/dto"
-	"gin-boilerplate/internal/delivery/http/middleware"
+	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
 	"net/http"
 
@@ -21,16 +21,17 @@ func NewRoleHandler(roleUseCase domain.RoleUseCase) *RoleHandler {
 
 // FindRole godoc
 // @Summary      Get role by ID
-// @Description  Retrieve detailed information of a role by UUID
+// @Description  Retrieve detailed information of a role including assigned permissions by UUID. Requires 'view_role' permission.
 // @Tags         Roles
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Role UUID" format(uuid)
-// @Success      200  {object}  middleware.ApiResponse{data=dto.RoleResponse}
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      404  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      200  {object}  response.ApiResponse{data=dto.RoleResponse} "Role retrieved successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403  {object}  response.ApiResponse "Forbidden - Requires view_role permission"
+// @Failure      404  {object}  response.ApiResponse "Not Found - Role not found"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/roles/{id} [get]
 func (h *RoleHandler) FindRole(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
@@ -45,22 +46,24 @@ func (h *RoleHandler) FindRole(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Role retrieved successfully", dto.ToRoleResponse(role))
+	response.Success(c, http.StatusOK, "Role retrieved successfully", dto.ToRoleResponse(role))
 }
 
 // ListRoles godoc
 // @Summary      List roles
-// @Description  Get paginated list of roles with optional filters and sorting
+// @Description  Get paginated list of roles with optional filters and sorting. Requires 'view_role' permission.
 // @Tags         Roles
 // @Produce      json
 // @Security     BearerAuth
-// @Param        page   query     int     false  "Page number (default: 1)"
-// @Param        limit  query     int     false  "Items per page (default: 10, max: 100)"
+// @Param        page   query     int     false  "Page number (default: 1)" minimum(1)
+// @Param        limit  query     int     false  "Items per page (default: 10, max: 100)" minimum(1) maximum(100)
 // @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
 // @Param        name   query     string  false  "Filter by role name (partial match)"
-// @Success      200    {object}  middleware.ApiResponse{data=dto.PaginatedRoleResponse}
-// @Failure      401    {object}  middleware.ApiResponse
-// @Failure      500    {object}  middleware.ApiResponse
+// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedRoleResponse} "Roles retrieved successfully"
+// @Failure      401    {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403    {object}  response.ApiResponse "Forbidden - Requires view_role permission"
+// @Failure      422    {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"
+// @Failure      500    {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/roles [get]
 func (h *RoleHandler) ListRoles(c *gin.Context) {
 	params := extractPaginationParams(c)
@@ -80,23 +83,24 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 		return
 	}
 
-	response := dto.ToPaginatedResponse(result, dto.ToRoleResponse)
-	middleware.Success(c, http.StatusOK, "Roles retrieved successfully", response)
+	resp := dto.ToPaginatedResponse(result, dto.ToRoleResponse)
+	response.Success(c, http.StatusOK, "Roles retrieved successfully", resp)
 }
 
 // CreateRole godoc
 // @Summary      Create a new role
-// @Description  Create a new role with the specified name
+// @Description  Create a new unique role. Requires 'create_role' permission.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request body dto.CreateRoleRequest true "Role creation details"
-// @Success      201  {object}  middleware.ApiResponse{data=dto.RoleResponse}
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      409  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      201  {object}  response.ApiResponse{data=dto.RoleResponse} "Role created successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403  {object}  response.ApiResponse "Forbidden - Requires create_role permission"
+// @Failure      409  {object}  response.ApiResponse "Conflict - Role already exists"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid request payload"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/roles [post]
 func (h *RoleHandler) CreateRole(c *gin.Context) {
 	req, err := bindJSON[dto.CreateRoleRequest](c)
@@ -114,23 +118,24 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusCreated, "Role created successfully", dto.ToRoleResponse(role))
+	response.Success(c, http.StatusCreated, "Role created successfully", dto.ToRoleResponse(role))
 }
 
 // UpdateRole godoc
 // @Summary      Update role
-// @Description  Update role information by UUID
+// @Description  Update role information by UUID. Requires 'update_role' permission.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                 true  "Role UUID" format(uuid)
 // @Param        request  body      dto.UpdateRoleRequest  true  "Role update details"
-// @Success      200      {object}  middleware.ApiResponse{data=dto.RoleResponse}
-// @Failure      401      {object}  middleware.ApiResponse
-// @Failure      404      {object}  middleware.ApiResponse
-// @Failure      422      {object}  middleware.ApiResponse
-// @Failure      500      {object}  middleware.ApiResponse
+// @Success      200      {object}  response.ApiResponse{data=dto.RoleResponse} "Role updated successfully"
+// @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403      {object}  response.ApiResponse "Forbidden - Requires update_role permission"
+// @Failure      404      {object}  response.ApiResponse "Not Found - Role not found"
+// @Failure      422      {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format or request payload"
+// @Failure      500      {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/roles/{id} [put]
 func (h *RoleHandler) UpdateRole(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
@@ -155,21 +160,22 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Role updated successfully", dto.ToRoleResponse(role))
+	response.Success(c, http.StatusOK, "Role updated successfully", dto.ToRoleResponse(role))
 }
 
 // DeleteRole godoc
 // @Summary      Delete role
-// @Description  Delete a role by UUID
+// @Description  Delete a role by UUID. Requires 'delete_role' permission.
 // @Tags         Roles
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Role UUID" format(uuid)
-// @Success      200  {object}  middleware.ApiResponse
-// @Failure      401  {object}  middleware.ApiResponse
-// @Failure      404  {object}  middleware.ApiResponse
-// @Failure      422  {object}  middleware.ApiResponse
-// @Failure      500  {object}  middleware.ApiResponse
+// @Success      200  {object}  response.ApiResponse "Role deleted successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403  {object}  response.ApiResponse "Forbidden - Requires delete_role permission"
+// @Failure      404  {object}  response.ApiResponse "Not Found - Role not found"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/roles/{id} [delete]
 func (h *RoleHandler) DeleteRole(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
@@ -183,23 +189,24 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Role deleted successfully", nil)
+	response.Success(c, http.StatusOK, "Role deleted successfully", nil)
 }
 
 // AddPermissions godoc
 // @Summary      Add permissions to role
-// @Description  Assign one or more permissions to a role by permission UUIDs
+// @Description  Assign one or more permissions to a role by permission UUIDs. Requires 'add_role_permission' permission.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                        true  "Role UUID" format(uuid)
 // @Param        request  body      dto.UpdatePermissionsRequest  true  "Permission UUIDs to assign"
-// @Success      201      {object}  middleware.ApiResponse
-// @Failure      401      {object}  middleware.ApiResponse
-// @Failure      404      {object}  middleware.ApiResponse
-// @Failure      422      {object}  middleware.ApiResponse
-// @Failure      500      {object}  middleware.ApiResponse
+// @Success      201      {object}  response.ApiResponse "Permissions added to role successfully"
+// @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403      {object}  response.ApiResponse "Forbidden - Requires add_role_permission permission"
+// @Failure      404      {object}  response.ApiResponse "Not Found - Role not found"
+// @Failure      422      {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format or request payload"
+// @Failure      500      {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/roles/{id}/permissions [post]
 func (h *RoleHandler) AddPermissions(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
@@ -219,23 +226,24 @@ func (h *RoleHandler) AddPermissions(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusCreated, "Permissions added successfully", nil)
+	response.Success(c, http.StatusCreated, "Permissions added successfully", nil)
 }
 
 // RemovePermissions godoc
 // @Summary      Remove permissions from role
-// @Description  Remove one or more permissions from a role by permission UUIDs
+// @Description  Remove one or more permissions from a role by permission UUIDs. Requires 'remove_role_permission' permission.
 // @Tags         Roles
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                        true  "Role UUID" format(uuid)
 // @Param        request  body      dto.UpdatePermissionsRequest  true  "Permission UUIDs to remove"
-// @Success      200      {object}  middleware.ApiResponse
-// @Failure      401      {object}  middleware.ApiResponse
-// @Failure      404      {object}  middleware.ApiResponse
-// @Failure      422      {object}  middleware.ApiResponse
-// @Failure      500      {object}  middleware.ApiResponse
+// @Success      200      {object}  response.ApiResponse "Permissions removed from role successfully"
+// @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403      {object}  response.ApiResponse "Forbidden - Requires remove_role_permission permission"
+// @Failure      404      {object}  response.ApiResponse "Not Found - Role not found"
+// @Failure      422      {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format or request payload"
+// @Failure      500      {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/roles/{id}/permissions [delete]
 func (h *RoleHandler) RemovePermissions(c *gin.Context) {
 	roleID, err := extractParamID(c, "id")
@@ -255,5 +263,5 @@ func (h *RoleHandler) RemovePermissions(c *gin.Context) {
 		return
 	}
 
-	middleware.Success(c, http.StatusOK, "Permissions removed successfully", nil)
+	response.Success(c, http.StatusOK, "Permissions removed successfully", nil)
 }
