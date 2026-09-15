@@ -1,0 +1,82 @@
+package domain
+
+import (
+	"fmt"
+	"slices"
+)
+
+type FilterOperator string
+
+const (
+	OperatorEquals             FilterOperator = "="
+	OperatorNotEquals          FilterOperator = "!="
+	OperatorGreaterThan        FilterOperator = ">"
+	OperatorLessThan           FilterOperator = "<"
+	OperatorGreaterThanOrEqual FilterOperator = ">="
+	OperatorLessThanOrEqual    FilterOperator = "<="
+	OperatorLike               FilterOperator = "LIKE"
+	OperatorNotLike            FilterOperator = "NOT LIKE"
+	OperatorILike              FilterOperator = "ILIKE"
+	OperatorNotILike           FilterOperator = "NOT ILIKE"
+	OperatorIn                 FilterOperator = "IN"
+	OperatorNotIn              FilterOperator = "NOT IN"
+	OperatorIsNull             FilterOperator = "IS NULL"
+	OperatorIsNotNull          FilterOperator = "IS NOT NULL"
+)
+
+var validOperators = map[FilterOperator]bool{
+	OperatorEquals: true, OperatorNotEquals: true,
+	OperatorGreaterThan: true, OperatorLessThan: true,
+	OperatorGreaterThanOrEqual: true, OperatorLessThanOrEqual: true,
+	OperatorLike: true, OperatorNotLike: true,
+	OperatorILike: true, OperatorNotILike: true,
+	OperatorIn: true, OperatorNotIn: true,
+	OperatorIsNull: true, OperatorIsNotNull: true,
+}
+
+type Filter struct {
+	Field    string
+	Operator FilterOperator
+	Value    interface{}
+}
+
+// Validate checks whether the filter uses a recognized and safe operator.
+func (f Filter) Validate() error {
+	if !validOperators[f.Operator] {
+		return fmt.Errorf("invalid filter operator: %q", f.Operator)
+	}
+	return nil
+}
+
+// IsSetOperator returns true if the operator requires set syntax (IN, NOT IN).
+func (f Filter) IsSetOperator() bool {
+	return f.Operator == OperatorIn || f.Operator == OperatorNotIn
+}
+
+// IsNullOperator returns true if the operator checks for NULL (IS NULL, IS NOT NULL).
+func (f Filter) IsNullOperator() bool {
+	return f.Operator == OperatorIsNull || f.Operator == OperatorIsNotNull
+}
+
+type Filters []Filter
+
+// Without returns a new copy of Filters excluding any filter whose Field matches one of the given fields.
+func (f Filters) Without(fields ...string) Filters {
+	return slices.DeleteFunc(slices.Clone(f), func(filter Filter) bool {
+		return slices.Contains(fields, filter.Field)
+	})
+}
+
+// ValidateAllowed checks if all filters in the slice belong to the allowedFields set.
+func (f Filters) ValidateAllowed(allowedFields map[string]bool) error {
+	for _, filter := range f {
+		if !allowedFields[filter.Field] {
+			return NewAppError(
+				ErrTypeValidation,
+				fmt.Sprintf("filtering by field '%s' is not allowed", filter.Field),
+				nil,
+			)
+		}
+	}
+	return nil
+}

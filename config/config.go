@@ -10,20 +10,25 @@ import (
 )
 
 type Config struct {
-	Env           string
-	Port          string
-	DBHost        string
-	DBPort        string
-	DBUser        string
-	DBPassword    string
-	DBName        string
-	DBSSLMode     string
-	RedisHost     string
-	RedisPort     string
-	RedisPassword string
-	RedisDB       int
-	JWTSecret     string
-	JWTExpiration time.Duration
+	Env                string
+	Port               string
+	DBHost             string
+	DBPort             string
+	DBUser             string
+	DBPassword         string
+	DBName             string
+	DBSSLMode          string
+	RedisHost          string
+	RedisPort          string
+	RedisPassword      string
+	RedisDB            int
+	JWTSecret          string
+	JWTExpiration      time.Duration
+	RefreshExpiration  time.Duration
+	RolePermissionsTTL time.Duration
+	AdminName          string
+	AdminEmail         string
+	AdminPassword      string
 }
 
 func LoadConfig() *Config {
@@ -31,24 +36,55 @@ func LoadConfig() *Config {
 		log.Println("No .env file found, loading configuration from environment variables")
 	}
 
-	jwtExpHours, _ := strconv.Atoi(getEnv("JWT_EXPIRATION_HOURS", "24"))
+	env := getEnv("ENVIRONMENT", "development")
+
+	defaultSSLMode := "disable"
+	if env == "production" {
+		defaultSSLMode = "require"
+	}
+
+	jwtExpMinutes, err := strconv.Atoi(getEnv("JWT_EXPIRATION_MINUTES", "10"))
+	if err != nil || jwtExpMinutes <= 0 {
+		jwtExpMinutes = 10
+	}
+
+	refreshExpMinutes, err := strconv.Atoi(getEnv("REFRESH_EXPIRATION_MINUTES", "1440"))
+	if err != nil || refreshExpMinutes <= 0 {
+		refreshExpMinutes = 1440
+	}
+
+	rolePermTTLHours, err := strconv.Atoi(getEnv("ROLE_PERMISSIONS_CACHE_TTL_HOURS", "24"))
+	if err != nil || rolePermTTLHours <= 0 {
+		rolePermTTLHours = 24
+	}
+
 	redisDB, _ := strconv.Atoi(getEnv("REDIS_DB", "0"))
 
+	jwtSecret := getEnv("JWT_SECRET", "gin-boilerplate-super-secure-jwt-secret-key-32-bytes!")
+	if len(jwtSecret) < 32 {
+		log.Fatalf("FATAL: JWT_SECRET must be at least 32 characters long, got %d characters", len(jwtSecret))
+	}
+
 	return &Config{
-		Env:           getEnv("ENVIRONMENT", "development"),
-		Port:          getEnv("PORT", "8080"),
-		DBHost:        getEnv("DB_HOST", "localhost"),
-		DBPort:        getEnv("DB_PORT", "5432"),
-		DBUser:        getEnv("DB_USER", "postgres"),
-		DBPassword:    getEnv("DB_PASSWORD", "postgres"),
-		DBName:        getEnv("DB_NAME", "boilerplate"),
-		DBSSLMode:     getEnv("DB_SSLMODE", "disable"),
-		RedisHost:     getEnv("REDIS_HOST", "localhost"),
-		RedisPort:     getEnv("REDIS_PORT", "6379"),
-		RedisPassword: getEnv("REDIS_PASSWORD", ""),
-		RedisDB:       redisDB,
-		JWTSecret:     getEnv("JWT_SECRET", "super-secret-key"),
-		JWTExpiration: time.Hour * time.Duration(jwtExpHours),
+		Env:                env,
+		Port:               getEnv("PORT", "8080"),
+		DBHost:             getEnv("DB_HOST", "localhost"),
+		DBPort:             getEnv("DB_PORT", "5432"),
+		DBUser:             getEnv("DB_USER", "postgres"),
+		DBPassword:         getEnv("DB_PASSWORD", "postgres"),
+		DBName:             getEnv("DB_NAME", "boilerplate"),
+		DBSSLMode:          getEnv("DB_SSLMODE", defaultSSLMode),
+		RedisHost:          getEnv("REDIS_HOST", "localhost"),
+		RedisPort:          getEnv("REDIS_PORT", "6379"),
+		RedisPassword:      getEnv("REDIS_PASSWORD", ""),
+		RedisDB:            redisDB,
+		JWTSecret:          jwtSecret,
+		JWTExpiration:      time.Minute * time.Duration(jwtExpMinutes),
+		RefreshExpiration:  time.Minute * time.Duration(refreshExpMinutes),
+		RolePermissionsTTL: time.Hour * time.Duration(rolePermTTLHours),
+		AdminName:          getEnv("ADMIN_NAME", "Admin"),
+		AdminEmail:         getEnv("ADMIN_EMAIL", "admin@example.com"),
+		AdminPassword:      getEnv("ADMIN_PASSWORD", "Change@123"),
 	}
 }
 

@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
+	"uuid"
+
 	"gorm.io/gorm"
 )
 
@@ -20,8 +21,38 @@ type BaseSoftDeleteModel struct {
 }
 
 type BaseRepository[T any] interface {
+	// Create persists a new entity in the database.
 	Create(ctx context.Context, entity *T) error
-	GetByID(ctx context.Context, id uuid.UUID) (*T, error)
+
+	// GetByID fetches an entity by its UUID, optionally preloading relationships.
+	// Returns (nil, nil) if the record does not exist.
+	GetByID(ctx context.Context, id uuid.UUID, preloads ...string) (*T, error)
+
+	// FindOneBy queries a single entity matching the condition, optionally preloading relationships.
+	// Returns (nil, nil) if the record does not exist.
+	FindOneBy(ctx context.Context, query string, args []any, preloads ...string) (*T, error)
+
+	// Update saves changes made to an existing entity.
 	Update(ctx context.Context, entity *T) error
+
+	// Delete removes an entity by its UUID (or soft-deletes if supported).
+	Delete(ctx context.Context, id uuid.UUID) error
+
+	// List queries a paginated slice of entities applying preloads, filters, and sorting.
+	List(ctx context.Context, params PaginationParams, filters []Filter, preloads ...string) (*PaginatedResult[T], error)
+}
+
+type BaseFindUseCase[T any] interface {
+	// Find retrieves an entity by its UUID.
+	Find(ctx context.Context, id uuid.UUID) (*T, error)
+}
+
+type BaseListUseCase[T any] interface {
+	// List retrieves a paginated list of entities based on provided parameters and filters.
+	List(ctx context.Context, params PaginationParams, filters []Filter) (*PaginatedResult[T], error)
+}
+
+type BaseDeleteUseCase interface {
+	// Delete removes an entity by its UUID.
 	Delete(ctx context.Context, id uuid.UUID) error
 }
