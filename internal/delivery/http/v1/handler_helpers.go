@@ -54,7 +54,7 @@ func bindJSON[T any](c *gin.Context) (T, error) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return req, domain.NewAppError(
 			domain.ErrTypeValidation,
-			"Invalid request payload: "+err.Error(),
+			"Validation failed",
 			err,
 		)
 	}

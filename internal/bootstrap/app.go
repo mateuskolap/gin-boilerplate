@@ -10,6 +10,7 @@ import (
 
 	"gin-boilerplate/config"
 	deliveryHttp "gin-boilerplate/internal/delivery/http"
+	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/infra/repository"
@@ -37,6 +38,8 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	if cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	middleware.InitValidator()
 
 	// GORM & Postgres
 	dsn := fmt.Sprintf(

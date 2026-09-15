@@ -1883,6 +1883,12 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Error description"
                 },
+                "errors": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "message": {
                     "type": "string",
                     "example": "Operation completed successfully"

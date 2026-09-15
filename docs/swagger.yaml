@@ -262,6 +262,10 @@ definitions:
       error:
         example: Error description
         type: string
+      errors:
+        additionalProperties:
+          type: string
+        type: object
       message:
         example: Operation completed successfully
         type: string

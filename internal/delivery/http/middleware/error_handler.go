@@ -1,54 +1,69 @@
 package middleware
 
 import (
+	"encoding/json"
 	"errors"
-	"gin-boilerplate/internal/delivery/http/response"
-	"gin-boilerplate/internal/domain"
+	"fmt"
 	"net/http"
 
+	"gin-boilerplate/internal/delivery/http/response"
+	"gin-boilerplate/internal/domain"
+
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
+
+var statusMap = map[domain.ErrorType]int{
+	domain.ErrTypeNotFound:     http.StatusNotFound,
+	domain.ErrTypeConflict:     http.StatusConflict,
+	domain.ErrTypeUnauthorized: http.StatusUnauthorized,
+	domain.ErrTypeForbidden:    http.StatusForbidden,
+	domain.ErrTypeValidation:   http.StatusUnprocessableEntity,
+}
 
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 
-		if len(c.Errors) > 0 && !c.Writer.Written() {
-			err := c.Errors.Last().Err
-			HandleError(c, err)
-		}
-	}
-}
-
-func HandleError(c *gin.Context, err error) {
-	var appErr *domain.AppError
-	if errors.As(err, &appErr) {
-		statusCode := http.StatusInternalServerError
-
-		switch appErr.Type {
-		case domain.ErrTypeNotFound:
-			statusCode = http.StatusNotFound
-		case domain.ErrTypeConflict:
-			statusCode = http.StatusConflict
-		case domain.ErrTypeUnauthorized:
-			statusCode = http.StatusUnauthorized
-		case domain.ErrTypeForbidden:
-			statusCode = http.StatusForbidden
-		case domain.ErrTypeValidation:
-			statusCode = http.StatusUnprocessableEntity
-		case domain.ErrTypeInternal:
-			statusCode = http.StatusInternalServerError
+		if len(c.Errors) == 0 || c.Writer.Written() {
+			return
 		}
 
-		c.JSON(statusCode, response.ApiResponse{
+		var appErr *domain.AppError
+		if !errors.As(c.Errors.Last().Err, &appErr) {
+			c.JSON(http.StatusInternalServerError, response.ApiResponse{
+				Success: false,
+				Error:   "Internal server error",
+			})
+			return
+		}
+
+		status := statusMap[appErr.Type]
+		if status == 0 {
+			status = http.StatusInternalServerError
+		}
+
+		res := response.ApiResponse{
 			Success: false,
 			Error:   appErr.Message,
-		})
-		return
-	}
+		}
 
-	c.JSON(http.StatusInternalServerError, response.ApiResponse{
-		Success: false,
-		Error:   "Internal server error",
-	})
+		var ve validator.ValidationErrors
+		if errors.As(appErr.Err, &ve) && Translator != nil {
+			res.Errors = ve.Translate(Translator)
+		}
+
+		var ute *json.UnmarshalTypeError
+		if errors.As(appErr.Err, &ute) {
+			field := ute.Field
+			if field == "" {
+				field = "payload"
+			}
+			res.Errors = map[string]string{
+				field: fmt.Sprintf("%s must be of type %s", field, ute.Type.String()),
+			}
+		}
+
+		c.JSON(status, res)
+	}
 }
