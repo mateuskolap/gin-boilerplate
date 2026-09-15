@@ -27,7 +27,3 @@ func (p *permissionRepository) UpsertByName(ctx context.Context, permissions []d
 	}).Create(&permissions).Error
 }
 
-func (p *permissionRepository) DeleteByNames(ctx context.Context, names []string) error {
-	return p.db.WithContext(ctx).Where("name IN ?", names).Delete(&domain.Permission{}).Error
-}
-

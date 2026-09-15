@@ -163,6 +163,20 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Profile updated successfully", dto.ToUserResponse(user))
 }
 
+// DeleteUser godoc
+// @Summary      Delete user
+// @Description  Delete a user by UUID. Requires 'delete_user' permission.
+// @Tags         Users
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User UUID" format(uuid)
+// @Success      200  {object}  response.ApiResponse "User deleted successfully"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403  {object}  response.ApiResponse "Forbidden - Requires delete_user permission"
+// @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
+// @Router       /api/v1/users/{id} [delete]
 func (h *UserHandler) DeleteUser(c *gin.Context) {
 	userID, err := extractParamID(c, "id")
 	if err != nil {

@@ -956,6 +956,47 @@ paths:
       tags:
       - Users
   /api/v1/users/{id}:
+    delete:
+      description: Delete a user by UUID. Requires 'delete_user' permission.
+      parameters:
+      - description: User UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "401":
+          description: Unauthorized - Missing or invalid token
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "403":
+          description: Forbidden - Requires delete_user permission
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "404":
+          description: Not Found - User not found
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: Unprocessable Entity - Invalid UUID format
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete user
+      tags:
+      - Users
     get:
       description: Retrieve detailed user profile including assigned roles by UUID.
         Requires 'view_user' permission.

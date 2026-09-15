@@ -22,8 +22,7 @@ const (
 	PermissionViewUser       PermissionName = "view_user"
 	PermissionAddUserRole    PermissionName = "add_user_role"
 	PermissionRemoveUserRole PermissionName = "remove_user_role"
-	PermissionViewProfile    PermissionName = "view_profile"
-	PermissionUpdateProfile  PermissionName = "update_profile"
+	PermissionDeleteUser     PermissionName = "delete_user"
 )
 
 var AllPermissions = []PermissionName{
@@ -37,8 +36,7 @@ var AllPermissions = []PermissionName{
 	PermissionViewUser,
 	PermissionAddUserRole,
 	PermissionRemoveUserRole,
-	PermissionViewProfile,
-	PermissionUpdateProfile,
+	PermissionDeleteUser,
 }
 
 type Permission struct {
@@ -53,9 +51,6 @@ type PermissionRepository interface {
 
 	// UpsertByName inserts or updates permissions based on their names.
 	UpsertByName(ctx context.Context, permissions []Permission) error
-
-	// DeleteByNames removes permissions based on their names.
-	DeleteByNames(ctx context.Context, names []string) error
 }
 
 type PermissionUseCase interface {

@@ -51,24 +51,6 @@ func (r *rolePermissionRepository) SavePermissionsByRole(ctx context.Context, ro
 	return r.cache.SetAddIfVersionMatch(ctx, key, members, ttl, versionKey, expectedVersion)
 }
 
-func (r *rolePermissionRepository) ListPermissionsByRole(ctx context.Context, role string) ([]string, error) {
-	key := roleKey(role)
-
-	members, err := r.cache.SetMembers(ctx, key)
-	if err != nil || members == nil {
-		return nil, err
-	}
-
-	result := make([]string, 0, len(members))
-	for _, m := range members {
-		if m != emptyRoleSentinel {
-			result = append(result, m)
-		}
-	}
-
-	return result, nil
-}
-
 func (r *rolePermissionRepository) CheckRolesPermission(ctx context.Context, roles []string, permission string) (bool, []string, error) {
 	if len(roles) == 0 {
 		return false, nil, nil
