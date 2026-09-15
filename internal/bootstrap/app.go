@@ -93,7 +93,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, cfg.RefreshExpiration)
 	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
 	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTExpiration)
-	roleUseCase := usecase.NewRoleUseCase(roleRepo, rolePermissionRepo)
+	roleUseCase := usecase.NewRoleUseCase(roleRepo, rolePermissionRepo, cfg.RolePermissionsTTL)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo, rolePermissionRepo)
 	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(rolePermissionRepo, roleRepo, cfg.RolePermissionsTTL)
 

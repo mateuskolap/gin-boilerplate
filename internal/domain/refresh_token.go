@@ -25,7 +25,8 @@ type RefreshTokenRepository interface {
 	ListByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 
-	// Returns (true, nil) if the token was successfully revoked, or (false, nil) if it was already revoked
+	// RevokeByID atomically revokes a refresh token by ID only if it has not been revoked yet.
+	// Returns true if successfully revoked, or false if already revoked by a concurrent request.
 	RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (revoked bool, err error)
 }
 

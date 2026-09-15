@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
+	"time"
 
 	"uuid"
 )
@@ -20,11 +21,13 @@ type roleUseCase struct {
 	domain.BaseDeleteUseCase
 	roleRepo           domain.RoleRepository
 	rolePermissionRepo domain.RolePermissionRepository
+	cacheTTL           time.Duration
 }
 
 func NewRoleUseCase(
 	roleRepo domain.RoleRepository,
 	rolePermissionRepo domain.RolePermissionRepository,
+	cacheTTL time.Duration,
 ) domain.RoleUseCase {
 	return &roleUseCase{
 		BaseListUseCase: NewBaseListUseCase(
@@ -40,6 +43,7 @@ func NewRoleUseCase(
 		),
 		roleRepo:           roleRepo,
 		rolePermissionRepo: rolePermissionRepo,
+		cacheTTL:           cacheTTL,
 	}
 }
 
@@ -69,7 +73,7 @@ func (r *roleUseCase) Create(ctx context.Context, role *domain.Role) error {
 		)
 	}
 
-	return r.invalidateRolePermissions(ctx, role.Name)
+	return r.syncRolePermissionsCache(ctx, role.Name)
 }
 
 func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
@@ -89,16 +93,11 @@ func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
 		)
 	}
 
-	if err := r.invalidateRolePermissions(ctx, oldName); err != nil {
-		return err
-	}
 	if oldName != role.Name {
-		if err := r.invalidateRolePermissions(ctx, role.Name); err != nil {
-			return err
-		}
+		_ = r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, oldName)
 	}
 
-	return nil
+	return r.syncRolePermissionsCache(ctx, role.Name)
 }
 
 func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
@@ -111,7 +110,7 @@ func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
 		return err
 	}
 
-	return r.invalidateRolePermissions(ctx, existingRole.Name)
+	return r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, existingRole.Name)
 }
 
 func (r *roleUseCase) AddPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
@@ -124,7 +123,7 @@ func (r *roleUseCase) AddPermissions(ctx context.Context, roleID uuid.UUID, perm
 		return err
 	}
 
-	return r.invalidateRolePermissions(ctx, role.Name)
+	return r.syncRolePermissionsCache(ctx, role.Name)
 }
 
 func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
@@ -137,16 +136,33 @@ func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, p
 		return err
 	}
 
-	return r.invalidateRolePermissions(ctx, role.Name)
+	return r.syncRolePermissionsCache(ctx, role.Name)
 }
 
-func (r *roleUseCase) invalidateRolePermissions(ctx context.Context, roleName string) error {
-	if err := r.rolePermissionRepo.InvalidatePermissionsByRole(ctx, roleName); err != nil {
+func (r *roleUseCase) syncRolePermissionsCache(ctx context.Context, roleName string) error {
+	roleObj, err := r.roleRepo.GetByName(ctx, roleName, "Permissions")
+	if err != nil {
 		return domain.NewAppError(
 			domain.ErrTypeInternal,
-			"Failed to invalidate role permissions",
+			"Failed to fetch role permissions for cache sync",
 			err,
 		)
 	}
+
+	permissions := make([]string, 0)
+	if roleObj != nil {
+		for _, perm := range roleObj.Permissions {
+			permissions = append(permissions, perm.Name)
+		}
+	}
+
+	if err := r.rolePermissionRepo.SavePermissionsByRole(ctx, roleName, permissions, r.cacheTTL); err != nil {
+		return domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to sync role permissions cache",
+			err,
+		)
+	}
+
 	return nil
 }

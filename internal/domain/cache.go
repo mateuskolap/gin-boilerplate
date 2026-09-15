@@ -16,13 +16,6 @@ type CacheRepository interface {
 	SetMembers(ctx context.Context, key string) ([]string, error)
 	CheckSetMembers(ctx context.Context, keys []string, member string) (hasMember bool, missingKeys []string, err error)
 
-	// Atomic Counter
-	Incr(ctx context.Context, key string) (int64, error)
-
-	// SetAddIfVersionMatch is used to prevent caching stale data when a concurrent invalidation
-	// occurred between reading from DB and writing to cache.
-	SetAddIfVersionMatch(ctx context.Context, setKey string, members []string, ttl time.Duration, versionKey string, expectedVersion int64) (bool, error)
-
 	// Pattern Invalidation
 	DeleteByPattern(ctx context.Context, pattern string) error
 }

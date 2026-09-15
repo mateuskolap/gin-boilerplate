@@ -13,7 +13,6 @@ import (
 
 var Translator ut.Translator
 
-// InitValidator configures the Gin validator engine to use json tags and English translations.
 func InitValidator() {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
