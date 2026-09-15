@@ -24,6 +24,9 @@ type RefreshTokenRepository interface {
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
+
+	// Returns (true, nil) if the token was successfully revoked, or (false, nil) if it was already revoked
+	RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (revoked bool, err error)
 }
 
 type RefreshTokenUseCase interface {

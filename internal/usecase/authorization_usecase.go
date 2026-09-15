@@ -68,6 +68,8 @@ func (p *permissionCheckerUseCase) HasPermission(ctx context.Context, roles []st
 }
 
 func (p *permissionCheckerUseCase) loadAndCacheRolePermissions(ctx context.Context, role string) ([]string, error) {
+	version, _ := p.rolePermissionRepo.GetRoleVersion(ctx, role)
+
 	roleObj, err := p.roleRepo.GetByName(ctx, role, "Permissions")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch role from DB: %w", err)
@@ -80,7 +82,7 @@ func (p *permissionCheckerUseCase) loadAndCacheRolePermissions(ctx context.Conte
 		}
 	}
 
-	_ = p.rolePermissionRepo.SavePermissionsByRole(ctx, role, permissions, p.cacheTTL)
+	_, _ = p.rolePermissionRepo.SavePermissionsByRole(ctx, role, permissions, p.cacheTTL, version)
 
 	return permissions, nil
 }

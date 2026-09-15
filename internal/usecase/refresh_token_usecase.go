@@ -49,10 +49,23 @@ func (r *refreshTokenUseCase) Rotate(ctx context.Context, oldToken string, ipAdd
 		return "", err
 	}
 
-	storedToken.ReplacedBy = &newTokenEntity.ID
+	revoked, err := r.refreshTokenRepo.RevokeByID(ctx, storedToken.ID, newTokenEntity.ID)
+	if err != nil {
+		return "", domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to revoke refresh token",
+			err,
+		)
+	}
 
-	if err := r.RevokeEntity(ctx, storedToken); err != nil {
-		return "", err
+	if !revoked {
+		_ = r.refreshTokenRepo.RevokeAllByUserID(ctx, storedToken.UserID)
+
+		return "", domain.NewAppError(
+			domain.ErrTypeUnauthorized,
+			"Refresh token has already been used",
+			nil,
+		)
 	}
 
 	return newPlainToken, nil
@@ -179,6 +192,8 @@ func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*doma
 	}
 
 	if storedToken.RevokedAt != nil {
+		_ = r.refreshTokenRepo.RevokeAllByUserID(ctx, storedToken.UserID)
+
 		return nil, domain.NewAppError(
 			domain.ErrTypeUnauthorized,
 			"Refresh token has been revoked",

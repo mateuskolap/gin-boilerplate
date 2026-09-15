@@ -42,3 +42,19 @@ func (r *refreshTokenRepository) RevokeAllByUserID(ctx context.Context, userID u
 		Update("revoked_at", time.Now().UTC()).
 		Error
 }
+
+func (r *refreshTokenRepository) RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (bool, error) {
+	result := r.db.WithContext(ctx).
+		Model(&domain.RefreshToken{}).
+		Where("id = ? AND revoked_at IS NULL", id).
+		Updates(map[string]any{
+			"revoked_at":  time.Now().UTC(),
+			"replaced_by": replacedBy,
+		})
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	return result.RowsAffected > 0, nil
+}

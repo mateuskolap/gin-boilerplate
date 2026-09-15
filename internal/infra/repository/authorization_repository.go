@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	rolePermissionKeyPrefix = "role_permissions"
-	emptyRoleSentinel       = "__EMPTY__"
+	rolePermissionKeyPrefix    = "role_permissions"
+	rolePermissionVerKeyPrefix = "role_permissions_ver"
+	emptyRoleSentinel          = "__EMPTY__"
 )
 
 type rolePermissionRepository struct {
@@ -26,14 +27,28 @@ func roleKey(role string) string {
 	return fmt.Sprintf("%s:%s", rolePermissionKeyPrefix, role)
 }
 
-func (r *rolePermissionRepository) SavePermissionsByRole(ctx context.Context, role string, permissions []string, ttl time.Duration) error {
-	key := roleKey(role)
+func roleVersionKey(role string) string {
+	return fmt.Sprintf("%s:%s", rolePermissionVerKeyPrefix, role)
+}
 
+func (r *rolePermissionRepository) GetRoleVersion(ctx context.Context, role string) (int64, error) {
+	var version int64
+	if err := r.cache.Get(ctx, roleVersionKey(role), &version); err != nil {
+		return 0, err
+	}
+	return version, nil
+}
+
+func (r *rolePermissionRepository) SavePermissionsByRole(ctx context.Context, role string, permissions []string, ttl time.Duration, expectedVersion int64) (bool, error) {
+	key := roleKey(role)
+	versionKey := roleVersionKey(role)
+
+	members := permissions
 	if len(permissions) == 0 {
-		return r.cache.SetAdd(ctx, key, []string{emptyRoleSentinel}, ttl)
+		members = []string{emptyRoleSentinel}
 	}
 
-	return r.cache.SetAdd(ctx, key, permissions, ttl)
+	return r.cache.SetAddIfVersionMatch(ctx, key, members, ttl, versionKey, expectedVersion)
 }
 
 func (r *rolePermissionRepository) ListPermissionsByRole(ctx context.Context, role string) ([]string, error) {
@@ -88,9 +103,15 @@ func (r *rolePermissionRepository) CheckRolesPermission(ctx context.Context, rol
 }
 
 func (r *rolePermissionRepository) InvalidatePermissionsByRole(ctx context.Context, role string) error {
+	if _, err := r.cache.Incr(ctx, roleVersionKey(role)); err != nil {
+		return err
+	}
 	return r.cache.Delete(ctx, roleKey(role))
 }
 
 func (r *rolePermissionRepository) InvalidateAll(ctx context.Context) error {
-	return r.cache.DeleteByPattern(ctx, rolePermissionKeyPrefix+":*")
+	if err := r.cache.DeleteByPattern(ctx, rolePermissionKeyPrefix+":*"); err != nil {
+		return err
+	}
+	return r.cache.DeleteByPattern(ctx, rolePermissionVerKeyPrefix+":*")
 }

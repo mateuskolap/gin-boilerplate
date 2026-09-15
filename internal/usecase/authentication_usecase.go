@@ -92,7 +92,10 @@ func (a *authUseCase) Login(ctx context.Context, email, password, ipAddress, use
 		)
 	}
 
+	var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("dummy"), bcrypt.DefaultCost)
 	if user == nil {
+		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
+
 		return nil, domain.NewAppError(
 			domain.ErrTypeUnauthorized,
 			"Invalid email or password",
