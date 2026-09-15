@@ -14,6 +14,11 @@ type RoleResponse struct {
 	UpdatedAt time.Time `json:"updated_at" example:"2026-01-01T00:00:00Z"`
 }
 
+type RoleWithPermissionsResponse struct {
+	RoleResponse
+	Permissions []PermissionResponse `json:"permissions"`
+}
+
 type PaginatedRoleResponse = PaginatedResponse[RoleResponse]
 
 type CreateRoleRequest struct {
@@ -34,5 +39,17 @@ func ToRoleResponse(role *domain.Role) RoleResponse {
 		Name:      role.Name,
 		CreatedAt: role.CreatedAt,
 		UpdatedAt: role.UpdatedAt,
+	}
+}
+
+func ToRoleWithPermissionsResponse(role *domain.Role) RoleWithPermissionsResponse {
+	permissions := make([]PermissionResponse, len(role.Permissions))
+	for i, permission := range role.Permissions {
+		permissions[i] = ToPermissionResponse(&permission)
+	}
+
+	return RoleWithPermissionsResponse{
+		RoleResponse: ToRoleResponse(role),
+		Permissions:  permissions,
 	}
 }

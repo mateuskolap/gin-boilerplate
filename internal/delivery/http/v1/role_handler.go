@@ -46,7 +46,7 @@ func (h *RoleHandler) FindRole(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Role retrieved successfully", dto.ToRoleResponse(role))
+	response.Success(c, http.StatusOK, "Role retrieved successfully", dto.ToRoleWithPermissionsResponse(role))
 }
 
 // ListRoles godoc

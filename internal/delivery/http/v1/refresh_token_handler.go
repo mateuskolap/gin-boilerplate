@@ -61,7 +61,7 @@ func (h *RefreshTokenHandler) ListRefreshTokensByAuthUser(c *gin.Context) {
 		})
 	}
 
-	result, err := h.refreshTokenUseCase.ListByUserID(c.Request.Context(), userID, params, filters)
+	result, err := h.refreshTokenUseCase.ListActiveByUserID(c.Request.Context(), userID, params, filters)
 	if err != nil {
 		_ = c.Error(err)
 		return

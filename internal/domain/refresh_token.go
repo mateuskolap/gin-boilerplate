@@ -23,14 +23,16 @@ type RefreshTokenRepository interface {
 	BaseRepository[RefreshToken]
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
 	ListByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
+	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 }
 
 type RefreshTokenUseCase interface {
 	Create(ctx context.Context, userID uuid.UUID, ipAddress string, userAgent string) (string, error)
 	Rotate(ctx context.Context, oldToken, ipAddress, userAgent string) (string, error)
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
-	ListByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
+	ListActiveByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
 	Revoke(ctx context.Context, token string) error
 	RevokeEntity(ctx context.Context, refreshToken *RefreshToken) error
+	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 	Validate(ctx context.Context, token string) (*RefreshToken, error)
 }

@@ -24,9 +24,6 @@ const (
 	PermissionRemoveUserRole PermissionName = "remove_user_role"
 	PermissionViewProfile    PermissionName = "view_profile"
 	PermissionUpdateProfile  PermissionName = "update_profile"
-
-	// Sessions
-	PermissionViewSession PermissionName = "view_session"
 )
 
 var AllPermissions = []PermissionName{
@@ -42,7 +39,6 @@ var AllPermissions = []PermissionName{
 	PermissionRemoveUserRole,
 	PermissionViewProfile,
 	PermissionUpdateProfile,
-	PermissionViewSession,
 }
 
 type Permission struct {

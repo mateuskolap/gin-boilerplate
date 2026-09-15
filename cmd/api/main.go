@@ -46,7 +46,7 @@ func main() {
 		defer cancel()
 
 		if err := app.Seed(ctx); err != nil {
-			log.Fatalf("Failed to seed permissions: %v", err)
+			log.Fatalf("Failed to run seeders: %v", err)
 		}
 
 		log.Println("Seeders executed successfully!")

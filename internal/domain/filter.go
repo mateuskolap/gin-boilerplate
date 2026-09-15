@@ -20,6 +20,8 @@ const (
 	OperatorNotILike           FilterOperator = "NOT ILIKE"
 	OperatorIn                 FilterOperator = "IN"
 	OperatorNotIn              FilterOperator = "NOT IN"
+	OperatorIsNull             FilterOperator = "IS NULL"
+	OperatorIsNotNull          FilterOperator = "IS NOT NULL"
 )
 
 var validOperators = map[FilterOperator]bool{
@@ -29,6 +31,7 @@ var validOperators = map[FilterOperator]bool{
 	OperatorLike: true, OperatorNotLike: true,
 	OperatorILike: true, OperatorNotILike: true,
 	OperatorIn: true, OperatorNotIn: true,
+	OperatorIsNull: true, OperatorIsNotNull: true,
 }
 
 type Filter struct {
@@ -48,6 +51,11 @@ func (f Filter) Validate() error {
 // IsSetOperator returns true if the operator requires set syntax (IN, NOT IN).
 func (f Filter) IsSetOperator() bool {
 	return f.Operator == OperatorIn || f.Operator == OperatorNotIn
+}
+
+// IsNullOperator returns true if the operator checks for NULL (IS NULL, IS NOT NULL).
+func (f Filter) IsNullOperator() bool {
+	return f.Operator == OperatorIsNull || f.Operator == OperatorIsNotNull
 }
 
 type Filters []Filter

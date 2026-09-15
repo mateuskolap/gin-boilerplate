@@ -3,7 +3,7 @@ package usecase
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/internal/security"
+	"gin-boilerplate/internal/infra/security"
 	"gin-boilerplate/pkg/collection"
 	"time"
 
@@ -230,8 +230,28 @@ func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString strin
 			err,
 		)
 	}
-
 	if isRevoked {
+		return nil, domain.NewAppError(
+			domain.ErrTypeUnauthorized,
+			"Invalid or expired token",
+			nil,
+		)
+	}
+
+	var issuedAt time.Time
+	if claims.IssuedAt != nil {
+		issuedAt = claims.IssuedAt.Time
+	}
+
+	isUserRevoked, err := a.tokenBlacklist.IsUserTokenRevoked(ctx, claims.Subject, issuedAt)
+	if err != nil {
+		return nil, domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to check user token revocation status",
+			err,
+		)
+	}
+	if isUserRevoked {
 		return nil, domain.NewAppError(
 			domain.ErrTypeUnauthorized,
 			"Invalid or expired token",

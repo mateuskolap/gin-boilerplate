@@ -26,6 +26,9 @@ type Config struct {
 	JWTExpiration      time.Duration
 	RefreshExpiration  time.Duration
 	RolePermissionsTTL time.Duration
+	AdminName          string
+	AdminEmail         string
+	AdminPassword      string
 }
 
 func LoadConfig() *Config {
@@ -79,6 +82,9 @@ func LoadConfig() *Config {
 		JWTExpiration:      time.Minute * time.Duration(jwtExpMinutes),
 		RefreshExpiration:  time.Minute * time.Duration(refreshExpMinutes),
 		RolePermissionsTTL: time.Hour * time.Duration(rolePermTTLHours),
+		AdminName:          getEnv("ADMIN_NAME", "Admin"),
+		AdminEmail:         getEnv("ADMIN_EMAIL", "admin@example.com"),
+		AdminPassword:      getEnv("ADMIN_PASSWORD", "Change@123"),
 	}
 }
 

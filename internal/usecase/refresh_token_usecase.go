@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/internal/security"
+	"gin-boilerplate/internal/infra/security"
 	"time"
 
 	"uuid"
@@ -80,7 +80,7 @@ func (r *refreshTokenUseCase) FindByTokenHash(ctx context.Context, token string)
 	return existingRefreshToken, nil
 }
 
-func (r *refreshTokenUseCase) ListByUserID(
+func (r *refreshTokenUseCase) ListActiveByUserID(
 	ctx context.Context,
 	userID uuid.UUID,
 	params domain.PaginationParams,
@@ -89,6 +89,15 @@ func (r *refreshTokenUseCase) ListByUserID(
 	if err := domain.Filters(filters).ValidateAllowed(allowedRefreshTokenFilterFields); err != nil {
 		return nil, err
 	}
+
+	filters = append(append(domain.Filters(filters).Without("expires_at"), domain.Filter{
+		Field:    "expires_at",
+		Operator: domain.OperatorGreaterThan,
+		Value:    time.Now().UTC(),
+	}), domain.Filter{
+		Field:    "revoked_at",
+		Operator: domain.OperatorIsNull,
+	})
 
 	if err := params.ValidateSort(allowedRefreshTokenFilterFields); err != nil {
 		return nil, err
@@ -127,6 +136,18 @@ func (r *refreshTokenUseCase) RevokeEntity(ctx context.Context, refreshToken *do
 		return domain.NewAppError(
 			domain.ErrTypeInternal,
 			"Failed to revoke refresh token",
+			err,
+		)
+	}
+
+	return nil
+}
+
+func (r *refreshTokenUseCase) RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error {
+	if err := r.refreshTokenRepo.RevokeAllByUserID(ctx, userID); err != nil {
+		return domain.NewAppError(
+			domain.ErrTypeInternal,
+			"Failed to revoke all refresh tokens for user",
 			err,
 		)
 	}

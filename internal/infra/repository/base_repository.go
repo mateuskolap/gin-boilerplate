@@ -138,6 +138,8 @@ func applyFilters(query *gorm.DB, filters []domain.Filter) (*gorm.DB, error) {
 
 		if f.IsSetOperator() {
 			query = query.Where(fmt.Sprintf("%s %s (?)", field, string(f.Operator)), f.Value)
+		} else if f.IsNullOperator() {
+			query = query.Where(fmt.Sprintf("%s %s", field, string(f.Operator)))
 		} else {
 			query = query.Where(fmt.Sprintf("%s %s ?", field, string(f.Operator)), f.Value)
 		}

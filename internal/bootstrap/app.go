@@ -12,7 +12,8 @@ import (
 	deliveryHttp "gin-boilerplate/internal/delivery/http"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/internal/repository"
+	"gin-boilerplate/internal/infra/repository"
+	"gin-boilerplate/internal/infra/seeder"
 	"gin-boilerplate/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -22,13 +23,14 @@ import (
 )
 
 type Application struct {
-	Config            *config.Config
-	DB                *gorm.DB
-	SQLDB             *sql.DB
-	RedisClient       *redis.Client
-	Router            *gin.Engine
-	Server            *http.Server
-	PermissionUseCase domain.PermissionUseCase
+	Config             *config.Config
+	DB                 *gorm.DB
+	SQLDB              *sql.DB
+	RedisClient        *redis.Client
+	Router             *gin.Engine
+	Server             *http.Server
+	PermissionUseCase  domain.PermissionUseCase
+	RolePermissionRepo domain.RolePermissionRepository
 }
 
 func NewApplication(cfg *config.Config) (*Application, error) {
@@ -87,7 +89,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	// UseCases
 	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, cfg.RefreshExpiration)
 	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
-	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo)
+	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTExpiration)
 	roleUseCase := usecase.NewRoleUseCase(roleRepo, rolePermissionRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo, rolePermissionRepo)
 	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(rolePermissionRepo, roleRepo, cfg.RolePermissionsTTL)
@@ -119,13 +121,14 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	}
 
 	return &Application{
-		Config:            cfg,
-		DB:                db,
-		SQLDB:             sqlDB,
-		RedisClient:       redisClient,
-		Router:            router,
-		Server:            srv,
-		PermissionUseCase: permissionUseCase,
+		Config:             cfg,
+		DB:                 db,
+		SQLDB:              sqlDB,
+		RedisClient:        redisClient,
+		Router:             router,
+		Server:             srv,
+		PermissionUseCase:  permissionUseCase,
+		RolePermissionRepo: rolePermissionRepo,
 	}, nil
 }
 
@@ -138,7 +141,8 @@ func (a *Application) Run() error {
 }
 
 func (a *Application) Seed(ctx context.Context) error {
-	return a.PermissionUseCase.SeedPermissions(ctx)
+	seederRunner := seeder.NewDatabaseSeeder(a.DB, a.Config, a.RolePermissionRepo)
+	return seederRunner.Run(ctx)
 }
 
 func (a *Application) Close() error {

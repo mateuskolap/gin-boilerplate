@@ -163,6 +163,21 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Profile updated successfully", dto.ToUserResponse(user))
 }
 
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	userID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.userUseCase.Delete(c.Request.Context(), userID); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User deleted successfully", nil)
+}
+
 // AddRoles godoc
 // @Summary      Add roles to user
 // @Description  Assign one or more roles to a user by role UUIDs. Requires 'add_user_role' permission.

@@ -22,6 +22,12 @@ type TokenBlackListRepository interface {
 
 	// IsRevoked checks if a token ID (jti) is present in the blacklist.
 	IsRevoked(ctx context.Context, jti string) (bool, error)
+
+	// RevokeUserTokens records the timestamp of revocation for all tokens of a user with a TTL.
+	RevokeUserTokens(ctx context.Context, userID string, expiresIn time.Duration) error
+
+	// IsUserTokenRevoked checks if a token was issued before the user's revocation timestamp.
+	IsUserTokenRevoked(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
 }
 
 type AuthUseCase interface {

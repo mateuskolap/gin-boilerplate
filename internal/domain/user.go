@@ -33,6 +33,8 @@ type UserUseCase interface {
 
 	BaseFindUseCase[User]
 
+	BaseDeleteUseCase
+
 	// UpdateProfile updates editable user profile fields.
 	UpdateProfile(ctx context.Context, user *User) error
 
