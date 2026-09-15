@@ -23,6 +23,7 @@ const (
 	PermissionAddUserRole    PermissionName = "add_user_role"
 	PermissionRemoveUserRole PermissionName = "remove_user_role"
 	PermissionDeleteUser     PermissionName = "delete_user"
+	PermissionUpdateUser     PermissionName = "update_user"
 )
 
 var AllPermissions = []PermissionName{
@@ -37,6 +38,7 @@ var AllPermissions = []PermissionName{
 	PermissionAddUserRole,
 	PermissionRemoveUserRole,
 	PermissionDeleteUser,
+	PermissionUpdateUser,
 }
 
 type Permission struct {

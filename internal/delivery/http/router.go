@@ -54,6 +54,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			{
 				users.GET("/profile", cfg.UserHandler.GetProfile)
 				users.PUT("/profile", cfg.UserHandler.UpdateProfile)
+				users.PUT("/:id", requirePermission(domain.PermissionUpdateUser), cfg.UserHandler.UpdateUser)
 				users.GET("", requirePermission(domain.PermissionViewUser), cfg.UserHandler.ListUsers)
 				users.GET("/:id", requirePermission(domain.PermissionViewUser), cfg.UserHandler.FindUser)
 				users.DELETE("/:id", requirePermission(domain.PermissionDeleteUser), cfg.UserHandler.DeleteUser)

@@ -163,6 +163,48 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	response.Success(c, http.StatusOK, "Profile updated successfully", dto.ToUserResponse(user))
 }
 
+// UpdateUser godoc
+// @Summary      Update user
+// @Description  Update user information by UUID. Requires 'update_user' permission.
+// @Tags         Users
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id       path      string                    true  "User UUID" format(uuid)
+// @Param        request  body      dto.UpdateProfileRequest  true  "User update details"
+// @Success      200      {object}  response.ApiResponse{data=dto.UserResponse} "User updated successfully"
+// @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403      {object}  response.ApiResponse "Forbidden - Requires update_user permission"
+// @Failure      404      {object}  response.ApiResponse "Not Found - User not found"
+// @Failure      422      {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format or request payload"
+// @Failure      500      {object}  response.ApiResponse "Internal server error"
+// @Router       /api/v1/users/{id} [put]
+func (h *UserHandler) UpdateUser(c *gin.Context) {
+	userID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	req, err := bindJSON[dto.UpdateProfileRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	user := &domain.User{
+		ID:   userID,
+		Name: req.Name,
+	}
+
+	if err := h.userUseCase.UpdateProfile(c.Request.Context(), user); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User updated successfully", dto.ToUserResponse(user))
+}
+
 // DeleteUser godoc
 // @Summary      Delete user
 // @Description  Delete a user by UUID. Requires 'delete_user' permission.
