@@ -114,6 +114,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		RefreshTokenHandler: refreshTokenHandler,
 		AuthUseCase:         authUseCase,
 		PermissionChecker:   permissionCheckerUseCase,
+		RedisClient:         redisClient,
 		Env:                 cfg.Env,
 	})
 

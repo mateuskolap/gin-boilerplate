@@ -5,12 +5,13 @@ import "fmt"
 type ErrorType string
 
 const (
-	ErrTypeNotFound     ErrorType = "NOT_FOUND"
-	ErrTypeConflict     ErrorType = "CONFLICT"
-	ErrTypeUnauthorized ErrorType = "UNAUTHORIZED"
-	ErrTypeInternal     ErrorType = "INTERNAL"
-	ErrTypeValidation   ErrorType = "VALIDATION"
-	ErrTypeForbidden    ErrorType = "FORBIDDEN"
+	ErrTypeNotFound        ErrorType = "NOT_FOUND"
+	ErrTypeConflict        ErrorType = "CONFLICT"
+	ErrTypeUnauthorized    ErrorType = "UNAUTHORIZED"
+	ErrTypeInternal        ErrorType = "INTERNAL"
+	ErrTypeValidation      ErrorType = "VALIDATION"
+	ErrTypeForbidden       ErrorType = "FORBIDDEN"
+	ErrTypeTooManyRequests ErrorType = "TOO_MANY_REQUESTS"
 )
 
 type AppError struct {

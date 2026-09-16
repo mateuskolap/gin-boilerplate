@@ -6,7 +6,10 @@ import (
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain"
 
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -19,6 +22,7 @@ type RouterConfig struct {
 	RefreshTokenHandler *v1.RefreshTokenHandler
 	AuthUseCase         domain.AuthUseCase
 	PermissionChecker   domain.PermissionCheckerUseCase
+	RedisClient         *redis.Client
 	Env                 string
 }
 
@@ -35,13 +39,17 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		return middleware.RequirePermission(perm, cfg.PermissionChecker)
 	}
 
+	rateLimit := func(limit int64, window time.Duration) gin.HandlerFunc {
+		return middleware.RateLimiter(cfg.RedisClient, limit, window)
+	}
+
 	api := r.Group("/api/v1")
 	{
 		auth := api.Group("/auth")
 		{
-			auth.POST("/register", cfg.AuthHandler.Register)
-			auth.POST("/login", cfg.AuthHandler.Login)
-			auth.POST("/refresh", cfg.AuthHandler.Refresh)
+			auth.POST("/register", rateLimit(5, time.Minute), cfg.AuthHandler.Register)
+			auth.POST("/login", rateLimit(10, time.Minute), cfg.AuthHandler.Login)
+			auth.POST("/refresh", rateLimit(30, time.Minute), cfg.AuthHandler.Refresh)
 		}
 
 		protected := api.Group("")

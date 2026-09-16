@@ -29,6 +29,7 @@ func NewAuthHandler(authUseCase domain.AuthUseCase) *AuthHandler {
 // @Success      201  {object}  response.ApiResponse{data=dto.UserResponse} "User registered successfully"
 // @Failure      409  {object}  response.ApiResponse "Conflict - Email already in use"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
+// @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
@@ -62,6 +63,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Login successful with token pair"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid email or password"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
+// @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -99,6 +101,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Tokens refreshed successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid, expired or revoked refresh token"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
+// @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(c *gin.Context) {

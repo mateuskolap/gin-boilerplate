@@ -14,11 +14,12 @@ import (
 )
 
 var statusMap = map[domain.ErrorType]int{
-	domain.ErrTypeNotFound:     http.StatusNotFound,
-	domain.ErrTypeConflict:     http.StatusConflict,
-	domain.ErrTypeUnauthorized: http.StatusUnauthorized,
-	domain.ErrTypeForbidden:    http.StatusForbidden,
-	domain.ErrTypeValidation:   http.StatusUnprocessableEntity,
+	domain.ErrTypeNotFound:        http.StatusNotFound,
+	domain.ErrTypeConflict:        http.StatusConflict,
+	domain.ErrTypeUnauthorized:    http.StatusUnauthorized,
+	domain.ErrTypeForbidden:       http.StatusForbidden,
+	domain.ErrTypeValidation:      http.StatusUnprocessableEntity,
+	domain.ErrTypeTooManyRequests: http.StatusTooManyRequests,
 }
 
 func ErrorHandler() gin.HandlerFunc {

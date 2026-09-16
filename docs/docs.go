@@ -74,6 +74,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too Many Requests - Rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -188,6 +194,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too Many Requests - Rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -248,6 +260,12 @@ const docTemplate = `{
                     },
                     "422": {
                         "description": "Unprocessable Entity - Invalid payload validation",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests - Rate limit exceeded",
                         "schema": {
                             "$ref": "#/definitions/response.ApiResponse"
                         }
