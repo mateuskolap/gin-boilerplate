@@ -88,11 +88,12 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	permissionRepo := repository.NewPermissionRepository(db)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 	rolePermissionRepo := repository.NewRolePermissionRepository(cacheRepo)
+	txManager := repository.NewGormTransactionManagerRepository(db)
 
 	// UseCases
-	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, cfg.RefreshExpiration)
+	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, txManager, cfg.RefreshExpiration)
 	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
-	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTExpiration)
+	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, txManager, cfg.JWTExpiration)
 	roleUseCase := usecase.NewRoleUseCase(roleRepo, rolePermissionRepo, cfg.RolePermissionsTTL)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo, rolePermissionRepo)
 	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(rolePermissionRepo, roleRepo, cfg.RolePermissionsTTL)

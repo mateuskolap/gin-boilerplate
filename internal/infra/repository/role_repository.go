@@ -10,14 +10,12 @@ import (
 )
 
 type roleRepository struct {
-	domain.BaseRepository[domain.Role]
-	db *gorm.DB
+	*baseRepository[domain.Role]
 }
 
 func NewRoleRepository(db *gorm.DB) domain.RoleRepository {
 	return &roleRepository{
-		BaseRepository: NewBaseRepository[domain.Role](db),
-		db:             db,
+		baseRepository: newBaseRepository[domain.Role](db),
 	}
 }
 
@@ -35,7 +33,7 @@ func (r *roleRepository) AddPermissions(ctx context.Context, role domain.Role, p
 		permissions[i] = domain.Permission{ID: id}
 	}
 
-	return r.db.WithContext(ctx).Model(&role).Association("Permissions").Append(&permissions)
+	return r.getDB(ctx).Model(&role).Association("Permissions").Append(&permissions)
 }
 
 func (r *roleRepository) RemovePermissions(ctx context.Context, role domain.Role, permissionIDs []uuid.UUID) error {
@@ -48,5 +46,5 @@ func (r *roleRepository) RemovePermissions(ctx context.Context, role domain.Role
 		permissions[i] = domain.Permission{ID: id}
 	}
 
-	return r.db.WithContext(ctx).Model(&role).Association("Permissions").Delete(&permissions)
+	return r.getDB(ctx).Model(&role).Association("Permissions").Delete(&permissions)
 }
