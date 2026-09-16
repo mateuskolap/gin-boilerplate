@@ -24,7 +24,7 @@ func RateLimiter(rdb *redis.Client, limit int64, window time.Duration) gin.Handl
 
 		count, err := rdb.Incr(ctx, key).Result()
 		if err != nil {
-			c.Next()
+			c.Next() // Fail-open
 			return
 		}
 
