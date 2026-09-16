@@ -1,4 +1,4 @@
-package domain
+package shared
 
 import (
 	"fmt"
@@ -25,13 +25,20 @@ const (
 )
 
 var validOperators = map[FilterOperator]bool{
-	OperatorEquals: true, OperatorNotEquals: true,
-	OperatorGreaterThan: true, OperatorLessThan: true,
-	OperatorGreaterThanOrEqual: true, OperatorLessThanOrEqual: true,
-	OperatorLike: true, OperatorNotLike: true,
-	OperatorILike: true, OperatorNotILike: true,
-	OperatorIn: true, OperatorNotIn: true,
-	OperatorIsNull: true, OperatorIsNotNull: true,
+	OperatorEquals:             true,
+	OperatorNotEquals:          true,
+	OperatorGreaterThan:        true,
+	OperatorLessThan:           true,
+	OperatorGreaterThanOrEqual: true,
+	OperatorLessThanOrEqual:    true,
+	OperatorLike:               true,
+	OperatorNotLike:            true,
+	OperatorILike:              true,
+	OperatorNotILike:           true,
+	OperatorIn:                 true,
+	OperatorNotIn:              true,
+	OperatorIsNull:             true,
+	OperatorIsNotNull:          true,
 }
 
 type Filter struct {

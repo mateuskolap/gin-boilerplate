@@ -2,11 +2,12 @@ package domain
 
 import (
 	"context"
+	"gin-boilerplate/internal/domain/shared"
 	"uuid"
 )
 
 type User struct {
-	BaseSoftDeleteModel
+	shared.BaseSoftDeleteModel
 	Name     string `json:"name" gorm:"not null"`
 	Email    string `json:"email" gorm:"not null;unique"`
 	Password string `json:"-" gorm:"not null"`
@@ -15,7 +16,7 @@ type User struct {
 }
 
 type UserRepository interface {
-	BaseRepository[User]
+	shared.BaseRepository[User]
 
 	// GetByEmail retrieves a user by their unique email address, optionally preloading relationships.
 	// Returns (nil, nil) if no user matches the email.
@@ -29,11 +30,11 @@ type UserRepository interface {
 }
 
 type UserUseCase interface {
-	BaseListUseCase[User]
+	shared.BaseListUseCase[User]
 
-	BaseFindUseCase[User]
+	shared.BaseFindUseCase[User]
 
-	BaseDeleteUseCase
+	shared.BaseDeleteUseCase
 
 	// UpdateProfile updates editable user profile fields.
 	UpdateProfile(ctx context.Context, user *User) error

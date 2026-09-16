@@ -2,20 +2,20 @@ package usecase
 
 import (
 	"context"
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 )
 
 type baseListUseCase[T any] struct {
-	repo          domain.BaseRepository[T]
+	repo          shared.BaseRepository[T]
 	allowedFields map[string]bool
 	preloads      []string
 }
 
 func NewBaseListUseCase[T any](
-	repo domain.BaseRepository[T],
+	repo shared.BaseRepository[T],
 	allowedFields map[string]bool,
 	preloads ...string,
-) domain.BaseListUseCase[T] {
+) shared.BaseListUseCase[T] {
 	return &baseListUseCase[T]{
 		repo:          repo,
 		allowedFields: allowedFields,
@@ -25,10 +25,10 @@ func NewBaseListUseCase[T any](
 
 func (uc *baseListUseCase[T]) List(
 	ctx context.Context,
-	params domain.PaginationParams,
-	filters []domain.Filter,
-) (*domain.PaginatedResult[T], error) {
-	if err := domain.Filters(filters).ValidateAllowed(uc.allowedFields); err != nil {
+	params shared.PaginationParams,
+	filters []shared.Filter,
+) (*shared.PaginatedResult[T], error) {
+	if err := shared.Filters(filters).ValidateAllowed(uc.allowedFields); err != nil {
 		return nil, err
 	}
 
@@ -38,8 +38,8 @@ func (uc *baseListUseCase[T]) List(
 
 	result, err := uc.repo.List(ctx, params, filters, uc.preloads...)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to retrieve items",
 			err,
 		)

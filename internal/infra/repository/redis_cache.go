@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -15,7 +15,7 @@ type redisCache struct {
 	client *redis.Client
 }
 
-func NewRedisCache(client *redis.Client) domain.CacheRepository {
+func NewRedisCache(client *redis.Client) port.CacheRepository {
 	return &redisCache{
 		client: client,
 	}

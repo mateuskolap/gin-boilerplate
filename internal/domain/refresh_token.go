@@ -2,12 +2,13 @@ package domain
 
 import (
 	"context"
+	"gin-boilerplate/internal/domain/shared"
 	"time"
 	"uuid"
 )
 
 type RefreshToken struct {
-	BaseModel
+	shared.BaseModel
 	UserID     uuid.UUID  `json:"user_id" gorm:"type:uuid;not null;index"`
 	TokenHash  string     `json:"token" gorm:"not null;uniqueIndex"`
 	ExpiresAt  time.Time  `json:"expires_at" gorm:"not null;index"`
@@ -20,9 +21,9 @@ type RefreshToken struct {
 }
 
 type RefreshTokenRepository interface {
-	BaseRepository[RefreshToken]
+	shared.BaseRepository[RefreshToken]
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
-	ListByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
+	ListByUserID(ctx context.Context, userID uuid.UUID, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[RefreshToken], error)
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 
 	// RevokeByID atomically revokes a refresh token by ID only if it has not been revoked yet.
@@ -34,7 +35,7 @@ type RefreshTokenUseCase interface {
 	Create(ctx context.Context, userID uuid.UUID, ipAddress string, userAgent string) (string, error)
 	Rotate(ctx context.Context, oldToken, ipAddress, userAgent string) (string, error)
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
-	ListActiveByUserID(ctx context.Context, userID uuid.UUID, params PaginationParams, filters []Filter) (*PaginatedResult[RefreshToken], error)
+	ListActiveByUserID(ctx context.Context, userID uuid.UUID, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[RefreshToken], error)
 	Revoke(ctx context.Context, token string) error
 	RevokeEntity(ctx context.Context, refreshToken *RefreshToken) error
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error

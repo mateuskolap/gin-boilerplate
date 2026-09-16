@@ -4,6 +4,7 @@ import (
 	"gin-boilerplate/internal/delivery/http/dto"
 	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -21,7 +22,7 @@ func NewPermissionHandler(permissionUseCase domain.PermissionUseCase) *Permissio
 
 // ListPermissions godoc
 // @Summary      List permissions
-// @Description  Get paginated list of available system permissions with optional filters and sorting. Requires 'view_permission' permission.
+// @Description  Get paginated list of permissions with optional filtering and sorting. Requires 'view_permission' permission.
 // @Tags         Permissions
 // @Produce      json
 // @Security     BearerAuth
@@ -38,11 +39,11 @@ func NewPermissionHandler(permissionUseCase domain.PermissionUseCase) *Permissio
 func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 	params := extractPaginationParams(c)
 
-	var filters []domain.Filter
+	var filters []shared.Filter
 	if name := c.Query("name"); name != "" {
-		filters = append(filters, domain.Filter{
+		filters = append(filters, shared.Filter{
 			Field:    "name",
-			Operator: domain.OperatorILike,
+			Operator: shared.OperatorILike,
 			Value:    "%" + name + "%",
 		})
 	}

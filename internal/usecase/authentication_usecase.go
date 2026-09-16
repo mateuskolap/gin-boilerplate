@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 	"gin-boilerplate/internal/infra/security"
 	"gin-boilerplate/pkg/collection"
 	"time"
@@ -40,16 +41,16 @@ func NewAuthUseCase(
 func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 	existingUser, err := a.userRepo.GetByEmail(ctx, user.Email)
 	if err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"There was a problem verifying the email",
 			err,
 		)
 	}
 
 	if existingUser != nil {
-		return domain.NewAppError(
-			domain.ErrTypeConflict,
+		return shared.NewAppError(
+			shared.ErrTypeConflict,
 			"This email is already in use",
 			nil,
 		)
@@ -57,8 +58,8 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Error while generating the password hash",
 			err,
 		)
@@ -72,8 +73,8 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 	}
 
 	if err := a.userRepo.Create(ctx, user); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to create user",
 			err,
 		)
@@ -85,8 +86,8 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 func (a *authUseCase) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.AuthTokens, error) {
 	user, err := a.userRepo.GetByEmail(ctx, email, "Roles")
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"There was a problem verifying credentials",
 			err,
 		)
@@ -96,8 +97,8 @@ func (a *authUseCase) Login(ctx context.Context, email, password, ipAddress, use
 	if user == nil {
 		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
 
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Invalid email or password",
 			nil,
 		)
@@ -105,8 +106,8 @@ func (a *authUseCase) Login(ctx context.Context, email, password, ipAddress, use
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Invalid email or password",
 			nil,
 		)
@@ -116,8 +117,8 @@ func (a *authUseCase) Login(ctx context.Context, email, password, ipAddress, use
 
 	accessToken, err := security.GenerateAccessToken(user.ID, roles, a.jwtSecret, a.jwtExpiration)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to generate access token",
 			err,
 		)
@@ -142,16 +143,16 @@ func (a *authUseCase) Refresh(ctx context.Context, refreshToken string, ipAddres
 
 	user, err := a.userRepo.GetByID(ctx, storedToken.UserID, "Roles")
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to find user",
 			err,
 		)
 	}
 
 	if user == nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"User no longer exists",
 			nil,
 		)
@@ -161,8 +162,8 @@ func (a *authUseCase) Refresh(ctx context.Context, refreshToken string, ipAddres
 
 	accessToken, err := security.GenerateAccessToken(user.ID, roles, a.jwtSecret, a.jwtExpiration)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to generate access token",
 			err,
 		)
@@ -190,8 +191,8 @@ func (a *authUseCase) Logout(ctx context.Context, accessToken, refreshToken stri
 			remainingTTL := time.Until(claims.ExpiresAt.Time)
 			if remainingTTL > 0 {
 				if err := a.tokenBlacklist.RevokeToken(ctx, claims.ID, remainingTTL); err != nil {
-					return domain.NewAppError(
-						domain.ErrTypeInternal,
+					return shared.NewAppError(
+						shared.ErrTypeInternal,
 						"Failed to revoke access token",
 						err,
 					)
@@ -205,8 +206,8 @@ func (a *authUseCase) Logout(ctx context.Context, accessToken, refreshToken stri
 			return err
 		}
 	} else if tokenErr != nil {
-		return domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Invalid token",
 			tokenErr,
 		)
@@ -218,8 +219,8 @@ func (a *authUseCase) Logout(ctx context.Context, accessToken, refreshToken stri
 func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString string) (*domain.TokenClaims, error) {
 	claims, err := security.ParseAndValidateJWT(tokenString, a.jwtSecret)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Invalid or expired token",
 			err,
 		)
@@ -227,15 +228,15 @@ func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString strin
 
 	isRevoked, err := a.tokenBlacklist.IsRevoked(ctx, claims.ID)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to check token revocation status",
 			err,
 		)
 	}
 	if isRevoked {
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Invalid or expired token",
 			nil,
 		)
@@ -248,15 +249,15 @@ func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString strin
 
 	isUserRevoked, err := a.tokenBlacklist.IsUserTokenRevoked(ctx, claims.Subject, issuedAt)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to check user token revocation status",
 			err,
 		)
 	}
 	if isUserRevoked {
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Invalid or expired token",
 			nil,
 		)

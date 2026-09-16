@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"gin-boilerplate/internal/domain/shared"
 )
 
 type PermissionName string
@@ -42,21 +43,21 @@ var AllPermissions = []PermissionName{
 }
 
 type Permission struct {
-	BaseModel
+	shared.BaseModel
 	Name string `json:"name" gorm:"unique;not null"`
 
 	Roles []Role `json:"roles,omitempty" gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE;"`
 }
 
 type PermissionRepository interface {
-	BaseRepository[Permission]
+	shared.BaseRepository[Permission]
 
 	// UpsertByName inserts or updates permissions based on their names.
 	UpsertByName(ctx context.Context, permissions []Permission) error
 }
 
 type PermissionUseCase interface {
-	BaseListUseCase[Permission]
+	shared.BaseListUseCase[Permission]
 
 	// Find populates the permissions table with the predefined permissions.
 	SeedPermissions(ctx context.Context) error

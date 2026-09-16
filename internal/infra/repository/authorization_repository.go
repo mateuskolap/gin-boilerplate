@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
 	"time"
 )
 
@@ -13,10 +14,10 @@ const (
 )
 
 type rolePermissionRepository struct {
-	cache domain.CacheRepository
+	cache port.CacheRepository
 }
 
-func NewRolePermissionRepository(cache domain.CacheRepository) domain.RolePermissionRepository {
+func NewRolePermissionRepository(cache port.CacheRepository) domain.RolePermissionRepository {
 	return &rolePermissionRepository{
 		cache: cache,
 	}

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 	"time"
 	"uuid"
 
@@ -23,10 +24,10 @@ func (r *refreshTokenRepository) FindByTokenHash(ctx context.Context, token stri
 	return r.FindOneBy(ctx, "token_hash = ?", []any{token})
 }
 
-func (r *refreshTokenRepository) ListByUserID(ctx context.Context, userID uuid.UUID, params domain.PaginationParams, filters []domain.Filter) (*domain.PaginatedResult[domain.RefreshToken], error) {
-	sanitizedFilters := append(domain.Filters(filters).Without("user_id"), domain.Filter{
+func (r *refreshTokenRepository) ListByUserID(ctx context.Context, userID uuid.UUID, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[domain.RefreshToken], error) {
+	sanitizedFilters := append(shared.Filters(filters).Without("user_id"), shared.Filter{
 		Field:    "user_id",
-		Operator: domain.OperatorEquals,
+		Operator: shared.OperatorEquals,
 		Value:    userID,
 	})
 

@@ -7,19 +7,19 @@ import (
 	"net/http"
 
 	"gin-boilerplate/internal/delivery/http/response"
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
 
-var statusMap = map[domain.ErrorType]int{
-	domain.ErrTypeNotFound:        http.StatusNotFound,
-	domain.ErrTypeConflict:        http.StatusConflict,
-	domain.ErrTypeUnauthorized:    http.StatusUnauthorized,
-	domain.ErrTypeForbidden:       http.StatusForbidden,
-	domain.ErrTypeValidation:      http.StatusUnprocessableEntity,
-	domain.ErrTypeTooManyRequests: http.StatusTooManyRequests,
+var statusMap = map[shared.ErrorType]int{
+	shared.ErrTypeNotFound:        http.StatusNotFound,
+	shared.ErrTypeConflict:        http.StatusConflict,
+	shared.ErrTypeUnauthorized:    http.StatusUnauthorized,
+	shared.ErrTypeForbidden:       http.StatusForbidden,
+	shared.ErrTypeValidation:      http.StatusUnprocessableEntity,
+	shared.ErrTypeTooManyRequests: http.StatusTooManyRequests,
 }
 
 func ErrorHandler() gin.HandlerFunc {
@@ -30,7 +30,7 @@ func ErrorHandler() gin.HandlerFunc {
 			return
 		}
 
-		var appErr *domain.AppError
+		var appErr *shared.AppError
 		if !errors.As(c.Errors.Last().Err, &appErr) {
 			c.JSON(http.StatusInternalServerError, response.ApiResponse{
 				Success: false,

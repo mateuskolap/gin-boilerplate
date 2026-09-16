@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 )
 
 type permissionCheckerUseCase struct {
@@ -89,8 +90,8 @@ func (p *permissionCheckerUseCase) hasPermissionFallbackDB(ctx context.Context, 
 	for _, role := range roles {
 		roleObj, err := p.roleRepo.GetByName(ctx, role, "Permissions")
 		if err != nil {
-			return false, domain.NewAppError(
-				domain.ErrTypeInternal,
+			return false, shared.NewAppError(
+				shared.ErrTypeInternal,
 				"Failed to check permissions from database fallback",
 				err,
 			)

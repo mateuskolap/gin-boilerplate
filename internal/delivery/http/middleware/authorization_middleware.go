@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 
 	"github.com/gin-gonic/gin"
 )
@@ -10,8 +11,8 @@ func RequirePermission(permission domain.PermissionName, permissionChecker domai
 	return func(c *gin.Context) {
 		val, exists := c.Get("user_roles")
 		if !exists {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeForbidden,
+			_ = c.Error(shared.NewAppError(
+				shared.ErrTypeForbidden,
 				"User roles not found in context",
 				nil,
 			))
@@ -21,8 +22,8 @@ func RequirePermission(permission domain.PermissionName, permissionChecker domai
 
 		roles, ok := val.([]string)
 		if !ok || len(roles) == 0 {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeForbidden,
+			_ = c.Error(shared.NewAppError(
+				shared.ErrTypeForbidden,
 				"User roles are invalid or empty",
 				nil,
 			))
@@ -32,8 +33,8 @@ func RequirePermission(permission domain.PermissionName, permissionChecker domai
 
 		allowed, err := permissionChecker.HasPermission(c.Request.Context(), roles, string(permission))
 		if err != nil {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeInternal,
+			_ = c.Error(shared.NewAppError(
+				shared.ErrTypeInternal,
 				"Failed to check permissions",
 				err,
 			))
@@ -42,8 +43,8 @@ func RequirePermission(permission domain.PermissionName, permissionChecker domai
 		}
 
 		if !allowed {
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeForbidden,
+			_ = c.Error(shared.NewAppError(
+				shared.ErrTypeForbidden,
 				"Insufficient permissions",
 				nil,
 			))

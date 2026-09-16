@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
 	"time"
 )
 
 type tokenBlacklistRepository struct {
-	cache domain.CacheRepository
+	cache port.CacheRepository
 }
 
-func NewTokenBlackListRepository(cache domain.CacheRepository) domain.TokenBlackListRepository {
+func NewTokenBlackListRepository(cache port.CacheRepository) domain.TokenBlackListRepository {
 	return &tokenBlacklistRepository{
 		cache: cache,
 	}

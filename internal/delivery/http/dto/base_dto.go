@@ -1,6 +1,6 @@
 package dto
 
-import "gin-boilerplate/internal/domain"
+import "gin-boilerplate/internal/domain/shared"
 
 type PaginatedResponse[T any] struct {
 	Items      []T   `json:"items"`
@@ -13,7 +13,7 @@ type PaginatedResponse[T any] struct {
 // ToPaginatedResponse converts a domain PaginatedResult[D] into a DTO PaginatedResponse[R]
 // using the provided mapper function.
 func ToPaginatedResponse[D any, R any](
-	result *domain.PaginatedResult[D],
+	result *shared.PaginatedResult[D],
 	mapper func(*D) R,
 ) PaginatedResponse[R] {
 	if result == nil {

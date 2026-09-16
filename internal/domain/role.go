@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"gin-boilerplate/internal/domain/shared"
 
 	"uuid"
 )
@@ -12,7 +13,7 @@ const (
 )
 
 type Role struct {
-	BaseModel
+	shared.BaseModel
 	Name string `json:"name" gorm:"not null;unique"`
 
 	Permissions []Permission `json:"permissions,omitempty" gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE;"`
@@ -20,7 +21,7 @@ type Role struct {
 }
 
 type RoleRepository interface {
-	BaseRepository[Role]
+	shared.BaseRepository[Role]
 
 	// GetByName finds a role by its unique name, optionally preloading relationships.
 	// Returns (nil, nil) if no role matches the name.
@@ -34,11 +35,11 @@ type RoleRepository interface {
 }
 
 type RoleUseCase interface {
-	BaseListUseCase[Role]
+	shared.BaseListUseCase[Role]
 
-	BaseFindUseCase[Role]
+	shared.BaseFindUseCase[Role]
 
-	BaseDeleteUseCase
+	shared.BaseDeleteUseCase
 
 	// Create creates a new role.
 	Create(ctx context.Context, role *Role) error

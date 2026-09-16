@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 )
 
 var allowedPermissionFilterFields = map[string]bool{
@@ -12,7 +13,7 @@ var allowedPermissionFilterFields = map[string]bool{
 }
 
 type permissionUseCase struct {
-	domain.BaseListUseCase[domain.Permission]
+	shared.BaseListUseCase[domain.Permission]
 	permissionRepo     domain.PermissionRepository
 	rolePermissionRepo domain.RolePermissionRepository
 }

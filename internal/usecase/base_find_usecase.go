@@ -2,20 +2,20 @@ package usecase
 
 import (
 	"context"
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 
 	"uuid"
 )
 
 type baseFindUseCase[T any] struct {
-	repo     domain.BaseRepository[T]
+	repo     shared.BaseRepository[T]
 	preloads []string
 }
 
 func NewBaseFindUseCase[T any](
-	repo domain.BaseRepository[T],
+	repo shared.BaseRepository[T],
 	preloads ...string,
-) domain.BaseFindUseCase[T] {
+) shared.BaseFindUseCase[T] {
 	return &baseFindUseCase[T]{
 		repo:     repo,
 		preloads: preloads,
@@ -25,16 +25,16 @@ func NewBaseFindUseCase[T any](
 func (uc *baseFindUseCase[T]) Find(ctx context.Context, id uuid.UUID) (*T, error) {
 	entity, err := uc.repo.GetByID(ctx, id, uc.preloads...)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to retrieve item",
 			err,
 		)
 	}
 
 	if entity == nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeNotFound,
+		return nil, shared.NewAppError(
+			shared.ErrTypeNotFound,
 			"Item not found",
 			nil,
 		)

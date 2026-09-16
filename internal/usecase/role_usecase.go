@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 	"time"
 
 	"uuid"
@@ -16,9 +17,9 @@ var allowedRoleFilterFields = map[string]bool{
 }
 
 type roleUseCase struct {
-	domain.BaseListUseCase[domain.Role]
-	domain.BaseFindUseCase[domain.Role]
-	domain.BaseDeleteUseCase
+	shared.BaseListUseCase[domain.Role]
+	shared.BaseFindUseCase[domain.Role]
+	shared.BaseDeleteUseCase
 	roleRepo           domain.RoleRepository
 	rolePermissionRepo domain.RolePermissionRepository
 	cacheTTL           time.Duration
@@ -50,24 +51,24 @@ func NewRoleUseCase(
 func (r *roleUseCase) Create(ctx context.Context, role *domain.Role) error {
 	existingRole, err := r.roleRepo.GetByName(ctx, role.Name)
 	if err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"There was a problem verifying the role name",
 			err,
 		)
 	}
 
 	if existingRole != nil {
-		return domain.NewAppError(
-			domain.ErrTypeConflict,
+		return shared.NewAppError(
+			shared.ErrTypeConflict,
 			"This role already exists",
 			nil,
 		)
 	}
 
 	if err := r.roleRepo.Create(ctx, role); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to create role",
 			err,
 		)
@@ -86,8 +87,8 @@ func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
 	existingRole.Name = role.Name
 
 	if err = r.roleRepo.Update(ctx, existingRole); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to update role",
 			err,
 		)
@@ -142,8 +143,8 @@ func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, p
 func (r *roleUseCase) syncRolePermissionsCache(ctx context.Context, roleName string) error {
 	roleObj, err := r.roleRepo.GetByName(ctx, roleName, "Permissions")
 	if err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to fetch role permissions for cache sync",
 			err,
 		)
@@ -157,8 +158,8 @@ func (r *roleUseCase) syncRolePermissionsCache(ctx context.Context, roleName str
 	}
 
 	if err := r.rolePermissionRepo.SavePermissionsByRole(ctx, roleName, permissions, r.cacheTTL); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to sync role permissions cache",
 			err,
 		)

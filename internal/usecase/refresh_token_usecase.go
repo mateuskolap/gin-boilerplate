@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
+	"gin-boilerplate/internal/domain/shared"
 	"gin-boilerplate/internal/infra/security"
 	"time"
 
@@ -19,13 +21,13 @@ var allowedRefreshTokenFilterFields = map[string]bool{
 
 type refreshTokenUseCase struct {
 	refreshTokenRepo domain.RefreshTokenRepository
-	tx               domain.TransactionManager
+	tx               port.TransactionManager
 	expiration       time.Duration
 }
 
 func NewRefreshTokenUseCase(
 	refreshTokenRepo domain.RefreshTokenRepository,
-	tx domain.TransactionManager,
+	tx port.TransactionManager,
 	expiration time.Duration,
 ) domain.RefreshTokenUseCase {
 	return &refreshTokenUseCase{
@@ -57,16 +59,16 @@ func (r *refreshTokenUseCase) Rotate(ctx context.Context, oldToken string, ipAdd
 
 		revoked, err := r.refreshTokenRepo.RevokeByID(txCtx, storedToken.ID, newTokenEntity.ID)
 		if err != nil {
-			return domain.NewAppError(
-				domain.ErrTypeInternal,
+			return shared.NewAppError(
+				shared.ErrTypeInternal,
 				"Failed to revoke refresh token",
 				err,
 			)
 		}
 
 		if !revoked {
-			return domain.NewAppError(
-				domain.ErrTypeUnauthorized,
+			return shared.NewAppError(
+				shared.ErrTypeUnauthorized,
 				"Refresh token has already been used",
 				nil,
 			)
@@ -77,8 +79,8 @@ func (r *refreshTokenUseCase) Rotate(ctx context.Context, oldToken string, ipAdd
 	})
 
 	if err != nil {
-		var appErr *domain.AppError
-		if errors.As(err, &appErr) && appErr.Type == domain.ErrTypeUnauthorized {
+		var appErr *shared.AppError
+		if errors.As(err, &appErr) && appErr.Type == shared.ErrTypeUnauthorized {
 			_ = r.refreshTokenRepo.RevokeAllByUserID(ctx, storedToken.UserID)
 		}
 		return "", err
@@ -91,16 +93,16 @@ func (r *refreshTokenUseCase) FindByTokenHash(ctx context.Context, token string)
 	tokenHash := security.HashSHA256(token)
 	existingRefreshToken, err := r.refreshTokenRepo.FindByTokenHash(ctx, tokenHash)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"There was a problem verifying the token existence",
 			err,
 		)
 	}
 
 	if existingRefreshToken == nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeNotFound,
+		return nil, shared.NewAppError(
+			shared.ErrTypeNotFound,
 			"Refresh token not found",
 			nil,
 		)
@@ -112,20 +114,20 @@ func (r *refreshTokenUseCase) FindByTokenHash(ctx context.Context, token string)
 func (r *refreshTokenUseCase) ListActiveByUserID(
 	ctx context.Context,
 	userID uuid.UUID,
-	params domain.PaginationParams,
-	filters []domain.Filter,
-) (*domain.PaginatedResult[domain.RefreshToken], error) {
-	if err := domain.Filters(filters).ValidateAllowed(allowedRefreshTokenFilterFields); err != nil {
+	params shared.PaginationParams,
+	filters []shared.Filter,
+) (*shared.PaginatedResult[domain.RefreshToken], error) {
+	if err := shared.Filters(filters).ValidateAllowed(allowedRefreshTokenFilterFields); err != nil {
 		return nil, err
 	}
 
-	filters = append(append(domain.Filters(filters).Without("expires_at"), domain.Filter{
+	filters = append(append(shared.Filters(filters).Without("expires_at"), shared.Filter{
 		Field:    "expires_at",
-		Operator: domain.OperatorGreaterThan,
+		Operator: shared.OperatorGreaterThan,
 		Value:    time.Now().UTC(),
-	}), domain.Filter{
+	}), shared.Filter{
 		Field:    "revoked_at",
-		Operator: domain.OperatorIsNull,
+		Operator: shared.OperatorIsNull,
 	})
 
 	if err := params.ValidateSort(allowedRefreshTokenFilterFields); err != nil {
@@ -134,8 +136,8 @@ func (r *refreshTokenUseCase) ListActiveByUserID(
 
 	result, err := r.refreshTokenRepo.ListByUserID(ctx, userID, params, filters)
 	if err != nil {
-		return nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to list refresh tokens",
 			err,
 		)
@@ -162,8 +164,8 @@ func (r *refreshTokenUseCase) RevokeEntity(ctx context.Context, refreshToken *do
 	refreshToken.RevokedAt = &now
 
 	if err := r.refreshTokenRepo.Update(ctx, refreshToken); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to revoke refresh token",
 			err,
 		)
@@ -174,8 +176,8 @@ func (r *refreshTokenUseCase) RevokeEntity(ctx context.Context, refreshToken *do
 
 func (r *refreshTokenUseCase) RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error {
 	if err := r.refreshTokenRepo.RevokeAllByUserID(ctx, userID); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to revoke all refresh tokens for user",
 			err,
 		)
@@ -186,8 +188,8 @@ func (r *refreshTokenUseCase) RevokeAllByUserID(ctx context.Context, userID uuid
 
 func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*domain.RefreshToken, error) {
 	if token == "" {
-		return nil, domain.NewAppError(
-			domain.ErrTypeValidation,
+		return nil, shared.NewAppError(
+			shared.ErrTypeValidation,
 			"Refresh token is required",
 			nil,
 		)
@@ -195,10 +197,10 @@ func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*doma
 
 	storedToken, err := r.FindByTokenHash(ctx, token)
 	if err != nil {
-		var appErr *domain.AppError
-		if errors.As(err, &appErr) && appErr.Type == domain.ErrTypeNotFound {
-			return nil, domain.NewAppError(
-				domain.ErrTypeUnauthorized,
+		var appErr *shared.AppError
+		if errors.As(err, &appErr) && appErr.Type == shared.ErrTypeNotFound {
+			return nil, shared.NewAppError(
+				shared.ErrTypeUnauthorized,
 				"Invalid refresh token",
 				nil,
 			)
@@ -210,16 +212,16 @@ func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*doma
 	if storedToken.RevokedAt != nil {
 		_ = r.refreshTokenRepo.RevokeAllByUserID(ctx, storedToken.UserID)
 
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Refresh token has been revoked",
 			nil,
 		)
 	}
 
 	if time.Now().UTC().After(storedToken.ExpiresAt) {
-		return nil, domain.NewAppError(
-			domain.ErrTypeUnauthorized,
+		return nil, shared.NewAppError(
+			shared.ErrTypeUnauthorized,
 			"Refresh token has expired",
 			nil,
 		)
@@ -237,8 +239,8 @@ func (r *refreshTokenUseCase) createTokenWithExpiry(
 ) (string, *domain.RefreshToken, error) {
 	plainToken, err := security.GenerateRandomToken(32)
 	if err != nil {
-		return "", nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return "", nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to generate refresh token",
 			err,
 		)
@@ -253,8 +255,8 @@ func (r *refreshTokenUseCase) createTokenWithExpiry(
 	}
 
 	if err := r.refreshTokenRepo.Create(ctx, token); err != nil {
-		return "", nil, domain.NewAppError(
-			domain.ErrTypeInternal,
+		return "", nil, shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to create refresh token",
 			err,
 		)

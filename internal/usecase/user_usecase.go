@@ -3,6 +3,8 @@ package usecase
 import (
 	"context"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
+	"gin-boilerplate/internal/domain/shared"
 	"time"
 
 	"uuid"
@@ -17,12 +19,12 @@ var allowedUserFilterFields = map[string]bool{
 }
 
 type userUseCase struct {
-	domain.BaseListUseCase[domain.User]
-	domain.BaseFindUseCase[domain.User]
+	shared.BaseListUseCase[domain.User]
+	shared.BaseFindUseCase[domain.User]
 	userRepo            domain.UserRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
 	tokenBlacklist      domain.TokenBlackListRepository
-	tx                  domain.TransactionManager
+	tx                  port.TransactionManager
 	jwtExpiration       time.Duration
 }
 
@@ -31,7 +33,7 @@ func NewUserUseCase(
 	roleRepo domain.RoleRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
 	tokenBlacklist domain.TokenBlackListRepository,
-	tx domain.TransactionManager,
+	tx port.TransactionManager,
 	jwtExpiration time.Duration,
 ) domain.UserUseCase {
 	return &userUseCase{
@@ -60,8 +62,8 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) erro
 	existingUser.Name = user.Name
 
 	if err := u.userRepo.Update(ctx, existingUser); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to update profile",
 			err,
 		)
@@ -78,16 +80,16 @@ func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
 
 	err = u.tx.Do(ctx, func(txCtx context.Context) error {
 		if err := u.refreshTokenUseCase.RevokeAllByUserID(txCtx, userID); err != nil {
-			return domain.NewAppError(
-				domain.ErrTypeInternal,
+			return shared.NewAppError(
+				shared.ErrTypeInternal,
 				"Failed to revoke all refresh tokens for user",
 				err,
 			)
 		}
 
 		if err := u.userRepo.Delete(txCtx, existingUser.ID); err != nil {
-			return domain.NewAppError(
-				domain.ErrTypeInternal,
+			return shared.NewAppError(
+				shared.ErrTypeInternal,
 				"Failed to delete user",
 				err,
 			)
@@ -100,8 +102,8 @@ func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
 	}
 
 	if err := u.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), u.jwtExpiration); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to revoke user tokens",
 			err,
 		)
@@ -117,16 +119,16 @@ func (u *userUseCase) AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []
 	}
 
 	if err := u.userRepo.AddRoles(ctx, *user, roleIDs); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to add roles to user",
 			err,
 		)
 	}
 
 	if err := u.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), u.jwtExpiration); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to revoke user tokens",
 			err,
 		)
@@ -142,16 +144,16 @@ func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs
 	}
 
 	if err := u.userRepo.RemoveRoles(ctx, *user, roleIDs); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to remove roles from user",
 			err,
 		)
 	}
 
 	if err := u.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), u.jwtExpiration); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
 			"Failed to revoke user tokens",
 			err,
 		)

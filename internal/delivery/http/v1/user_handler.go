@@ -4,6 +4,7 @@ import (
 	"gin-boilerplate/internal/delivery/http/dto"
 	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -69,19 +70,19 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 func (h *UserHandler) ListUsers(c *gin.Context) {
 	params := extractPaginationParams(c)
 
-	var filters []domain.Filter
+	var filters []shared.Filter
 
 	if name := c.Query("name"); name != "" {
-		filters = append(filters, domain.Filter{
+		filters = append(filters, shared.Filter{
 			Field:    "name",
-			Operator: domain.OperatorILike,
+			Operator: shared.OperatorILike,
 			Value:    "%" + name + "%",
 		})
 	}
 	if email := c.Query("email"); email != "" {
-		filters = append(filters, domain.Filter{
+		filters = append(filters, shared.Filter{
 			Field:    "email",
-			Operator: domain.OperatorILike,
+			Operator: shared.OperatorILike,
 			Value:    "%" + email + "%",
 		})
 	}

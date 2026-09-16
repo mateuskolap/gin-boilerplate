@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 	"math"
 	"strings"
 
@@ -21,7 +21,7 @@ func newBaseRepository[T any](db *gorm.DB) *baseRepository[T] {
 	return &baseRepository[T]{db: db}
 }
 
-func NewBaseRepository[T any](db *gorm.DB) domain.BaseRepository[T] {
+func NewBaseRepository[T any](db *gorm.DB) shared.BaseRepository[T] {
 	return newBaseRepository[T](db)
 }
 
@@ -67,10 +67,10 @@ func (r *baseRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *baseRepository[T]) List(
 	ctx context.Context,
-	params domain.PaginationParams,
-	filters []domain.Filter,
+	params shared.PaginationParams,
+	filters []shared.Filter,
 	preloads ...string,
-) (*domain.PaginatedResult[T], error) {
+) (*shared.PaginatedResult[T], error) {
 	params.Sanitize()
 
 	query := r.getDB(ctx).Model(new(T))
@@ -100,7 +100,7 @@ func (r *baseRepository[T]) List(
 
 	totalPages := int(math.Ceil(float64(total) / float64(params.Limit)))
 
-	return &domain.PaginatedResult[T]{
+	return &shared.PaginatedResult[T]{
 		Items:      entities,
 		Total:      total,
 		Page:       params.Page,
@@ -109,7 +109,7 @@ func (r *baseRepository[T]) List(
 	}, nil
 }
 
-func applyFilters(query *gorm.DB, filters []domain.Filter) (*gorm.DB, error) {
+func applyFilters(query *gorm.DB, filters []shared.Filter) (*gorm.DB, error) {
 	joined := make(map[string]bool)
 
 	for _, f := range filters {

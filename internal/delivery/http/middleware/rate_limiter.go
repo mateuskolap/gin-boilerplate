@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -24,7 +24,7 @@ func RateLimiter(rdb *redis.Client, limit int64, window time.Duration) gin.Handl
 
 		count, err := rdb.Incr(ctx, key).Result()
 		if err != nil {
-			c.Next()
+			c.Next() // Fail-open
 			return
 		}
 
@@ -39,8 +39,8 @@ func RateLimiter(rdb *redis.Client, limit int64, window time.Duration) gin.Handl
 			}
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
 
-			_ = c.Error(domain.NewAppError(
-				domain.ErrTypeTooManyRequests,
+			_ = c.Error(shared.NewAppError(
+				shared.ErrTypeTooManyRequests,
 				"Too many requests. Please try again later.",
 				nil,
 			))

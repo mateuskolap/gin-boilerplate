@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
 
 	"gorm.io/gorm"
 )
@@ -13,7 +13,7 @@ type gormTransactionManagerRepository struct {
 	db *gorm.DB
 }
 
-func NewGormTransactionManagerRepository(db *gorm.DB) domain.TransactionManager {
+func NewGormTransactionManagerRepository(db *gorm.DB) port.TransactionManager {
 	return &gormTransactionManagerRepository{
 		db: db,
 	}
