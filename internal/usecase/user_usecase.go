@@ -22,6 +22,7 @@ type userUseCase struct {
 	userRepo            domain.UserRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
 	tokenBlacklist      domain.TokenBlackListRepository
+	tx                  domain.TransactionManager
 	jwtExpiration       time.Duration
 }
 
@@ -30,6 +31,7 @@ func NewUserUseCase(
 	roleRepo domain.RoleRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
 	tokenBlacklist domain.TokenBlackListRepository,
+	tx domain.TransactionManager,
 	jwtExpiration time.Duration,
 ) domain.UserUseCase {
 	return &userUseCase{
@@ -44,6 +46,7 @@ func NewUserUseCase(
 		userRepo:            userRepo,
 		refreshTokenUseCase: refreshTokenUseCase,
 		tokenBlacklist:      tokenBlacklist,
+		tx:                  tx,
 		jwtExpiration:       jwtExpiration,
 	}
 }
@@ -73,26 +76,33 @@ func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
 		return err
 	}
 
-	if err := u.refreshTokenUseCase.RevokeAllByUserID(ctx, userID); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to revoke all refresh tokens for user",
-			err,
-		)
+	err = u.tx.Do(ctx, func(txCtx context.Context) error {
+		if err := u.refreshTokenUseCase.RevokeAllByUserID(txCtx, userID); err != nil {
+			return domain.NewAppError(
+				domain.ErrTypeInternal,
+				"Failed to revoke all refresh tokens for user",
+				err,
+			)
+		}
+
+		if err := u.userRepo.Delete(txCtx, existingUser.ID); err != nil {
+			return domain.NewAppError(
+				domain.ErrTypeInternal,
+				"Failed to delete user",
+				err,
+			)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	if err := u.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), u.jwtExpiration); err != nil {
 		return domain.NewAppError(
 			domain.ErrTypeInternal,
 			"Failed to revoke user tokens",
-			err,
-		)
-	}
-
-	if err := u.userRepo.Delete(ctx, existingUser.ID); err != nil {
-		return domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to delete user",
 			err,
 		)
 	}

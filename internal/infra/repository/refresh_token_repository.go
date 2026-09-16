@@ -10,14 +10,12 @@ import (
 )
 
 type refreshTokenRepository struct {
-	domain.BaseRepository[domain.RefreshToken]
-	db *gorm.DB
+	*baseRepository[domain.RefreshToken]
 }
 
 func NewRefreshTokenRepository(db *gorm.DB) domain.RefreshTokenRepository {
 	return &refreshTokenRepository{
-		BaseRepository: NewBaseRepository[domain.RefreshToken](db),
-		db:             db,
+		baseRepository: newBaseRepository[domain.RefreshToken](db),
 	}
 }
 
@@ -36,7 +34,7 @@ func (r *refreshTokenRepository) ListByUserID(ctx context.Context, userID uuid.U
 }
 
 func (r *refreshTokenRepository) RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error {
-	return r.db.WithContext(ctx).
+	return r.getDB(ctx).
 		Model(&domain.RefreshToken{}).
 		Where("user_id = ? AND revoked_at IS NULL", userID).
 		Update("revoked_at", time.Now().UTC()).
@@ -44,7 +42,7 @@ func (r *refreshTokenRepository) RevokeAllByUserID(ctx context.Context, userID u
 }
 
 func (r *refreshTokenRepository) RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (bool, error) {
-	result := r.db.WithContext(ctx).
+	result := r.getDB(ctx).
 		Model(&domain.RefreshToken{}).
 		Where("id = ? AND revoked_at IS NULL", id).
 		Updates(map[string]any{

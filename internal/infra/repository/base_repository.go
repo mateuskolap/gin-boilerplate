@@ -17,12 +17,20 @@ type baseRepository[T any] struct {
 	db *gorm.DB
 }
 
-func NewBaseRepository[T any](db *gorm.DB) domain.BaseRepository[T] {
+func newBaseRepository[T any](db *gorm.DB) *baseRepository[T] {
 	return &baseRepository[T]{db: db}
 }
 
+func NewBaseRepository[T any](db *gorm.DB) domain.BaseRepository[T] {
+	return newBaseRepository[T](db)
+}
+
+func (r *baseRepository[T]) getDB(ctx context.Context) *gorm.DB {
+	return GetTxFromContext(ctx, r.db)
+}
+
 func (r *baseRepository[T]) Create(ctx context.Context, entity *T) error {
-	return r.db.WithContext(ctx).Create(entity).Error
+	return r.getDB(ctx).Create(entity).Error
 }
 
 func (r *baseRepository[T]) GetByID(ctx context.Context, id uuid.UUID, preloads ...string) (*T, error) {
@@ -32,7 +40,7 @@ func (r *baseRepository[T]) GetByID(ctx context.Context, id uuid.UUID, preloads 
 func (r *baseRepository[T]) FindOneBy(ctx context.Context, query string, args []any, preloads ...string) (*T, error) {
 	var entity T
 
-	dbQuery := r.db.WithContext(ctx)
+	dbQuery := r.getDB(ctx)
 
 	for _, preload := range preloads {
 		dbQuery = dbQuery.Preload(preload)
@@ -49,12 +57,12 @@ func (r *baseRepository[T]) FindOneBy(ctx context.Context, query string, args []
 }
 
 func (r *baseRepository[T]) Update(ctx context.Context, entity *T) error {
-	return r.db.WithContext(ctx).Save(entity).Error
+	return r.getDB(ctx).Save(entity).Error
 }
 
 func (r *baseRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
 	var entity T
-	return r.db.WithContext(ctx).Where("id = ?", id).Delete(&entity).Error
+	return r.getDB(ctx).Where("id = ?", id).Delete(&entity).Error
 }
 
 func (r *baseRepository[T]) List(
@@ -65,7 +73,7 @@ func (r *baseRepository[T]) List(
 ) (*domain.PaginatedResult[T], error) {
 	params.Sanitize()
 
-	query := r.db.WithContext(ctx).Model(new(T))
+	query := r.getDB(ctx).Model(new(T))
 
 	for _, p := range preloads {
 		query = query.Preload(p)

@@ -9,19 +9,17 @@ import (
 )
 
 type permissionRepository struct {
-	domain.BaseRepository[domain.Permission]
-	db *gorm.DB
+	*baseRepository[domain.Permission]
 }
 
 func NewPermissionRepository(db *gorm.DB) domain.PermissionRepository {
 	return &permissionRepository{
-		BaseRepository: NewBaseRepository[domain.Permission](db),
-		db:             db,
+		baseRepository: newBaseRepository[domain.Permission](db),
 	}
 }
 
 func (p *permissionRepository) UpsertByName(ctx context.Context, permissions []domain.Permission) error {
-	return p.db.WithContext(ctx).Clauses(clause.OnConflict{
+	return p.getDB(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "name"}},
 		DoNothing: true,
 	}).Create(&permissions).Error

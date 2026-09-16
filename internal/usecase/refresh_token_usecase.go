@@ -19,15 +19,18 @@ var allowedRefreshTokenFilterFields = map[string]bool{
 
 type refreshTokenUseCase struct {
 	refreshTokenRepo domain.RefreshTokenRepository
+	tx               domain.TransactionManager
 	expiration       time.Duration
 }
 
 func NewRefreshTokenUseCase(
 	refreshTokenRepo domain.RefreshTokenRepository,
+	tx domain.TransactionManager,
 	expiration time.Duration,
 ) domain.RefreshTokenUseCase {
 	return &refreshTokenUseCase{
 		refreshTokenRepo: refreshTokenRepo,
+		tx:               tx,
 		expiration:       expiration,
 	}
 }
@@ -44,28 +47,41 @@ func (r *refreshTokenUseCase) Rotate(ctx context.Context, oldToken string, ipAdd
 		return "", err
 	}
 
-	newPlainToken, newTokenEntity, err := r.createTokenWithExpiry(ctx, storedToken.UserID, ipAddress, userAgent, storedToken.ExpiresAt)
+	var newPlainToken string
+
+	err = r.tx.Do(ctx, func(txCtx context.Context) error {
+		plainToken, newTokenEntity, err := r.createTokenWithExpiry(txCtx, storedToken.UserID, ipAddress, userAgent, storedToken.ExpiresAt)
+		if err != nil {
+			return err
+		}
+
+		revoked, err := r.refreshTokenRepo.RevokeByID(txCtx, storedToken.ID, newTokenEntity.ID)
+		if err != nil {
+			return domain.NewAppError(
+				domain.ErrTypeInternal,
+				"Failed to revoke refresh token",
+				err,
+			)
+		}
+
+		if !revoked {
+			return domain.NewAppError(
+				domain.ErrTypeUnauthorized,
+				"Refresh token has already been used",
+				nil,
+			)
+		}
+
+		newPlainToken = plainToken
+		return nil
+	})
+
 	if err != nil {
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) && appErr.Type == domain.ErrTypeUnauthorized {
+			_ = r.refreshTokenRepo.RevokeAllByUserID(ctx, storedToken.UserID)
+		}
 		return "", err
-	}
-
-	revoked, err := r.refreshTokenRepo.RevokeByID(ctx, storedToken.ID, newTokenEntity.ID)
-	if err != nil {
-		return "", domain.NewAppError(
-			domain.ErrTypeInternal,
-			"Failed to revoke refresh token",
-			err,
-		)
-	}
-
-	if !revoked {
-		_ = r.refreshTokenRepo.RevokeAllByUserID(ctx, storedToken.UserID)
-
-		return "", domain.NewAppError(
-			domain.ErrTypeUnauthorized,
-			"Refresh token has already been used",
-			nil,
-		)
 	}
 
 	return newPlainToken, nil
