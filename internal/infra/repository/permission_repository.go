@@ -24,4 +24,3 @@ func (p *permissionRepository) UpsertByName(ctx context.Context, permissions []d
 		DoNothing: true,
 	}).Create(&permissions).Error
 }
-

@@ -26,6 +26,11 @@ type Config struct {
 	JWTExpiration      time.Duration
 	RefreshExpiration  time.Duration
 	RolePermissionsTTL time.Duration
+	SMTPHost           string
+	SMTPPort           int
+	SMTPUser           string
+	SMTPPassword       string
+	SMTPFrom           string
 	AdminName          string
 	AdminEmail         string
 	AdminPassword      string

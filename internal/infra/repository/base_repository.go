@@ -21,10 +21,6 @@ func newBaseRepository[T any](db *gorm.DB) *baseRepository[T] {
 	return &baseRepository[T]{db: db}
 }
 
-func NewBaseRepository[T any](db *gorm.DB) shared.BaseRepository[T] {
-	return newBaseRepository[T](db)
-}
-
 func (r *baseRepository[T]) getDB(ctx context.Context) *gorm.DB {
 	return GetTxFromContext(ctx, r.db)
 }
