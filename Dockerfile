@@ -18,6 +18,12 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     -ldflags="-s -w" \
     -o /app/server ./cmd/api
 
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /app/migrate ./cmd/migrate
+
 FROM scratch
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
@@ -31,6 +37,8 @@ COPY --from=build /etc/group /etc/group
 USER 10001:10001
 
 COPY --from=build /app/server /server
+
+COPY --from=build /app/migrate /migrate
 
 EXPOSE 8080
 

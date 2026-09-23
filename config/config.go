@@ -3,6 +3,9 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,14 +14,8 @@ import (
 )
 
 type Config struct {
-	Env                  string        `env:"ENVIRONMENT" envDefault:"development"`
+	DatabaseConfig
 	Port                 int           `env:"PORT" envDefault:"8080"`
-	DBHost               string        `env:"DB_HOST" envDefault:"localhost"`
-	DBPort               int           `env:"DB_PORT" envDefault:"5432"`
-	DBUser               string        `env:"DB_USER" envDefault:"postgres"`
-	DBPassword           string        `env:"DB_PASSWORD" envDefault:"postgres"`
-	DBName               string        `env:"DB_NAME" envDefault:"boilerplate"`
-	DBSSLMode            string        `env:"DB_SSLMODE"`
 	DBMaxOpenConnections int           `env:"DB_MAX_OPEN_CONNECTIONS" envDefault:"25"`
 	DBMaxIdleConnections int           `env:"DB_MAX_IDLE_CONNECTIONS" envDefault:"5"`
 	DBConnectionLifetime time.Duration `env:"DB_CONNECTION_LIFETIME" envDefault:"30m"`
@@ -49,6 +46,32 @@ type Config struct {
 	ShutdownTimeout      time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" envDefault:"10s"`
 }
 
+type DatabaseConfig struct {
+	Env        string `env:"ENVIRONMENT" envDefault:"development"`
+	DBHost     string `env:"DB_HOST" envDefault:"localhost"`
+	DBPort     int    `env:"DB_PORT" envDefault:"5432"`
+	DBUser     string `env:"DB_USER" envDefault:"postgres"`
+	DBPassword string `env:"DB_PASSWORD" envDefault:"postgres"`
+	DBName     string `env:"DB_NAME" envDefault:"boilerplate"`
+	DBSSLMode  string `env:"DB_SSLMODE"`
+}
+
+func LoadDatabaseConfig() (*DatabaseConfig, error) {
+	_ = godotenv.Load()
+
+	cfg, err := env.ParseAs[DatabaseConfig]()
+	if err != nil {
+		return nil, fmt.Errorf("parse database configuration: %w", err)
+	}
+
+	cfg.setDefaultSSLMode()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
 func LoadConfig() (*Config, error) {
 	// A .env file is a local-development convenience. Environment variables
 	// remain the source of truth and take precedence over values loaded here.
@@ -59,12 +82,7 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("parse configuration: %w", err)
 	}
 
-	if cfg.DBSSLMode == "" {
-		cfg.DBSSLMode = "disable"
-		if cfg.Env == "production" {
-			cfg.DBSSLMode = "require"
-		}
-	}
+	cfg.DatabaseConfig.setDefaultSSLMode()
 
 	cfg.AdminEmail = strings.ToLower(strings.TrimSpace(cfg.AdminEmail))
 	if err := cfg.Validate(); err != nil {
@@ -77,21 +95,9 @@ func LoadConfig() (*Config, error) {
 func (c *Config) Validate() error {
 	var errs []error
 
-	if c.Env != "development" && c.Env != "production" && c.Env != "test" {
-		errs = append(errs, fmt.Errorf("ENVIRONMENT must be development, production, or test"))
-	}
-	if strings.TrimSpace(c.DBHost) == "" || strings.TrimSpace(c.DBUser) == "" || strings.TrimSpace(c.DBName) == "" {
-		errs = append(errs, fmt.Errorf("database host, user, and name must not be empty"))
-	}
+	errs = append(errs, c.DatabaseConfig.Validate())
 	if strings.TrimSpace(c.RedisHost) == "" {
 		errs = append(errs, fmt.Errorf("REDIS_HOST must not be empty"))
-	}
-	validSSLModes := map[string]bool{
-		"disable": true, "allow": true, "prefer": true,
-		"require": true, "verify-ca": true, "verify-full": true,
-	}
-	if !validSSLModes[c.DBSSLMode] {
-		errs = append(errs, fmt.Errorf("DB_SSLMODE is invalid"))
 	}
 	if len(c.JWTSecret) < 32 {
 		errs = append(errs, fmt.Errorf("JWT_SECRET must contain at least 32 characters"))
@@ -111,9 +117,6 @@ func (c *Config) Validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		errs = append(errs, fmt.Errorf("PORT must be between 1 and 65535"))
 	}
-	if c.DBPort <= 0 || c.DBPort > 65535 {
-		errs = append(errs, fmt.Errorf("DB_PORT must be between 1 and 65535"))
-	}
 	if c.RedisPort <= 0 || c.RedisPort > 65535 {
 		errs = append(errs, fmt.Errorf("REDIS_PORT must be between 1 and 65535"))
 	}
@@ -132,11 +135,51 @@ func (c *Config) Validate() error {
 	if c.ReadHeaderTimeout <= 0 || c.ReadTimeout <= 0 || c.WriteTimeout <= 0 || c.IdleTimeout <= 0 || c.ShutdownTimeout <= 0 {
 		errs = append(errs, fmt.Errorf("HTTP timeouts must be greater than zero"))
 	}
+	return errors.Join(errs...)
+}
+
+func (c *DatabaseConfig) setDefaultSSLMode() {
+	if c.DBSSLMode == "" {
+		c.DBSSLMode = "disable"
+		if c.Env == "production" {
+			c.DBSSLMode = "require"
+		}
+	}
+}
+
+func (c *DatabaseConfig) Validate() error {
+	var errs []error
+	if c.Env != "development" && c.Env != "production" && c.Env != "test" {
+		errs = append(errs, fmt.Errorf("ENVIRONMENT must be development, production, or test"))
+	}
+	if strings.TrimSpace(c.DBHost) == "" || strings.TrimSpace(c.DBUser) == "" || strings.TrimSpace(c.DBName) == "" {
+		errs = append(errs, fmt.Errorf("database host, user, and name must not be empty"))
+	}
+	if c.DBPort <= 0 || c.DBPort > 65535 {
+		errs = append(errs, fmt.Errorf("DB_PORT must be between 1 and 65535"))
+	}
+	switch c.DBSSLMode {
+	case "disable", "allow", "prefer", "require", "verify-ca", "verify-full":
+	default:
+		errs = append(errs, fmt.Errorf("DB_SSLMODE is invalid"))
+	}
 	if c.Env == "production" && c.DBPassword == "postgres" {
 		errs = append(errs, fmt.Errorf("DB_PASSWORD must not use the development default in production"))
 	}
-
 	return errors.Join(errs...)
+}
+
+func (c *DatabaseConfig) URL() string {
+	connectionURL := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(c.DBUser, c.DBPassword),
+		Host:   net.JoinHostPort(c.DBHost, strconv.Itoa(c.DBPort)),
+		Path:   c.DBName,
+	}
+	query := connectionURL.Query()
+	query.Set("sslmode", c.DBSSLMode)
+	connectionURL.RawQuery = query.Encode()
+	return connectionURL.String()
 }
 
 func (c *Config) ValidateSeeder() error {

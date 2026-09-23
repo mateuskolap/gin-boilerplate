@@ -6,10 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
 
 	"gin-boilerplate/config"
@@ -44,17 +41,10 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 
 	middleware.InitValidator()
 
-	connectionURL := &url.URL{
-		Scheme: "postgres",
-		User:   url.UserPassword(cfg.DBUser, cfg.DBPassword),
-		Host:   net.JoinHostPort(cfg.DBHost, strconv.Itoa(cfg.DBPort)),
-		Path:   cfg.DBName,
-	}
-	query := connectionURL.Query()
-	query.Set("sslmode", cfg.DBSSLMode)
-	connectionURL.RawQuery = query.Encode()
-	dsn := connectionURL.String()
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
+	db, err := gorm.Open(postgres.Open(cfg.DatabaseConfig.URL()), &gorm.Config{
+		TranslateError:       true,
+		DisableAutomaticPing: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("connect to database: %w", err)
 	}
