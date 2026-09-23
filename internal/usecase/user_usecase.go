@@ -25,6 +25,7 @@ type userUseCase struct {
 	shared.BaseFindUseCase[domain.User]
 	userRepo            domain.UserRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
+	storage             port.Storage
 	tokenBlacklist      domain.TokenBlackListRepository
 	tx                  port.TransactionManager
 	jwtExpiration       time.Duration
@@ -33,6 +34,7 @@ type userUseCase struct {
 func NewUserUseCase(
 	userRepo domain.UserRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
+	storage port.Storage,
 	tokenBlacklist domain.TokenBlackListRepository,
 	tx port.TransactionManager,
 	jwtExpiration time.Duration,
@@ -48,6 +50,7 @@ func NewUserUseCase(
 		),
 		userRepo:            userRepo,
 		refreshTokenUseCase: refreshTokenUseCase,
+		storage:             storage,
 		tokenBlacklist:      tokenBlacklist,
 		tx:                  tx,
 		jwtExpiration:       jwtExpiration,
@@ -170,4 +173,19 @@ func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs
 	}
 
 	return nil
+}
+
+func (u *userUseCase) UpdateImage(ctx context.Context, userID uuid.UUID, file shared.UploadedFile) error {
+	existingUser, err := findByID(ctx, u.userRepo, userID)
+	if err != nil {
+		return err
+	}
+
+	if existingUser.AvatarKey != "" {
+		if err := u.storage.Delete(ctx, )
+	}
+}
+
+func (u *userUseCase) RemoveImage(ctx context.Context, userID uuid.UUID) error {
+	panic("uninplemented")
 }

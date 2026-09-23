@@ -8,9 +8,10 @@ import (
 
 type User struct {
 	shared.BaseSoftDeleteModel
-	Name     string `json:"name" gorm:"not null"`
-	Email    string `json:"email" gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL"`
-	Password string `json:"-" gorm:"not null"`
+	Name      string `json:"name" gorm:"not null"`
+	Email     string `json:"email" gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL"`
+	Password  string `json:"-" gorm:"not null"`
+	AvatarKey string `json:"avatar_key,omitempty" gorm:"index"`
 
 	Roles []Role `json:"roles,omitempty" gorm:"many2many:user_roles;constraint:OnDelete:CASCADE;"`
 }
@@ -44,4 +45,10 @@ type UserUseCase interface {
 
 	// RemoveRoles disassociates roles from a user.
 	RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
+
+	// UpdateImage updates the user's profile image.
+	UpdateImage(ctx context.Context, userID uuid.UUID, file shared.UploadedFile) error
+
+	// RemoveImage removes the user's profile image.
+	RemoveImage(ctx context.Context, userID uuid.UUID) error
 }
