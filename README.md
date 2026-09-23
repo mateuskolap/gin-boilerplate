@@ -33,3 +33,20 @@ go run ./cmd/api -seed-only
 ## Authorization
 
 PostgreSQL is the source of truth for roles and permissions. JWT access tokens contain identity and registered claims only; protected operations check the current role-permission relationships directly in the database.
+
+## Local storage
+
+The application initializes one private local storage disk. Configure its root and maximum size per file in `.env`:
+
+```dotenv
+STORAGE_ROOT=./storage/private
+STORAGE_MAX_FILE_SIZE_BYTES=10485760
+```
+
+Use `port.Storage` as a dependency of the use case that owns a file. The use case chooses a relative key such as `users/<user-id>/avatar.webp` and may enforce a smaller size limit before calling `Put`. The storage service provides `Put`, `Open`, `Delete`, `Exists`, and `Stat`. `Open` returns a reader that the caller must close. `Put` rejects existing keys and files above the configured limit; `Delete` succeeds when the key is absent. Use `errors.Is` with the sentinel errors in `internal/domain/port/storage.go` to handle expected failures.
+
+Store the relative key in the owning entity's database table when that entity has one file, for example `users.avatar_path`. A domain-specific table is appropriate when files have their own metadata or multiple relationships. Do not store an absolute filesystem path or public URL as the file reference.
+
+In the Docker image, the default root is `/app/storage/private` and is owned by UID `10001`. Mount a persistent volume at `/app/storage` when running the API in a container. A host-mounted directory must be writable by UID `10001`.
+
+An interrupted process may leave files with the `.storage-tmp-` prefix in storage directories. Stop the application before removing these temporary files manually.

@@ -13,10 +13,12 @@ import (
 	deliveryHttp "gin-boilerplate/internal/delivery/http"
 	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
+	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/infra/health"
 	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
 	"gin-boilerplate/internal/infra/seeder"
+	"gin-boilerplate/internal/infra/storage"
 	"gin-boilerplate/internal/usecase"
 
 	"github.com/gin-gonic/gin"
@@ -30,8 +32,10 @@ type Application struct {
 	DB          *gorm.DB
 	SQLDB       *sql.DB
 	RedisClient *redis.Client
+	Storage     port.Storage
 	Router      *gin.Engine
 	Server      *http.Server
+	localStore  *storage.Local
 }
 
 func NewApplication(cfg *config.Config) (*Application, error) {
@@ -81,6 +85,13 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	}
 	cancelRedis()
 
+	localStore, err := storage.NewLocal(cfg.StorageRoot, cfg.StorageMaxFileSize)
+	if err != nil {
+		_ = redisClient.Close()
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("initialize local storage: %w", err)
+	}
+
 	cacheRepo := repository.NewRedisCache(redisClient)
 	tokenBlacklistRepo := repository.NewTokenBlackListRepository(cacheRepo)
 	userRepo := repository.NewUserRepository(db)
@@ -127,6 +138,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		Env:                 cfg.Env,
 	})
 	if err != nil {
+		_ = localStore.Close()
 		_ = redisClient.Close()
 		_ = sqlDB.Close()
 		return nil, err
@@ -146,8 +158,10 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		DB:          db,
 		SQLDB:       sqlDB,
 		RedisClient: redisClient,
+		Storage:     localStore,
 		Router:      router,
 		Server:      server,
+		localStore:  localStore,
 	}, nil
 }
 
@@ -167,17 +181,17 @@ func (a *Application) Seed(ctx context.Context) error {
 }
 
 func (a *Application) Close() error {
-	var databaseError, redisError error
+	var storageError, databaseError, redisError error
+	if a.localStore != nil {
+		storageError = a.localStore.Close()
+	}
 	if a.SQLDB != nil {
 		databaseError = a.SQLDB.Close()
 	}
 	if a.RedisClient != nil {
 		redisError = a.RedisClient.Close()
 	}
-	if databaseError != nil {
-		return databaseError
-	}
-	return redisError
+	return errors.Join(storageError, databaseError, redisError)
 }
 
 func (a *Application) Shutdown(ctx context.Context) error {

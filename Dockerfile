@@ -24,6 +24,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     -ldflags="-s -w" \
     -o /app/migrate ./cmd/migrate
 
+RUN mkdir -p /app/storage/private
+
 FROM scratch
 
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
@@ -33,6 +35,10 @@ COPY --from=build /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=build /etc/passwd /etc/passwd
 
 COPY --from=build /etc/group /etc/group
+
+WORKDIR /app
+
+COPY --from=build --chown=10001:10001 /app/storage /app/storage
 
 USER 10001:10001
 

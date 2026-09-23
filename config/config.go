@@ -29,6 +29,8 @@ type Config struct {
 	JWTAudience          string        `env:"JWT_AUDIENCE" envDefault:"gin-boilerplate-api"`
 	JWTExpiration        time.Duration `env:"JWT_EXPIRATION" envDefault:"10m"`
 	RefreshExpiration    time.Duration `env:"REFRESH_EXPIRATION" envDefault:"24h"`
+	StorageRoot          string        `env:"STORAGE_ROOT" envDefault:"./storage/private"`
+	StorageMaxFileSize   int64         `env:"STORAGE_MAX_FILE_SIZE_BYTES" envDefault:"10485760"`
 	SMTPHost             string        `env:"SMTP_HOST"`
 	SMTPPort             int           `env:"SMTP_PORT" envDefault:"587"`
 	SMTPUser             string        `env:"SMTP_USER"`
@@ -73,8 +75,6 @@ func LoadDatabaseConfig() (*DatabaseConfig, error) {
 }
 
 func LoadConfig() (*Config, error) {
-	// A .env file is a local-development convenience. Environment variables
-	// remain the source of truth and take precedence over values loaded here.
 	_ = godotenv.Load()
 
 	cfg, err := env.ParseAs[Config]()
@@ -113,6 +113,12 @@ func (c *Config) Validate() error {
 	}
 	if c.RefreshExpiration <= 0 {
 		errs = append(errs, fmt.Errorf("REFRESH_EXPIRATION must be greater than zero"))
+	}
+	if strings.TrimSpace(c.StorageRoot) == "" {
+		errs = append(errs, fmt.Errorf("STORAGE_ROOT must not be empty"))
+	}
+	if c.StorageMaxFileSize <= 0 {
+		errs = append(errs, fmt.Errorf("STORAGE_MAX_FILE_SIZE_BYTES must be greater than zero"))
 	}
 	if c.Port <= 0 || c.Port > 65535 {
 		errs = append(errs, fmt.Errorf("PORT must be between 1 and 65535"))
