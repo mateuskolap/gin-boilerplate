@@ -6,12 +6,16 @@ import (
 	"fmt"
 	"gin-boilerplate/internal/domain/shared"
 	"math"
+	"regexp"
 	"strings"
 
 	"uuid"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+var identifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 type baseRepository[T any] struct {
 	db *gorm.DB
@@ -53,7 +57,11 @@ func (r *baseRepository[T]) FindOneBy(ctx context.Context, query string, args []
 }
 
 func (r *baseRepository[T]) Update(ctx context.Context, entity *T) error {
-	return r.getDB(ctx).Save(entity).Error
+	return r.getDB(ctx).
+		Model(entity).
+		Select("*").
+		Omit("ID", "CreatedAt").
+		Updates(entity).Error
 }
 
 func (r *baseRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
@@ -85,8 +93,16 @@ func (r *baseRepository[T]) List(
 		return nil, err
 	}
 
-	for _, s := range params.Sort {
-		query = query.Order(fmt.Sprintf("%s %s", s.Field, s.Direction))
+	containsIDSort := false
+	for _, sort := range params.Sort {
+		query = query.Order(clause.OrderByColumn{
+			Column: clause.Column{Name: sort.Field},
+			Desc:   sort.Direction == shared.SortDesc,
+		})
+		containsIDSort = containsIDSort || sort.Field == "id"
+	}
+	if !containsIDSort {
+		query = query.Order(clause.OrderByColumn{Column: clause.Column{Name: "id"}})
 	}
 
 	var entities []*T
@@ -114,6 +130,9 @@ func applyFilters(query *gorm.DB, filters []shared.Filter) (*gorm.DB, error) {
 		}
 
 		field := f.Field
+		if !isSafeIdentifierPath(field) {
+			return nil, fmt.Errorf("invalid filter field: %q", field)
+		}
 
 		if strings.Contains(f.Field, ".") {
 			parts := strings.Split(f.Field, ".")
@@ -138,6 +157,8 @@ func applyFilters(query *gorm.DB, filters []shared.Filter) (*gorm.DB, error) {
 			}
 
 			field = fmt.Sprintf(`"%s"."%s"`, lastRelation, column)
+		} else {
+			field = fmt.Sprintf(`"%s"`, field)
 		}
 
 		if f.IsSetOperator() {
@@ -150,4 +171,13 @@ func applyFilters(query *gorm.DB, filters []shared.Filter) (*gorm.DB, error) {
 	}
 
 	return query, nil
+}
+
+func isSafeIdentifierPath(value string) bool {
+	for _, part := range strings.Split(value, ".") {
+		if !identifierPattern.MatchString(part) {
+			return false
+		}
+	}
+	return true
 }

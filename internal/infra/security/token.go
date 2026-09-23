@@ -13,7 +13,6 @@ import (
 
 type CustomClaims struct {
 	jwt.RegisteredClaims
-	Roles []string `json:"roles"`
 }
 
 func GenerateRandomToken(bytesLen int) (string, error) {
@@ -29,15 +28,18 @@ func HashSHA256(value string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func GenerateAccessToken(userID uuid.UUID, roles []string, secret string, expiration time.Duration) (string, error) {
+func GenerateAccessToken(userID uuid.UUID, secret, issuer, audience string, expiration time.Duration) (string, error) {
 	now := time.Now().UTC()
 	claims := CustomClaims{
-		Subject:   userID.String(),
-		ID:        uuid.New().String(),
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(expiration)),
-		NotBefore: jwt.NewNumericDate(now),
-		Roles:     roles,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    issuer,
+			Subject:   userID.String(),
+			Audience:  jwt.ClaimStrings{audience},
+			ID:        uuid.New().String(),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(expiration)),
+			NotBefore: jwt.NewNumericDate(now),
+		},
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -50,13 +52,20 @@ func GenerateAccessToken(userID uuid.UUID, roles []string, secret string, expira
 }
 
 // ParseAndValidateJWT parses and validates a signed JWT token string, verifying its signing method and claims.
-func ParseAndValidateJWT(tokenString string, secret string) (*CustomClaims, error) {
+func ParseAndValidateJWT(tokenString, secret, issuer, audience string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, errors.New("unexpected signing method")
 		}
 		return []byte(secret), nil
-	})
+	},
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
+		jwt.WithIssuedAt(),
+		jwt.WithIssuer(issuer),
+		jwt.WithAudience(audience),
+		jwt.WithLeeway(30*time.Second),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +73,12 @@ func ParseAndValidateJWT(tokenString string, secret string) (*CustomClaims, erro
 	claims, ok := token.Claims.(*CustomClaims)
 	if !ok || !token.Valid {
 		return nil, errors.New("invalid token claims")
+	}
+	if claims.Subject == "" || claims.ID == "" || claims.IssuedAt == nil {
+		return nil, errors.New("missing required token claims")
+	}
+	if _, err := uuid.Parse(claims.Subject); err != nil {
+		return nil, errors.New("invalid subject claim")
 	}
 
 	return claims, nil

@@ -14,6 +14,9 @@ import (
 var Translator ut.Translator
 
 func InitValidator() {
+	binding.EnableDecoderDisallowUnknownFields = true
+	binding.EnableDecoderUseNumber = true
+
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		v.RegisterTagNameFunc(func(fld reflect.StructField) string {
 			return strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]

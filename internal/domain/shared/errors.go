@@ -12,12 +12,17 @@ const (
 	ErrTypeValidation      ErrorType = "VALIDATION"
 	ErrTypeForbidden       ErrorType = "FORBIDDEN"
 	ErrTypeTooManyRequests ErrorType = "TOO_MANY_REQUESTS"
+	ErrTypeUnavailable     ErrorType = "SERVICE_UNAVAILABLE"
 )
 
 type AppError struct {
 	Type    ErrorType
 	Message string
 	Err     error
+}
+
+func (e *AppError) Unwrap() error {
+	return e.Err
 }
 
 func (e *AppError) Error() string {

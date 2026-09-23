@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,53 +30,72 @@ import (
 // @name                       Authorization
 // @description                Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").
 func main() {
+	if err := run(); err != nil {
+		slog.Error("application stopped", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	seedFlag := flag.Bool("seed", false, "Run database seeders and run the application")
 	seedOnlyFlag := flag.Bool("seed-only", false, "Run database seeders only")
 	flag.Parse()
 
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("load configuration: %w", err)
+	}
+	configureLogger(cfg.Env)
 
 	app, err := bootstrap.NewApplication(cfg)
 	if err != nil {
-		log.Fatalf("Failed to initialize application: %v", err)
+		return fmt.Errorf("initialize application: %w", err)
 	}
 
 	if *seedFlag || *seedOnlyFlag {
-		log.Println("Running seeders...")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		if err := app.Seed(ctx); err != nil {
-			log.Fatalf("Failed to run seeders: %v", err)
+		seedContext, cancelSeed := context.WithTimeout(context.Background(), 30*time.Second)
+		err = app.Seed(seedContext)
+		cancelSeed()
+		if err != nil {
+			return errors.Join(fmt.Errorf("run seeders: %w", err), app.Close())
 		}
-
-		log.Println("Seeders executed successfully!")
+		slog.Info("seeders completed")
 
 		if *seedOnlyFlag {
-			_ = app.Close()
-			return
+			return app.Close()
 		}
 	}
 
+	serverError := make(chan error, 1)
 	go func() {
-		if err := app.Run(); err != nil {
-			log.Fatalf("Server error: %v", err)
-		}
+		serverError <- app.Run()
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	signalContext, stopSignals := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stopSignals()
 
-	log.Println("Shutting down server gracefully...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := app.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+	select {
+	case err := <-serverError:
+		return errors.Join(err, app.Close())
+	case <-signalContext.Done():
+		slog.Info("shutdown signal received")
 	}
 
-	log.Println("Server exited successfully")
+	shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancelShutdown()
+	if err := app.Shutdown(shutdownContext); err != nil {
+		return fmt.Errorf("shutdown application: %w", err)
+	}
+
+	slog.Info("server stopped")
+	return nil
+}
+
+func configureLogger(environment string) {
+	options := &slog.HandlerOptions{Level: slog.LevelInfo}
+	var handler slog.Handler = slog.NewTextHandler(os.Stdout, options)
+	if environment == "production" {
+		handler = slog.NewJSONHandler(os.Stdout, options)
+	}
+	slog.SetDefault(slog.New(handler))
 }

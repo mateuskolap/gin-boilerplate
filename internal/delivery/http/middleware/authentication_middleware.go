@@ -42,7 +42,6 @@ func AuthenticationMiddleware(authUseCase domain.AuthUseCase) gin.HandlerFunc {
 		}
 
 		c.Set("user_id", claims.Subject)
-		c.Set("user_roles", claims.Roles)
 		c.Set("raw_token", tokenString)
 		c.Next()
 	}

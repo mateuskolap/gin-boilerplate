@@ -2,78 +2,51 @@ package repository
 
 import (
 	"context"
-	"fmt"
+
 	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/internal/domain/port"
-	"time"
+
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"uuid"
 )
 
-const (
-	rolePermissionKeyPrefix = "role_permissions"
-	emptyRoleSentinel       = "__EMPTY__"
-)
-
-type rolePermissionRepository struct {
-	cache port.CacheRepository
+type authorizationRepository struct {
+	db *gorm.DB
 }
 
-func NewRolePermissionRepository(cache port.CacheRepository) domain.RolePermissionRepository {
-	return &rolePermissionRepository{
-		cache: cache,
-	}
+func NewAuthorizationRepository(db *gorm.DB) domain.AuthorizationRepository {
+	return &authorizationRepository{db: db}
 }
 
-func roleKey(role string) string {
-	return fmt.Sprintf("%s:%s", rolePermissionKeyPrefix, role)
-}
+func (r *authorizationRepository) UserHasPermission(
+	ctx context.Context,
+	userID uuid.UUID,
+	permission domain.PermissionName,
+) (bool, error) {
+	var matchedPermission domain.Permission
 
-func (r *rolePermissionRepository) SavePermissionsByRole(ctx context.Context, role string, permissions []string, ttl time.Duration) error {
-	key := roleKey(role)
+	result := GetTxFromContext(ctx, r.db).
+		Model(&domain.Permission{}).
+		Select("permissions.id").
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
+		Joins("JOIN users ON users.id = user_roles.user_id").
+		Where(clause.And(
+			clause.Eq{
+				Column: clause.Column{Table: "users", Name: "id"},
+				Value:  userID,
+			},
+			clause.Eq{
+				Column: clause.Column{Table: "users", Name: "deleted_at"},
+				Value:  nil,
+			},
+			clause.Eq{
+				Column: clause.Column{Table: "permissions", Name: "name"},
+				Value:  permission,
+			},
+		)).
+		Limit(1).
+		Find(&matchedPermission)
 
-	if len(permissions) == 0 {
-		return r.cache.SetAdd(ctx, key, []string{emptyRoleSentinel}, ttl)
-	}
-
-	return r.cache.SetAdd(ctx, key, permissions, ttl)
-}
-
-func (r *rolePermissionRepository) CheckRolesPermission(ctx context.Context, roles []string, permission string) (bool, []string, error) {
-	if len(roles) == 0 {
-		return false, nil, nil
-	}
-
-	keys := make([]string, len(roles))
-	keyToRole := make(map[string]string, len(roles))
-
-	for i, role := range roles {
-		k := roleKey(role)
-		keys[i] = k
-		keyToRole[k] = role
-	}
-
-	hasMember, missingKeys, err := r.cache.CheckSetMembers(ctx, keys, permission)
-	if err != nil {
-		return false, nil, err
-	}
-
-	if hasMember {
-		return true, nil, nil
-	}
-
-	var missingRoles []string
-	for _, k := range missingKeys {
-		if role, ok := keyToRole[k]; ok {
-			missingRoles = append(missingRoles, role)
-		}
-	}
-
-	return false, missingRoles, nil
-}
-
-func (r *rolePermissionRepository) InvalidatePermissionsByRole(ctx context.Context, role string) error {
-	return r.cache.Delete(ctx, roleKey(role))
-}
-
-func (r *rolePermissionRepository) InvalidateAll(ctx context.Context) error {
-	return r.cache.DeleteByPattern(ctx, rolePermissionKeyPrefix+":*")
+	return result.RowsAffected > 0, result.Error
 }

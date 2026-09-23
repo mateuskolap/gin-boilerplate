@@ -14,21 +14,18 @@ var allowedPermissionFilterFields = map[string]bool{
 
 type permissionUseCase struct {
 	shared.BaseListUseCase[domain.Permission]
-	permissionRepo     domain.PermissionRepository
-	rolePermissionRepo domain.RolePermissionRepository
+	permissionRepo domain.PermissionRepository
 }
 
 func NewPermissionUseCase(
 	permissionRepo domain.PermissionRepository,
-	rolePermissionRepo domain.RolePermissionRepository,
 ) domain.PermissionUseCase {
 	return &permissionUseCase{
 		BaseListUseCase: NewBaseListUseCase(
 			permissionRepo,
 			allowedPermissionFilterFields,
 		),
-		permissionRepo:     permissionRepo,
-		rolePermissionRepo: rolePermissionRepo,
+		permissionRepo: permissionRepo,
 	}
 }
 
@@ -41,9 +38,5 @@ func (p *permissionUseCase) SeedPermissions(ctx context.Context) error {
 		})
 	}
 
-	if err := p.permissionRepo.UpsertByName(ctx, permissions); err != nil {
-		return err
-	}
-
-	return p.rolePermissionRepo.InvalidateAll(ctx)
+	return p.permissionRepo.UpsertByName(ctx, permissions)
 }

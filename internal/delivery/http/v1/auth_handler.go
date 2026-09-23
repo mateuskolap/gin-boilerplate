@@ -1,9 +1,12 @@
 package v1
 
 import (
+	"errors"
 	"gin-boilerplate/internal/delivery/http/dto"
 	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/shared"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -142,7 +145,15 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 // @Router       /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var req dto.LogoutRequest
-	_ = c.ShouldBindJSON(&req)
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+		_ = c.Error(shared.NewAppError(
+			shared.ErrTypeValidation,
+			"Validation failed",
+			err,
+		))
+		return
+	}
 
 	token, _ := extractToken(c)
 

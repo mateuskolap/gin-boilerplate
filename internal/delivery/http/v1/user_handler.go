@@ -68,7 +68,11 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 // @Failure      500    {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/users [get]
 func (h *UserHandler) ListUsers(c *gin.Context) {
-	params := extractPaginationParams(c)
+	params, err := extractPaginationParams(c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
 
 	var filters []shared.Filter
 

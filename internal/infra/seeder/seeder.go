@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"gin-boilerplate/config"
-	"gin-boilerplate/internal/domain"
 
 	"gorm.io/gorm"
 )
@@ -14,21 +13,18 @@ type Seeder interface {
 }
 
 type DatabaseSeeder struct {
-	db                 *gorm.DB
-	cfg                *config.Config
-	rolePermissionRepo domain.RolePermissionRepository
-	seeders            []Seeder
+	db      *gorm.DB
+	cfg     *config.Config
+	seeders []Seeder
 }
 
 func NewDatabaseSeeder(
 	db *gorm.DB,
 	cfg *config.Config,
-	rolePermissionRepo domain.RolePermissionRepository,
 ) *DatabaseSeeder {
 	return &DatabaseSeeder{
-		db:                 db,
-		cfg:                cfg,
-		rolePermissionRepo: rolePermissionRepo,
+		db:  db,
+		cfg: cfg,
 		seeders: []Seeder{
 			NewPermissionSeeder(),
 			NewRoleSeeder(),
@@ -38,7 +34,7 @@ func NewDatabaseSeeder(
 }
 
 func (s *DatabaseSeeder) Run(ctx context.Context) error {
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, seeder := range s.seeders {
 			if err := seeder.Seed(ctx, tx); err != nil {
 				return fmt.Errorf("seeder error: %w", err)
@@ -46,13 +42,4 @@ func (s *DatabaseSeeder) Run(ctx context.Context) error {
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	if s.rolePermissionRepo != nil {
-		return s.rolePermissionRepo.InvalidateAll(ctx)
-	}
-
-	return nil
 }

@@ -2,38 +2,36 @@ package middleware
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
+	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 )
 
-// RateLimiter limits requests per client IP on the current route using Redis INCR.
-func RateLimiter(rdb *redis.Client, limit int64, window time.Duration) gin.HandlerFunc {
+func RateLimiter(limiter port.RateLimiter, limit int, window time.Duration) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if rdb == nil {
-			c.Next()
-			return
-		}
-
 		key := fmt.Sprintf("rate_limit:%s:%s", c.FullPath(), c.ClientIP())
-		ctx := c.Request.Context()
-
-		count, err := rdb.Incr(ctx, key).Result()
+		result, err := limiter.Allow(c.Request.Context(), key, limit, window)
 		if err != nil {
-			c.Next()
+			_ = c.Error(shared.NewAppError(
+				shared.ErrTypeUnavailable,
+				"Rate limiting service is unavailable",
+				err,
+			))
+			c.Abort()
 			return
 		}
 
-		if count == 1 {
-			rdb.Expire(ctx, key, window)
-		}
+		c.Header("X-RateLimit-Limit", strconv.Itoa(result.Limit))
+		c.Header("X-RateLimit-Remaining", strconv.Itoa(result.Remaining))
+		c.Header("X-RateLimit-Reset", strconv.FormatInt(time.Now().Add(result.ResetAfter).Unix(), 10))
 
-		if count > limit {
-			retryAfter := int(window.Seconds())
+		if !result.Allowed {
+			retryAfter := int(math.Ceil(result.RetryAfter.Seconds()))
 			if retryAfter < 1 {
 				retryAfter = 1
 			}

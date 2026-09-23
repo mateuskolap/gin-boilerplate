@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"gin-boilerplate/internal/delivery/http/response"
@@ -20,6 +21,7 @@ var statusMap = map[shared.ErrorType]int{
 	shared.ErrTypeForbidden:       http.StatusForbidden,
 	shared.ErrTypeValidation:      http.StatusUnprocessableEntity,
 	shared.ErrTypeTooManyRequests: http.StatusTooManyRequests,
+	shared.ErrTypeUnavailable:     http.StatusServiceUnavailable,
 }
 
 func ErrorHandler() gin.HandlerFunc {
@@ -32,6 +34,10 @@ func ErrorHandler() gin.HandlerFunc {
 
 		var appErr *shared.AppError
 		if !errors.As(c.Errors.Last().Err, &appErr) {
+			slog.ErrorContext(c.Request.Context(), "unhandled request error",
+				"request_id", requestIDFromContext(c),
+				"error", c.Errors.Last().Err,
+			)
 			c.JSON(http.StatusInternalServerError, response.ApiResponse{
 				Success: false,
 				Error:   "Internal server error",
@@ -42,6 +48,13 @@ func ErrorHandler() gin.HandlerFunc {
 		status := statusMap[appErr.Type]
 		if status == 0 {
 			status = http.StatusInternalServerError
+		}
+		if status >= http.StatusInternalServerError {
+			slog.ErrorContext(c.Request.Context(), "request failed",
+				"request_id", requestIDFromContext(c),
+				"error_type", appErr.Type,
+				"error", appErr.Err,
+			)
 		}
 
 		res := response.ApiResponse{

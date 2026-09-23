@@ -13,7 +13,6 @@ type AuthTokens struct {
 type TokenClaims struct {
 	Subject string
 	TokenID string
-	Roles   []string
 }
 
 type TokenBlackListRepository interface {

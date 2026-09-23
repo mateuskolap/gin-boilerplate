@@ -22,11 +22,11 @@ type RoleWithPermissionsResponse struct {
 type PaginatedRoleResponse = PaginatedResponse[RoleResponse]
 
 type CreateRoleRequest struct {
-	Name string `json:"name" binding:"required,min=2" example:"Admin"`
+	Name string `json:"name" binding:"required,min=2,max=100" example:"Admin"`
 }
 
 type UpdateRoleRequest struct {
-	Name string `json:"name" binding:"required,min=2" example:"Admin Updated"`
+	Name string `json:"name" binding:"required,min=2,max=100" example:"Admin Updated"`
 }
 
 type UpdatePermissionsRequest struct {

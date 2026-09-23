@@ -5,7 +5,9 @@ import (
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"uuid"
 )
@@ -30,7 +32,6 @@ type userUseCase struct {
 
 func NewUserUseCase(
 	userRepo domain.UserRepository,
-	roleRepo domain.RoleRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
 	tokenBlacklist domain.TokenBlackListRepository,
 	tx port.TransactionManager,
@@ -54,6 +55,14 @@ func NewUserUseCase(
 }
 
 func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) error {
+	user.Name = strings.TrimSpace(user.Name)
+	if nameLength := utf8.RuneCountInString(user.Name); nameLength < 2 || nameLength > 100 {
+		return shared.NewAppError(
+			shared.ErrTypeValidation,
+			"Name must contain between 2 and 100 characters",
+			nil,
+		)
+	}
 	existingUser, err := u.Find(ctx, user.ID)
 	if err != nil {
 		return err
@@ -69,6 +78,7 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) erro
 		)
 	}
 
+	*user = *existingUser
 	return nil
 }
 

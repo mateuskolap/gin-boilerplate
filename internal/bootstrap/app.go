@@ -3,16 +3,21 @@ package bootstrap
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
+	"net"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"gin-boilerplate/config"
 	deliveryHttp "gin-boilerplate/internal/delivery/http"
 	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
-	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/infra/health"
+	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
 	"gin-boilerplate/internal/infra/seeder"
 	"gin-boilerplate/internal/usecase"
@@ -24,14 +29,12 @@ import (
 )
 
 type Application struct {
-	Config             *config.Config
-	DB                 *gorm.DB
-	SQLDB              *sql.DB
-	RedisClient        *redis.Client
-	Router             *gin.Engine
-	Server             *http.Server
-	PermissionUseCase  domain.PermissionUseCase
-	RolePermissionRepo domain.RolePermissionRepository
+	Config      *config.Config
+	DB          *gorm.DB
+	SQLDB       *sql.DB
+	RedisClient *redis.Client
+	Router      *gin.Engine
+	Server      *http.Server
 }
 
 func NewApplication(cfg *config.Config) (*Application, error) {
@@ -41,104 +44,125 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 
 	middleware.InitValidator()
 
-	// GORM & Postgres
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
-		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort, cfg.DBSSLMode,
-	)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	connectionURL := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.DBUser, cfg.DBPassword),
+		Host:   net.JoinHostPort(cfg.DBHost, strconv.Itoa(cfg.DBPort)),
+		Path:   cfg.DBName,
+	}
+	query := connectionURL.Query()
+	query.Set("sslmode", cfg.DBSSLMode)
+	connectionURL.RawQuery = query.Encode()
+	dsn := connectionURL.String()
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, fmt.Errorf("connect to database: %w", err)
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get database instance: %w", err)
+		return nil, fmt.Errorf("get database instance: %w", err)
 	}
+	sqlDB.SetMaxOpenConns(cfg.DBMaxOpenConnections)
+	sqlDB.SetMaxIdleConns(cfg.DBMaxIdleConnections)
+	sqlDB.SetConnMaxLifetime(cfg.DBConnectionLifetime)
+	sqlDB.SetConnMaxIdleTime(cfg.DBConnectionIdleTime)
 
-	if cfg.Env == "development" {
-		if err := db.AutoMigrate(
-			&domain.User{},
-			&domain.Role{},
-			&domain.Permission{},
-			&domain.RefreshToken{},
-		); err != nil {
-			return nil, fmt.Errorf("failed to run database migrations: %w", err)
-		}
+	databaseContext, cancelDatabase := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := sqlDB.PingContext(databaseContext); err != nil {
+		cancelDatabase()
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("ping database: %w", err)
 	}
+	cancelDatabase()
 
-	// Redis
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort),
+		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
 		Password: cfg.RedisPassword,
 		DB:       cfg.RedisDB,
 	})
 
-	ctxTimeout, cancelRedis := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancelRedis()
-	if err := redisClient.Ping(ctxTimeout).Err(); err != nil {
-		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
+	redisContext, cancelRedis := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := redisClient.Ping(redisContext).Err(); err != nil {
+		cancelRedis()
+		_ = redisClient.Close()
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("connect to Redis: %w", err)
 	}
+	cancelRedis()
 
-	// Repositories
 	cacheRepo := repository.NewRedisCache(redisClient)
 	tokenBlacklistRepo := repository.NewTokenBlackListRepository(cacheRepo)
 	userRepo := repository.NewUserRepository(db)
 	roleRepo := repository.NewRoleRepository(db)
 	permissionRepo := repository.NewPermissionRepository(db)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
-	rolePermissionRepo := repository.NewRolePermissionRepository(cacheRepo)
+	authorizationRepo := repository.NewAuthorizationRepository(db)
 	txManager := repository.NewGormTransactionManagerRepository(db)
 
-	// UseCases
 	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, txManager, cfg.RefreshExpiration)
-	authUseCase := usecase.NewAuthUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, cfg.JWTSecret, cfg.JWTExpiration)
-	userUseCase := usecase.NewUserUseCase(userRepo, roleRepo, refreshTokenUseCase, tokenBlacklistRepo, txManager, cfg.JWTExpiration)
-	roleUseCase := usecase.NewRoleUseCase(roleRepo, rolePermissionRepo, cfg.RolePermissionsTTL)
-	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo, rolePermissionRepo)
-	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(rolePermissionRepo, roleRepo, cfg.RolePermissionsTTL)
+	authUseCase := usecase.NewAuthUseCase(
+		userRepo,
+		roleRepo,
+		refreshTokenUseCase,
+		tokenBlacklistRepo,
+		cfg.JWTSecret,
+		cfg.JWTIssuer,
+		cfg.JWTAudience,
+		cfg.JWTExpiration,
+	)
+	userUseCase := usecase.NewUserUseCase(
+		userRepo,
+		refreshTokenUseCase,
+		tokenBlacklistRepo,
+		txManager,
+		cfg.JWTExpiration,
+	)
+	roleUseCase := usecase.NewRoleUseCase(roleRepo)
+	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
+	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(authorizationRepo)
 
-	// Handlers
-	authHandler := v1.NewAuthHandler(authUseCase)
-	userHandler := v1.NewUserHandler(userUseCase)
-	roleHandler := v1.NewRoleHandler(roleUseCase)
-	permissionHandler := v1.NewPermissionHandler(permissionUseCase)
-	refreshTokenHandler := v1.NewRefreshTokenHandler(refreshTokenUseCase)
-
-	// Router
-	router := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
-		AuthHandler:         authHandler,
-		UserHandler:         userHandler,
-		RoleHandler:         roleHandler,
-		PermissionHandler:   permissionHandler,
-		RefreshTokenHandler: refreshTokenHandler,
+	router, err := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
+		AuthHandler:         v1.NewAuthHandler(authUseCase),
+		UserHandler:         v1.NewUserHandler(userUseCase),
+		RoleHandler:         v1.NewRoleHandler(roleUseCase),
+		PermissionHandler:   v1.NewPermissionHandler(permissionUseCase),
+		RefreshTokenHandler: v1.NewRefreshTokenHandler(refreshTokenUseCase),
+		HealthHandler:       v1.NewHealthHandler(health.NewChecker(sqlDB, redisClient)),
 		AuthUseCase:         authUseCase,
 		PermissionChecker:   permissionCheckerUseCase,
-		RedisClient:         redisClient,
+		RateLimiter:         ratelimit.NewRedisLimiter(redisClient),
+		TrustedProxies:      cfg.TrustedProxies,
+		CORSAllowedOrigins:  cfg.CORSAllowedOrigins,
 		Env:                 cfg.Env,
 	})
+	if err != nil {
+		_ = redisClient.Close()
+		_ = sqlDB.Close()
+		return nil, err
+	}
 
-	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+	server := &http.Server{
+		Addr:              fmt.Sprintf(":%d", cfg.Port),
+		Handler:           router,
+		ReadHeaderTimeout: cfg.ReadHeaderTimeout,
+		ReadTimeout:       cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+		IdleTimeout:       cfg.IdleTimeout,
 	}
 
 	return &Application{
-		Config:             cfg,
-		DB:                 db,
-		SQLDB:              sqlDB,
-		RedisClient:        redisClient,
-		Router:             router,
-		Server:             srv,
-		PermissionUseCase:  permissionUseCase,
-		RolePermissionRepo: rolePermissionRepo,
+		Config:      cfg,
+		DB:          db,
+		SQLDB:       sqlDB,
+		RedisClient: redisClient,
+		Router:      router,
+		Server:      server,
 	}, nil
 }
 
 func (a *Application) Run() error {
-	log.Printf("Server is running on port %s", a.Config.Port)
+	slog.Info("server started", "port", a.Config.Port)
 	if err := a.Server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
@@ -146,27 +170,26 @@ func (a *Application) Run() error {
 }
 
 func (a *Application) Seed(ctx context.Context) error {
-	seederRunner := seeder.NewDatabaseSeeder(a.DB, a.Config, a.RolePermissionRepo)
-	return seederRunner.Run(ctx)
+	if err := a.Config.ValidateSeeder(); err != nil {
+		return err
+	}
+	return seeder.NewDatabaseSeeder(a.DB, a.Config).Run(ctx)
 }
 
 func (a *Application) Close() error {
-	var errSql, errRedis error
+	var databaseError, redisError error
 	if a.SQLDB != nil {
-		errSql = a.SQLDB.Close()
+		databaseError = a.SQLDB.Close()
 	}
 	if a.RedisClient != nil {
-		errRedis = a.RedisClient.Close()
+		redisError = a.RedisClient.Close()
 	}
-	if errSql != nil {
-		return errSql
+	if databaseError != nil {
+		return databaseError
 	}
-	return errRedis
+	return redisError
 }
 
 func (a *Application) Shutdown(ctx context.Context) error {
-	if err := a.Server.Shutdown(ctx); err != nil {
-		return err
-	}
-	return a.Close()
+	return errors.Join(a.Server.Shutdown(ctx), a.Close())
 }

@@ -23,7 +23,7 @@ type UserWithRoleResponse struct {
 type PaginatedUserResponse = PaginatedResponse[UserResponse]
 
 type UpdateProfileRequest struct {
-	Name string `json:"name" binding:"required,min=2" example:"John Doe Updated"`
+	Name string `json:"name" binding:"required,min=2,max=100" example:"John Doe Updated"`
 }
 
 type UpdateUserRolesRequest struct {

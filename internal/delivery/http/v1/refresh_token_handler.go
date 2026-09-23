@@ -43,7 +43,11 @@ func (h *RefreshTokenHandler) ListRefreshTokensByAuthUser(c *gin.Context) {
 		return
 	}
 
-	params := extractPaginationParams(c)
+	params, err := extractPaginationParams(c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
 
 	var filters []shared.Filter
 

@@ -1,15 +1,16 @@
 package http
 
 import (
+	"fmt"
 	_ "gin-boilerplate/docs"
 	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain"
-
+	"gin-boilerplate/internal/domain/port"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -20,27 +21,52 @@ type RouterConfig struct {
 	RoleHandler         *v1.RoleHandler
 	PermissionHandler   *v1.PermissionHandler
 	RefreshTokenHandler *v1.RefreshTokenHandler
+	HealthHandler       *v1.HealthHandler
 	AuthUseCase         domain.AuthUseCase
 	PermissionChecker   domain.PermissionCheckerUseCase
-	RedisClient         *redis.Client
+	RateLimiter         port.RateLimiter
+	TrustedProxies      []string
+	CORSAllowedOrigins  []string
 	Env                 string
 }
 
-func SetupRouter(cfg RouterConfig) *gin.Engine {
-	r := gin.Default()
+func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
+	r := gin.New()
+	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+		return nil, fmt.Errorf("configure trusted proxies: %w", err)
+	}
 
-	r.Use(middleware.ErrorHandler())
+	r.Use(
+		middleware.RequestID(),
+		middleware.RequestLogger(),
+		gin.Recovery(),
+		middleware.ErrorHandler(),
+		middleware.SecurityHeaders(),
+	)
+
+	if len(cfg.CORSAllowedOrigins) > 0 {
+		r.Use(cors.New(cors.Config{
+			AllowOrigins:     cfg.CORSAllowedOrigins,
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Authorization", "Content-Type", "X-Request-ID"},
+			ExposeHeaders:    []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
+			AllowCredentials: false,
+			MaxAge:           12 * time.Hour,
+		}))
+	}
+
+	r.GET("/health/live", cfg.HealthHandler.Liveness)
+	r.GET("/health/ready", cfg.HealthHandler.Readiness)
 
 	if cfg.Env != "production" {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
-	requirePermission := func(perm domain.PermissionName) gin.HandlerFunc {
-		return middleware.RequirePermission(perm, cfg.PermissionChecker)
+	requirePermission := func(permission domain.PermissionName) gin.HandlerFunc {
+		return middleware.RequirePermission(permission, cfg.PermissionChecker)
 	}
-
-	rateLimit := func(limit int64, window time.Duration) gin.HandlerFunc {
-		return middleware.RateLimiter(cfg.RedisClient, limit, window)
+	rateLimit := func(limit int, window time.Duration) gin.HandlerFunc {
+		return middleware.RateLimiter(cfg.RateLimiter, limit, window)
 	}
 
 	api := r.Group("/api/v1")
@@ -88,5 +114,5 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		}
 	}
 
-	return r
+	return r, nil
 }
