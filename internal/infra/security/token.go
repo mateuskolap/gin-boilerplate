@@ -54,9 +54,6 @@ func GenerateAccessToken(userID uuid.UUID, secret, issuer, audience string, expi
 // ParseAndValidateJWT parses and validates a signed JWT token string, verifying its signing method and claims.
 func ParseAndValidateJWT(tokenString, secret, issuer, audience string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if token.Method != jwt.SigningMethodHS256 {
-			return nil, errors.New("unexpected signing method")
-		}
 		return []byte(secret), nil
 	},
 		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),

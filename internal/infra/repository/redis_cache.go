@@ -45,7 +45,3 @@ func (r *redisCache) Get(ctx context.Context, key string, dest any) error {
 
 	return nil
 }
-
-func (r *redisCache) Delete(ctx context.Context, key string) error {
-	return r.client.Del(ctx, key).Err()
-}

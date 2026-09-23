@@ -249,7 +249,7 @@ func (a *authUseCase) Logout(ctx context.Context, accessToken, refreshToken stri
 		claims, err := security.ParseAndValidateJWT(accessToken, a.jwtSecret, a.jwtIssuer, a.jwtAudience)
 		if err != nil {
 			tokenErr = err
-		} else if claims != nil && claims.ExpiresAt != nil {
+		} else {
 			remainingTTL := time.Until(claims.ExpiresAt.Time)
 			if remainingTTL > 0 {
 				if err := a.tokenBlacklist.RevokeToken(ctx, claims.ID, remainingTTL); err != nil {
@@ -304,12 +304,7 @@ func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString strin
 		)
 	}
 
-	var issuedAt time.Time
-	if claims.IssuedAt != nil {
-		issuedAt = claims.IssuedAt.Time
-	}
-
-	isUserRevoked, err := a.tokenBlacklist.IsUserTokenRevoked(ctx, claims.Subject, issuedAt)
+	isUserRevoked, err := a.tokenBlacklist.IsUserTokenRevoked(ctx, claims.Subject, claims.IssuedAt.Time)
 	if err != nil {
 		return nil, shared.NewAppError(
 			shared.ErrTypeInternal,

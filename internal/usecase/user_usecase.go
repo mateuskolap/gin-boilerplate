@@ -63,7 +63,7 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) erro
 			nil,
 		)
 	}
-	existingUser, err := u.Find(ctx, user.ID)
+	existingUser, err := findByID(ctx, u.userRepo, user.ID)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) erro
 }
 
 func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
-	existingUser, err := u.Find(ctx, userID)
+	existingUser, err := findByID(ctx, u.userRepo, userID)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (u *userUseCase) AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
-	user, err := u.Find(ctx, userID)
+	user, err := findByID(ctx, u.userRepo, userID)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (u *userUseCase) AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []
 }
 
 func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
-	user, err := u.Find(ctx, userID)
+	user, err := findByID(ctx, u.userRepo, userID)
 	if err != nil {
 		return err
 	}

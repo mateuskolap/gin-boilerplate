@@ -6,7 +6,6 @@ import (
 	"gin-boilerplate/internal/domain"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"uuid"
 )
 
@@ -31,20 +30,7 @@ func (r *authorizationRepository) UserHasPermission(
 		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
 		Joins("JOIN user_roles ON user_roles.role_id = role_permissions.role_id").
 		Joins("JOIN users ON users.id = user_roles.user_id").
-		Where(clause.And(
-			clause.Eq{
-				Column: clause.Column{Table: "users", Name: "id"},
-				Value:  userID,
-			},
-			clause.Eq{
-				Column: clause.Column{Table: "users", Name: "deleted_at"},
-				Value:  nil,
-			},
-			clause.Eq{
-				Column: clause.Column{Table: "permissions", Name: "name"},
-				Value:  permission,
-			},
-		)).
+		Where("users.id = ? AND users.deleted_at IS NULL AND permissions.name = ?", userID, permission).
 		Limit(1).
 		Find(&matchedPermission)
 

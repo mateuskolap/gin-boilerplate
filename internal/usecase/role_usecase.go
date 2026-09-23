@@ -88,7 +88,7 @@ func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
 	if err := normalizeRoleName(role); err != nil {
 		return err
 	}
-	existingRole, err := r.Find(ctx, role.ID)
+	existingRole, err := findByID(ctx, r.roleRepo, role.ID)
 	if err != nil {
 		return err
 	}
@@ -126,40 +126,20 @@ func normalizeRoleName(role *domain.Role) error {
 	return nil
 }
 
-func (r *roleUseCase) Delete(ctx context.Context, id uuid.UUID) error {
-	if _, err := r.Find(ctx, id); err != nil {
-		return err
-	}
-
-	if err := r.BaseDeleteUseCase.Delete(ctx, id); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (r *roleUseCase) AddPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
-	role, err := r.Find(ctx, roleID)
+	role, err := findByID(ctx, r.roleRepo, roleID)
 	if err != nil {
 		return err
 	}
 
-	if err := r.roleRepo.AddPermissions(ctx, *role, permissionIDs); err != nil {
-		return err
-	}
-
-	return nil
+	return r.roleRepo.AddPermissions(ctx, *role, permissionIDs)
 }
 
 func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
-	role, err := r.Find(ctx, roleID)
+	role, err := findByID(ctx, r.roleRepo, roleID)
 	if err != nil {
 		return err
 	}
 
-	if err := r.roleRepo.RemovePermissions(ctx, *role, permissionIDs); err != nil {
-		return err
-	}
-
-	return nil
+	return r.roleRepo.RemovePermissions(ctx, *role, permissionIDs)
 }

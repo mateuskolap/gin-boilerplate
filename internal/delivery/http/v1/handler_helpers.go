@@ -154,10 +154,7 @@ func parseSortOption(s string) (field string, direction shared.SortDirection, er
 		return field, shared.SortAsc, nil
 	}
 
-	if strings.TrimSpace(s) == "" {
-		return "", "", invalidQueryParameter("sort")
-	}
-	return strings.TrimSpace(s), shared.SortAsc, nil
+	return s, shared.SortAsc, nil
 }
 
 func parseBoundedPositiveInt(value, name string, maximum int) (int, error) {

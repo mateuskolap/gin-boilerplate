@@ -23,7 +23,11 @@ func NewBaseFindUseCase[T any](
 }
 
 func (uc *baseFindUseCase[T]) Find(ctx context.Context, id uuid.UUID) (*T, error) {
-	entity, err := uc.repo.GetByID(ctx, id, uc.preloads...)
+	return findByID(ctx, uc.repo, id, uc.preloads...)
+}
+
+func findByID[T any](ctx context.Context, repo shared.BaseRepository[T], id uuid.UUID, preloads ...string) (*T, error) {
+	entity, err := repo.GetByID(ctx, id, preloads...)
 	if err != nil {
 		return nil, shared.NewAppError(
 			shared.ErrTypeInternal,

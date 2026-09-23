@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/internal/domain/shared"
 
 	"uuid"
 )
@@ -24,13 +23,5 @@ func (p *permissionCheckerUseCase) HasPermission(
 	userID uuid.UUID,
 	permission domain.PermissionName,
 ) (bool, error) {
-	allowed, err := p.authorizationRepo.UserHasPermission(ctx, userID, permission)
-	if err != nil {
-		return false, shared.NewAppError(
-			shared.ErrTypeInternal,
-			"Failed to check permission",
-			err,
-		)
-	}
-	return allowed, nil
+	return p.authorizationRepo.UserHasPermission(ctx, userID, permission)
 }

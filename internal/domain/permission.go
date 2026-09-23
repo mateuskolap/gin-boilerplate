@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"context"
 	"gin-boilerplate/internal/domain/shared"
 )
 
@@ -51,14 +50,8 @@ type Permission struct {
 
 type PermissionRepository interface {
 	shared.BaseRepository[Permission]
-
-	// UpsertByName inserts or updates permissions based on their names.
-	UpsertByName(ctx context.Context, permissions []Permission) error
 }
 
 type PermissionUseCase interface {
 	shared.BaseListUseCase[Permission]
-
-	// Find populates the permissions table with the predefined permissions.
-	SeedPermissions(ctx context.Context) error
 }
