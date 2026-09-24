@@ -1560,6 +1560,67 @@ const docTemplate = `{
                 ]
             }
         },
+        "/api/v1/users/{id}/image": {
+            "get": {
+                "description": "Stream a user's profile image by UUID. Requires authentication.",
+                "produces": [
+                    "image/jpeg",
+                    "image/png",
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Get user profile image",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "User UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Profile image",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found - User or profile image not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid UUID format",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/users/{id}/roles": {
             "post": {
                 "description": "Assign one or more roles to a user by role UUIDs. Requires 'add_user_role' permission.",

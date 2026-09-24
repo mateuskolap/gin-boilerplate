@@ -273,3 +273,49 @@ func (u *userUseCase) RemoveImage(ctx context.Context, userID uuid.UUID) error {
 
 	return nil
 }
+
+func (u *userUseCase) GetImage(ctx context.Context, userID uuid.UUID) (shared.ImageStream, error) {
+	existingUser, err := findByID(ctx, u.userRepo, userID)
+	if err != nil {
+		return shared.ImageStream{}, err
+	}
+
+	if existingUser.AvatarKey == "" {
+		return shared.ImageStream{}, shared.NewAppError(
+			shared.ErrTypeNotFound,
+			"User does not have an avatar",
+			nil,
+		)
+	}
+
+	imageFormat, ok := shared.ImageFormatFromKey(existingUser.AvatarKey)
+	if !ok {
+		return shared.ImageStream{}, shared.NewAppError(
+			shared.ErrTypeInternal,
+			"User avatar has an unsupported format",
+			nil,
+		)
+	}
+
+	file, err := u.storage.Open(ctx, existingUser.AvatarKey)
+	if err != nil {
+		if errors.Is(err, port.ErrFileNotFound) {
+			return shared.ImageStream{}, shared.NewAppError(
+				shared.ErrTypeNotFound,
+				"User avatar not found in storage",
+				err,
+			)
+		}
+		return shared.ImageStream{}, shared.NewAppError(
+			shared.ErrTypeInternal,
+			"Failed to open user avatar from storage",
+			err,
+		)
+	}
+
+	return shared.ImageStream{
+		Content:     file.Content,
+		ContentType: imageFormat.ContentType,
+		Size:        file.Info.Size,
+	}, nil
+}

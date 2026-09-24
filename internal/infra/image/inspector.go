@@ -10,6 +10,7 @@ import (
 	"io"
 
 	"gin-boilerplate/internal/domain/port"
+	"gin-boilerplate/internal/domain/shared"
 )
 
 const maxHeaderBytes int64 = 1 << 20
@@ -40,27 +41,16 @@ func (i *Inspector) Inspect(ctx context.Context, src io.Reader) (port.InspectedI
 		return port.InspectedImage{}, err
 	}
 
-	extension, err := extensionFor(format)
-	if err != nil {
-		return port.InspectedImage{}, err
+	imageFormat, ok := shared.ImageFormatFromDecoder(format)
+	if !ok {
+		return port.InspectedImage{}, port.ErrUnsupportedImageFormat
 	}
 
 	return port.InspectedImage{
 		Content:   io.MultiReader(bytes.NewReader(consumed.Bytes()), src),
 		Format:    format,
-		Extension: extension,
+		Extension: imageFormat.Extension,
 		Width:     config.Width,
 		Height:    config.Height,
 	}, nil
-}
-
-func extensionFor(format string) (string, error) {
-	switch format {
-	case "jpeg":
-		return ".jpg", nil
-	case "png":
-		return ".png", nil
-	default:
-		return "", port.ErrUnsupportedImageFormat
-	}
 }

@@ -377,3 +377,31 @@ func (h *UserHandler) RemoveImage(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "User image removed successfully", nil)
 }
+
+// GetImage godoc
+// @Summary      Get user profile image
+// @Description  Stream a user's profile image by UUID. Requires authentication.
+// @Tags         Users
+// @Produce      jpeg,png,json
+// @Security     BearerAuth
+// @Param        id   path      string  true  "User UUID" format(uuid)
+// @Success      200  {file}    file    "Profile image"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      404  {object}  response.ApiResponse "Not Found - User or profile image not found"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
+// @Router       /api/v1/users/{id}/image [get]
+func (h *UserHandler) GetImage(c *gin.Context) {
+	userID, err := extractParamID(c, "id")
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	file, err := h.userUseCase.GetImage(c.Request.Context(), userID)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	streamFile(c, file.Content, file.ContentType, file.Size)
+}

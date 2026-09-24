@@ -107,6 +107,12 @@ func extractMultipartFile(c *gin.Context, field string, maxRequestBytes int64) (
 	}, nil
 }
 
+// streamFile sends a file without buffering it in memory and closes it afterward.
+func streamFile(c *gin.Context, content io.ReadCloser, contentType string, size int64) {
+	defer content.Close()
+	c.DataFromReader(http.StatusOK, size, contentType, content, nil)
+}
+
 func bindJSON[T any](c *gin.Context) (T, error) {
 	var req T
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)

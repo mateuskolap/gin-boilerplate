@@ -23,6 +23,11 @@ var (
 	ErrNotRegularFile = errors.New("storage path is not a regular file")
 )
 
+type OpenedFile struct {
+	Content io.ReadCloser
+	Info    FileInfo
+}
+
 type FileInfo struct {
 	Size       int64
 	ModifiedAt time.Time
@@ -45,7 +50,7 @@ type Storage interface {
 	// reader. It returns ErrInvalidStoragePath for an invalid key and ErrFileNotFound
 	// when no object exists. Filesystem-backed implementations may also return
 	// ErrNotRegularFile. It may return ctx.Err() or an implementation-specific I/O error.
-	Open(ctx context.Context, path string) (io.ReadCloser, error)
+	Open(ctx context.Context, path string) (OpenedFile, error)
 
 	// Delete removes an object. Deleting a missing key succeeds and returns nil. It
 	// returns ErrInvalidStoragePath for an invalid key. Filesystem-backed

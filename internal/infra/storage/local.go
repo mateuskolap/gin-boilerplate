@@ -126,35 +126,36 @@ func (s *Local) Put(ctx context.Context, key string, src io.Reader, options port
 	return nil
 }
 
-func (s *Local) Open(ctx context.Context, key string) (io.ReadCloser, error) {
+func (s *Local) Open(ctx context.Context, key string) (port.OpenedFile, error) {
 	if err := validateKey(key); err != nil {
-		return nil, err
+		return port.OpenedFile{}, err
 	}
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return port.OpenedFile{}, err
 	}
 	if _, err := s.fileInfo(key); err != nil {
-		return nil, err
+		return port.OpenedFile{}, err
 	}
 
 	file, err := s.root.Open(key)
 	if err != nil {
-		return nil, fileError("open storage file", err)
+		return port.OpenedFile{}, fileError("open storage file", err)
 	}
 	info, err := file.Stat()
 	if err != nil {
 		_ = file.Close()
-		return nil, fmt.Errorf("inspect open storage file: %w", err)
+		return port.OpenedFile{}, fmt.Errorf("inspect open storage file: %w", err)
 	}
 	if !info.Mode().IsRegular() {
 		_ = file.Close()
-		return nil, port.ErrNotRegularFile
+		return port.OpenedFile{}, port.ErrNotRegularFile
 	}
 	if err := ctx.Err(); err != nil {
 		_ = file.Close()
-		return nil, err
+		return port.OpenedFile{}, err
 	}
-	return file, nil
+
+	return port.OpenedFile{Content: file, Info: port.FileInfo{Size: info.Size(), ModifiedAt: info.ModTime().UTC()}}, nil
 }
 
 func (s *Local) Delete(ctx context.Context, key string) error {

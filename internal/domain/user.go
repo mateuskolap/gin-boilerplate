@@ -52,4 +52,7 @@ type UserUseCase interface {
 
 	// RemoveImage removes the user's profile image.
 	RemoveImage(ctx context.Context, userID uuid.UUID) error
+
+	// GetImage opens the user's profile image. The caller must close its content.
+	GetImage(ctx context.Context, userID uuid.UUID) (shared.ImageStream, error)
 }

@@ -1119,6 +1119,46 @@ paths:
       summary: Update user
       tags:
       - Users
+  /api/v1/users/{id}/image:
+    get:
+      description: Stream a user's profile image by UUID. Requires authentication.
+      parameters:
+      - description: User UUID
+        format: uuid
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - image/jpeg
+      - image/png
+      - application/json
+      responses:
+        "200":
+          description: Profile image
+          schema:
+            type: file
+        "401":
+          description: Unauthorized - Missing or invalid token
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "404":
+          description: Not Found - User or profile image not found
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: Unprocessable Entity - Invalid UUID format
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user profile image
+      tags:
+      - Users
   /api/v1/users/{id}/roles:
     delete:
       consumes:
