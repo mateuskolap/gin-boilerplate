@@ -14,5 +14,7 @@ type RateLimitResult struct {
 }
 
 type RateLimiter interface {
+	// Allow checks whether a request identified by key fits within limit requests
+	// during window and returns the current limit and retry timing information.
 	Allow(ctx context.Context, key string, limit int, window time.Duration) (*RateLimitResult, error)
 }

@@ -124,6 +124,8 @@ func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
 		return err
 	}
 
+	u.deleteAvatar(ctx, existingUser.AvatarKey)
+
 	if err := u.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), u.jwtExpiration); err != nil {
 		return shared.NewAppError(
 			shared.ErrTypeInternal,
@@ -224,7 +226,7 @@ func (u *userUseCase) UpdateImage(ctx context.Context, userID uuid.UUID, file io
 	previousKey := existingUser.AvatarKey
 	existingUser.AvatarKey = key
 	if err := u.userRepo.Update(ctx, existingUser); err != nil {
-		if cleanupErr := u.storage.Delete(ctx, key); cleanupErr != nil {
+		if cleanupErr := u.storage.Delete(context.WithoutCancel(ctx), key); cleanupErr != nil {
 			err = errors.Join(err, cleanupErr)
 		}
 		return shared.NewAppError(
@@ -234,11 +236,7 @@ func (u *userUseCase) UpdateImage(ctx context.Context, userID uuid.UUID, file io
 		)
 	}
 
-	if previousKey != "" {
-		if err := u.storage.Delete(ctx, previousKey); err != nil {
-			slog.ErrorContext(ctx, "failed to delete replaced user avatar", "path", previousKey, "error", err)
-		}
-	}
+	u.deleteAvatar(ctx, previousKey)
 
 	return nil
 }
@@ -267,11 +265,18 @@ func (u *userUseCase) RemoveImage(ctx context.Context, userID uuid.UUID) error {
 		)
 	}
 
-	if err := u.storage.Delete(ctx, previousKey); err != nil {
-		slog.ErrorContext(ctx, "failed to delete removed user avatar", "path", previousKey, "error", err)
-	}
+	u.deleteAvatar(ctx, previousKey)
 
 	return nil
+}
+
+func (u *userUseCase) deleteAvatar(ctx context.Context, key string) {
+	if key == "" {
+		return
+	}
+	if err := u.storage.Delete(context.WithoutCancel(ctx), key); err != nil {
+		slog.ErrorContext(ctx, "failed to delete user avatar", "path", key, "error", err)
+	}
 }
 
 func (u *userUseCase) GetImage(ctx context.Context, userID uuid.UUID) (shared.ImageStream, error) {
@@ -316,6 +321,6 @@ func (u *userUseCase) GetImage(ctx context.Context, userID uuid.UUID) (shared.Im
 	return shared.ImageStream{
 		Content:     file.Content,
 		ContentType: imageFormat.ContentType,
-		Size:        file.Info.Size,
+		Size:        file.Size,
 	}, nil
 }

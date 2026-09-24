@@ -13,15 +13,12 @@ var (
 
 type InspectedImage struct {
 	Content   io.Reader
-	Format    string
 	Extension string
-	Width     int
-	Height    int
 }
 
-// ImageInspector identifies an image from its contents and returns a reader
-// containing every byte from the original input, including bytes read during
-// inspection.
+// ImageInspector identifies supported image formats from their contents.
 type ImageInspector interface {
+	// Inspect identifies the format of src and returns a reader that yields the
+	// complete original content, including bytes consumed during inspection.
 	Inspect(ctx context.Context, src io.Reader) (InspectedImage, error)
 }

@@ -22,8 +22,11 @@ type RefreshToken struct {
 
 type RefreshTokenRepository interface {
 	shared.BaseRepository[RefreshToken]
+	// FindByTokenHash retrieves a refresh token by its stored token hash.
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
+	// ListByUserID returns a paginated list of a user's refresh tokens matching filters.
 	ListByUserID(ctx context.Context, userID uuid.UUID, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[RefreshToken], error)
+	// RevokeAllByUserID revokes every refresh token associated with the user.
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 
 	// RevokeByID atomically revokes a refresh token by ID only if it has not been revoked yet.
@@ -32,12 +35,20 @@ type RefreshTokenRepository interface {
 }
 
 type RefreshTokenUseCase interface {
+	// Create generates a refresh token for the user and returns its plaintext value.
 	Create(ctx context.Context, userID uuid.UUID, ipAddress string, userAgent string) (string, error)
+	// Rotate validates oldToken, revokes it, and returns a replacement token.
 	Rotate(ctx context.Context, oldToken, ipAddress, userAgent string) (string, error)
+	// FindByTokenHash looks up a refresh token using its plaintext token value.
 	FindByTokenHash(ctx context.Context, token string) (*RefreshToken, error)
+	// ListActiveByUserID returns a paginated list of the user's unrevoked, unexpired tokens.
 	ListActiveByUserID(ctx context.Context, userID uuid.UUID, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[RefreshToken], error)
+	// Revoke revokes the refresh token identified by its plaintext value.
 	Revoke(ctx context.Context, token string) error
+	// RevokeEntity marks the supplied refresh token as revoked if it is still active.
 	RevokeEntity(ctx context.Context, refreshToken *RefreshToken) error
+	// RevokeAllByUserID revokes all refresh tokens belonging to the user.
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
+	// Validate checks that token exists, is unrevoked, and has not expired.
 	Validate(ctx context.Context, token string) (*RefreshToken, error)
 }

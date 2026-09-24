@@ -9,6 +9,8 @@ type EmailMessage struct {
 }
 
 type EmailService interface {
+	// ProviderName returns the name of the configured email provider.
 	ProviderName() string
+	// Send delivers the supplied message to its recipients.
 	Send(ctx context.Context, msg EmailMessage) error
 }

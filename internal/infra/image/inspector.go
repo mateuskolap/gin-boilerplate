@@ -33,7 +33,7 @@ func (i *Inspector) Inspect(ctx context.Context, src io.Reader) (port.InspectedI
 
 	var consumed bytes.Buffer
 	inspectedSource := io.TeeReader(io.LimitReader(src, maxHeaderBytes), &consumed)
-	config, format, err := stdimage.DecodeConfig(inspectedSource)
+	_, format, err := stdimage.DecodeConfig(inspectedSource)
 	if err != nil {
 		return port.InspectedImage{}, fmt.Errorf("inspect image: %w: %v", port.ErrInvalidImage, err)
 	}
@@ -48,9 +48,6 @@ func (i *Inspector) Inspect(ctx context.Context, src io.Reader) (port.InspectedI
 
 	return port.InspectedImage{
 		Content:   io.MultiReader(bytes.NewReader(consumed.Bytes()), src),
-		Format:    format,
 		Extension: imageFormat.Extension,
-		Width:     config.Width,
-		Height:    config.Height,
 	}, nil
 }

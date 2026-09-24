@@ -76,7 +76,7 @@ The application initializes one private local storage disk. Configure its root i
 STORAGE_ROOT=./storage/private
 ```
 
-Use `port.Storage` as a dependency of the use case that owns a file. The use case chooses a relative key such as `users/<user-id>/avatar.webp` and passes its size limit to `Put` through `port.PutOptions`. The storage service provides `Put`, `Open`, `Delete`, `Exists`, and `Stat`. `Open` returns a reader that the caller must close. `Put` rejects existing keys and files above the supplied limit; `Delete` succeeds when the key is absent. Use `errors.Is` with the sentinel errors in `internal/domain/port/storage.go` to handle expected failures.
+Use `port.Storage` as a dependency of the use case that owns a file. The use case chooses a relative key such as `users/<user-id>/avatars/<image-id>.jpg` and passes its size limit to `Put` through `port.PutOptions`. The storage service provides `Put`, `Open`, and `Delete`. `Open` returns a reader that the caller must close. `Put` rejects existing keys and files above the supplied limit; `Delete` succeeds when the key is absent. Use `errors.Is` with the sentinel errors in `internal/domain/port/storage.go` to handle expected failures.
 
 Store the relative key in the owning entity's database table when that entity has one file, for example `users.avatar_key`. A domain-specific table is appropriate when files have their own metadata or multiple relationships. Do not store an absolute filesystem path or public URL as the file reference.
 

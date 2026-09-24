@@ -21,10 +21,12 @@ type AppError struct {
 	Err     error
 }
 
+// Unwrap returns the underlying cause so errors.Is and errors.As can inspect it.
 func (e *AppError) Unwrap() error {
 	return e.Err
 }
 
+// Error returns the application error message, including its cause when present.
 func (e *AppError) Error() string {
 	if e.Err != nil {
 		return fmt.Sprintf("%s: %v", e.Message, e.Err)

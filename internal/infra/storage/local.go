@@ -155,7 +155,7 @@ func (s *Local) Open(ctx context.Context, key string) (port.OpenedFile, error) {
 		return port.OpenedFile{}, err
 	}
 
-	return port.OpenedFile{Content: file, Info: port.FileInfo{Size: info.Size(), ModifiedAt: info.ModTime().UTC()}}, nil
+	return port.OpenedFile{Content: file, Size: info.Size()}, nil
 }
 
 func (s *Local) Delete(ctx context.Context, key string) error {
@@ -178,36 +178,6 @@ func (s *Local) Delete(ctx context.Context, key string) error {
 		return fmt.Errorf("delete storage file: %w", err)
 	}
 	return nil
-}
-
-func (s *Local) Exists(ctx context.Context, key string) (bool, error) {
-	if err := validateKey(key); err != nil {
-		return false, err
-	}
-	if err := ctx.Err(); err != nil {
-		return false, err
-	}
-	if _, err := s.fileInfo(key); err != nil {
-		if errors.Is(err, port.ErrFileNotFound) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
-
-func (s *Local) Stat(ctx context.Context, key string) (port.FileInfo, error) {
-	if err := validateKey(key); err != nil {
-		return port.FileInfo{}, err
-	}
-	if err := ctx.Err(); err != nil {
-		return port.FileInfo{}, err
-	}
-	info, err := s.fileInfo(key)
-	if err != nil {
-		return port.FileInfo{}, err
-	}
-	return port.FileInfo{Size: info.Size(), ModifiedAt: info.ModTime().UTC()}, nil
 }
 
 func (s *Local) fileInfo(key string) (fs.FileInfo, error) {

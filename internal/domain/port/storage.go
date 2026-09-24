@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"time"
 )
 
 var (
@@ -25,12 +24,7 @@ var (
 
 type OpenedFile struct {
 	Content io.ReadCloser
-	Info    FileInfo
-}
-
-type FileInfo struct {
-	Size       int64
-	ModifiedAt time.Time
+	Size    int64
 }
 
 type PutOptions struct {
@@ -57,16 +51,4 @@ type Storage interface {
 	// implementations may also return ErrNotRegularFile. It may return ctx.Err() or
 	// an implementation-specific I/O error.
 	Delete(ctx context.Context, path string) error
-
-	// Exists reports whether an object exists. A missing key returns (false, nil).
-	// It returns ErrInvalidStoragePath for an invalid key. Filesystem-backed
-	// implementations may also return ErrNotRegularFile. It may return ctx.Err() or
-	// an implementation-specific I/O error.
-	Exists(ctx context.Context, path string) (bool, error)
-
-	// Stat returns metadata for an existing object. It returns ErrInvalidStoragePath
-	// for an invalid key and ErrFileNotFound when no object exists. Filesystem-backed
-	// implementations may also return ErrNotRegularFile. It may return ctx.Err() or
-	// an implementation-specific I/O error.
-	Stat(ctx context.Context, path string) (FileInfo, error)
 }

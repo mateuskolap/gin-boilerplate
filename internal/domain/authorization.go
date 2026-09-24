@@ -13,5 +13,6 @@ type AuthorizationRepository interface {
 }
 
 type PermissionCheckerUseCase interface {
+	// HasPermission checks whether the user currently has the named permission.
 	HasPermission(ctx context.Context, userID uuid.UUID, permission PermissionName) (bool, error)
 }
