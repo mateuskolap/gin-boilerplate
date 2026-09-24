@@ -18,12 +18,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     -ldflags="-s -w" \
     -o /app/server ./cmd/api
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags="-s -w" \
-    -o /app/migrate ./cmd/migrate
-
 RUN mkdir -p /app/storage/private
 
 FROM scratch
@@ -43,8 +37,6 @@ COPY --from=build --chown=10001:10001 /app/storage /app/storage
 USER 10001:10001
 
 COPY --from=build /app/server /server
-
-COPY --from=build /app/migrate /migrate
 
 EXPOSE 8080
 
