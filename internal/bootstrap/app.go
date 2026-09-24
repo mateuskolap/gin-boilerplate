@@ -15,6 +15,7 @@ import (
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/infra/health"
+	imageinfra "gin-boilerplate/internal/infra/image"
 	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
 	"gin-boilerplate/internal/infra/seeder"
@@ -85,12 +86,13 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	}
 	cancelRedis()
 
-	localStore, err := storage.NewLocal(cfg.StorageRoot, cfg.StorageMaxFileSize)
+	localStore, err := storage.NewLocal(cfg.StorageRoot)
 	if err != nil {
 		_ = redisClient.Close()
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize local storage: %w", err)
 	}
+	imageInspector := imageinfra.NewInspector()
 
 	cacheRepo := repository.NewRedisCache(redisClient)
 	tokenBlacklistRepo := repository.NewTokenBlackListRepository(cacheRepo)
@@ -115,6 +117,8 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	userUseCase := usecase.NewUserUseCase(
 		userRepo,
 		refreshTokenUseCase,
+		localStore,
+		imageInspector,
 		tokenBlacklistRepo,
 		txManager,
 		cfg.JWTExpiration,

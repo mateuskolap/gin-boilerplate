@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"gin-boilerplate/internal/domain/shared"
+	"io"
 	"uuid"
 )
 
@@ -47,7 +48,7 @@ type UserUseCase interface {
 	RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error
 
 	// UpdateImage updates the user's profile image.
-	UpdateImage(ctx context.Context, userID uuid.UUID, file shared.UploadedFile) error
+	UpdateImage(ctx context.Context, userID uuid.UUID, file io.Reader) error
 
 	// RemoveImage removes the user's profile image.
 	RemoveImage(ctx context.Context, userID uuid.UUID) error

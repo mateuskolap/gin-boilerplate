@@ -88,6 +88,8 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 			{
 				users.GET("/profile", cfg.UserHandler.GetProfile)
 				users.PUT("/profile", cfg.UserHandler.UpdateProfile)
+				users.PUT("/profile/image", cfg.UserHandler.UpdateImage)
+				users.DELETE("/profile/image", cfg.UserHandler.RemoveImage)
 				users.PUT("/:id", requirePermission(domain.PermissionUpdateUser), cfg.UserHandler.UpdateUser)
 				users.GET("", requirePermission(domain.PermissionViewUser), cfg.UserHandler.ListUsers)
 				users.GET("/:id", requirePermission(domain.PermissionViewUser), cfg.UserHandler.FindUser)

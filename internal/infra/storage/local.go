@@ -21,18 +21,14 @@ import (
 const temporaryPrefix = ".storage-tmp-"
 
 type Local struct {
-	root    *os.Root
-	maxSize int64
+	root *os.Root
 }
 
 var _ port.Storage = (*Local)(nil)
 
-func NewLocal(rootPath string, maxSize int64) (*Local, error) {
+func NewLocal(rootPath string) (*Local, error) {
 	if strings.TrimSpace(rootPath) == "" {
 		return nil, errors.New("storage root must not be empty")
-	}
-	if maxSize <= 0 || maxSize == math.MaxInt64 {
-		return nil, errors.New("storage size limit must be between 1 and MaxInt64-1")
 	}
 
 	absoluteRoot, err := filepath.Abs(rootPath)
@@ -46,7 +42,7 @@ func NewLocal(rootPath string, maxSize int64) (*Local, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open storage root: %w", err)
 	}
-	store := &Local{root: root, maxSize: maxSize}
+	store := &Local{root: root}
 	temporaryKey, temporaryFile, err := store.createTemporary(".")
 	if err != nil {
 		_ = root.Close()
@@ -68,12 +64,15 @@ func (s *Local) Close() error {
 	return s.root.Close()
 }
 
-func (s *Local) Put(ctx context.Context, key string, src io.Reader) (resultErr error) {
+func (s *Local) Put(ctx context.Context, key string, src io.Reader, options port.PutOptions) (resultErr error) {
 	if err := validateKey(key); err != nil {
 		return err
 	}
 	if src == nil {
 		return errors.New("storage source must not be nil")
+	}
+	if options.MaxBytes <= 0 || options.MaxBytes == math.MaxInt64 {
+		return port.ErrInvalidFileSizeLimit
 	}
 	if err := ctx.Err(); err != nil {
 		return err
@@ -98,9 +97,9 @@ func (s *Local) Put(ctx context.Context, key string, src io.Reader) (resultErr e
 		}
 	}()
 
-	limitedSource := io.LimitReader(&contextReader{ctx: ctx, reader: src}, s.maxSize+1)
+	limitedSource := io.LimitReader(&contextReader{ctx: ctx, reader: src}, options.MaxBytes+1)
 	written, err := io.Copy(temporaryFile, limitedSource)
-	if written > s.maxSize {
+	if written > options.MaxBytes {
 		return port.ErrFileTooLarge
 	}
 	if err != nil {

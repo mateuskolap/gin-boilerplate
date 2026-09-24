@@ -91,11 +91,6 @@ const docTemplate = `{
         },
         "/api/v1/auth/logout": {
             "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "description": "Revoke access token by adding it to the blacklist and optionally revoke the refresh token",
                 "consumes": [
                     "application/json"
@@ -136,7 +131,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         },
         "/api/v1/auth/refresh": {
@@ -281,19 +281,14 @@ const docTemplate = `{
         },
         "/api/v1/auth/sessions": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve paginated active refresh token sessions for the authenticated user, with optional filters and sorting",
+                "description": "Get paginated list of active refresh tokens (sessions) for the authenticated user",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Sessions"
+                    "Auth"
                 ],
-                "summary": "List active user sessions",
+                "summary": "List active sessions",
                 "parameters": [
                     {
                         "minimum": 1,
@@ -312,19 +307,19 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Sorting criteria (e.g. created_at:desc, -expires_at)",
+                        "description": "Sorting criteria (e.g. created_at:desc or -created_at)",
                         "name": "sort",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Filter by User Agent (partial match)",
+                        "description": "Filter by user agent (partial match)",
                         "name": "user_agent",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Filter by IP Address (partial match)",
+                        "description": "Filter by IP address (partial match)",
                         "name": "ip_address",
                         "in": "query"
                     }
@@ -366,17 +361,17 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/permissions": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
-                "description": "Get paginated list of available system permissions with optional filters and sorting. Requires 'view_permission' permission.",
+                ]
+            }
+        },
+        "/api/v1/permissions": {
+            "get": {
+                "description": "Get paginated list of permissions with optional filtering and sorting. Requires 'view_permission' permission.",
                 "produces": [
                     "application/json"
                 ],
@@ -456,16 +451,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/roles": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/roles": {
+            "get": {
                 "description": "Get paginated list of roles with optional filters and sorting. Requires 'view_role' permission.",
                 "produces": [
                     "application/json"
@@ -546,14 +541,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "description": "Create a new unique role. Requires 'create_role' permission.",
                 "consumes": [
                     "application/json"
@@ -625,16 +620,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/roles/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/roles/{id}": {
+            "get": {
                 "description": "Retrieve detailed information of a role including assigned permissions by UUID. Requires 'view_role' permission.",
                 "produces": [
                     "application/json"
@@ -702,14 +697,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "description": "Update role information by UUID. Requires 'update_role' permission.",
                 "consumes": [
                     "application/json"
@@ -789,14 +784,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "description": "Delete a role by UUID. Requires 'delete_role' permission.",
                 "produces": [
                     "application/json"
@@ -852,16 +847,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/roles/{id}/permissions": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/roles/{id}/permissions": {
+            "post": {
                 "description": "Assign one or more permissions to a role by permission UUIDs. Requires 'add_role_permission' permission.",
                 "consumes": [
                     "application/json"
@@ -929,14 +924,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "description": "Remove one or more permissions from a role by permission UUIDs. Requires 'remove_role_permission' permission.",
                 "consumes": [
                     "application/json"
@@ -1004,16 +999,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/users": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/users": {
+            "get": {
                 "description": "Get paginated list of users with optional filtering and sorting. Requires 'view_user' permission.",
                 "produces": [
                     "application/json"
@@ -1100,16 +1095,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/users/profile": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/users/profile": {
+            "get": {
                 "description": "Get current authenticated user profile details",
                 "produces": [
                     "application/json"
@@ -1155,14 +1150,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "description": "Update current authenticated user profile details (e.g. name)",
                 "consumes": [
                     "application/json"
@@ -1228,16 +1223,118 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/users/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
+                ]
+            }
+        },
+        "/api/v1/users/profile/image": {
+            "put": {
+                "description": "Update the current authenticated user's profile image",
+                "consumes": [
+                    "multipart/form-data"
                 ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Update profile image",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Profile image",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User image updated successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid image or image larger than 3 MiB",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "description": "Remove the current authenticated user's profile image",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Users"
+                ],
+                "summary": "Remove profile image",
+                "responses": {
+                    "200": {
+                        "description": "User image removed successfully",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "User does not have a profile image",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/users/{id}": {
+            "get": {
                 "description": "Retrieve detailed user profile including assigned roles by UUID. Requires 'view_user' permission.",
                 "produces": [
                     "application/json"
@@ -1305,14 +1402,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "put": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "put": {
                 "description": "Update user information by UUID. Requires 'update_user' permission.",
                 "consumes": [
                     "application/json"
@@ -1392,14 +1489,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "description": "Delete a user by UUID. Requires 'delete_user' permission.",
                 "produces": [
                     "application/json"
@@ -1455,16 +1552,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            }
-        },
-        "/api/v1/users/{id}/roles": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/api/v1/users/{id}/roles": {
+            "post": {
                 "description": "Assign one or more roles to a user by role UUIDs. Requires 'add_user_role' permission.",
                 "consumes": [
                     "application/json"
@@ -1532,14 +1629,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "description": "Remove one or more assigned roles from a user by role UUIDs. Requires 'remove_user_role' permission.",
                 "consumes": [
                     "application/json"
@@ -1607,7 +1704,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.ApiResponse"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         }
     },
@@ -1620,6 +1722,7 @@ const docTemplate = `{
             "properties": {
                 "name": {
                     "type": "string",
+                    "maxLength": 100,
                     "minLength": 2,
                     "example": "Admin"
                 }
@@ -1638,6 +1741,7 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
+                    "maxLength": 72,
                     "example": "secret12345"
                 }
             }
@@ -1834,6 +1938,7 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
+                    "maxLength": 72,
                     "minLength": 8,
                     "example": "secret12345"
                 }
@@ -1887,6 +1992,7 @@ const docTemplate = `{
             "properties": {
                 "name": {
                     "type": "string",
+                    "maxLength": 100,
                     "minLength": 2,
                     "example": "John Doe Updated"
                 }
@@ -1900,6 +2006,7 @@ const docTemplate = `{
             "properties": {
                 "name": {
                     "type": "string",
+                    "maxLength": 100,
                     "minLength": 2,
                     "example": "Admin Updated"
                 }

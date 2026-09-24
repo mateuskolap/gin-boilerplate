@@ -1,10 +1,14 @@
 package v1
 
 import (
-	"gin-boilerplate/internal/domain/shared"
+	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"gin-boilerplate/internal/domain/shared"
 
 	"uuid"
 
@@ -12,6 +16,18 @@ import (
 )
 
 const maxBodyBytes = 2 * 1024 * 1024
+
+type multipartFile struct {
+	io.ReadCloser
+	form *multipart.Form
+}
+
+func (f *multipartFile) Close() error {
+	if f.form == nil {
+		return f.ReadCloser.Close()
+	}
+	return errors.Join(f.ReadCloser.Close(), f.form.RemoveAll())
+}
 
 func extractCurrentUserID(c *gin.Context) (uuid.UUID, error) {
 	value, exists := c.Get("user_id")
@@ -54,6 +70,41 @@ func extractParamID(c *gin.Context, paramName string) (uuid.UUID, error) {
 		)
 	}
 	return id, nil
+}
+
+func extractMultipartFile(c *gin.Context, field string, maxRequestBytes int64) (io.ReadCloser, error) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxRequestBytes)
+
+	fileHeader, err := c.FormFile(field)
+	if err != nil {
+		if c.Request.MultipartForm != nil {
+			_ = c.Request.MultipartForm.RemoveAll()
+		}
+
+		message := "File is required"
+		var maxBytesError *http.MaxBytesError
+		if errors.As(err, &maxBytesError) {
+			message = "Upload request is too large"
+		}
+		return nil, shared.NewAppError(shared.ErrTypeValidation, message, err)
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		if c.Request.MultipartForm != nil {
+			_ = c.Request.MultipartForm.RemoveAll()
+		}
+		return nil, shared.NewAppError(
+			shared.ErrTypeValidation,
+			"Failed to open uploaded file",
+			err,
+		)
+	}
+
+	return &multipartFile{
+		ReadCloser: file,
+		form:       c.Request.MultipartForm,
+	}, nil
 }
 
 func bindJSON[T any](c *gin.Context) (T, error) {

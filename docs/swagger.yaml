@@ -4,6 +4,7 @@ definitions:
     properties:
       name:
         example: Admin
+        maxLength: 100
         minLength: 2
         type: string
     required:
@@ -16,6 +17,7 @@ definitions:
         type: string
       password:
         example: secret12345
+        maxLength: 72
         type: string
     required:
     - email
@@ -150,6 +152,7 @@ definitions:
         type: string
       password:
         example: secret12345
+        maxLength: 72
         minLength: 8
         type: string
     required:
@@ -189,6 +192,7 @@ definitions:
     properties:
       name:
         example: John Doe Updated
+        maxLength: 100
         minLength: 2
         type: string
     required:
@@ -198,6 +202,7 @@ definitions:
     properties:
       name:
         example: Admin Updated
+        maxLength: 100
         minLength: 2
         type: string
     required:
@@ -449,8 +454,8 @@ paths:
       - Auth
   /api/v1/auth/sessions:
     get:
-      description: Retrieve paginated active refresh token sessions for the authenticated
-        user, with optional filters and sorting
+      description: Get paginated list of active refresh tokens (sessions) for the
+        authenticated user
       parameters:
       - description: 'Page number (default: 1)'
         in: query
@@ -463,15 +468,15 @@ paths:
         minimum: 1
         name: limit
         type: integer
-      - description: Sorting criteria (e.g. created_at:desc, -expires_at)
+      - description: Sorting criteria (e.g. created_at:desc or -created_at)
         in: query
         name: sort
         type: string
-      - description: Filter by User Agent (partial match)
+      - description: Filter by user agent (partial match)
         in: query
         name: user_agent
         type: string
-      - description: Filter by IP Address (partial match)
+      - description: Filter by IP address (partial match)
         in: query
         name: ip_address
         type: string
@@ -501,13 +506,13 @@ paths:
             $ref: '#/definitions/response.ApiResponse'
       security:
       - BearerAuth: []
-      summary: List active user sessions
+      summary: List active sessions
       tags:
-      - Sessions
+      - Auth
   /api/v1/permissions:
     get:
-      description: Get paginated list of available system permissions with optional
-        filters and sorting. Requires 'view_permission' permission.
+      description: Get paginated list of permissions with optional filtering and sorting.
+        Requires 'view_permission' permission.
       parameters:
       - description: 'Page number (default: 1)'
         in: query
@@ -1289,6 +1294,71 @@ paths:
       security:
       - BearerAuth: []
       summary: Update user profile
+      tags:
+      - Users
+  /api/v1/users/profile/image:
+    delete:
+      description: Remove the current authenticated user's profile image
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User image removed successfully
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: User does not have a profile image
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove profile image
+      tags:
+      - Users
+    put:
+      consumes:
+      - multipart/form-data
+      description: Update the current authenticated user's profile image
+      parameters:
+      - description: Profile image
+        in: formData
+        name: image
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User image updated successfully
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "422":
+          description: Invalid image or image larger than 3 MiB
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ApiResponse'
+      security:
+      - BearerAuth: []
+      summary: Update profile image
       tags:
       - Users
 securityDefinitions:

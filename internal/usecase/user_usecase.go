@@ -2,15 +2,22 @@ package usecase
 
 import (
 	"context"
-	"gin-boilerplate/internal/domain"
-	"gin-boilerplate/internal/domain/port"
-	"gin-boilerplate/internal/domain/shared"
+	"errors"
+	"io"
+	"log/slog"
+	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
+	"gin-boilerplate/internal/domain/shared"
+
 	"uuid"
 )
+
+const maxAvatarSizeBytes int64 = 3 * 1024 * 1024
 
 var allowedUserFilterFields = map[string]bool{
 	"name":       true,
@@ -26,6 +33,7 @@ type userUseCase struct {
 	userRepo            domain.UserRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
 	storage             port.Storage
+	imageInspector      port.ImageInspector
 	tokenBlacklist      domain.TokenBlackListRepository
 	tx                  port.TransactionManager
 	jwtExpiration       time.Duration
@@ -35,6 +43,7 @@ func NewUserUseCase(
 	userRepo domain.UserRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
 	storage port.Storage,
+	imageInspector port.ImageInspector,
 	tokenBlacklist domain.TokenBlackListRepository,
 	tx port.TransactionManager,
 	jwtExpiration time.Duration,
@@ -51,6 +60,7 @@ func NewUserUseCase(
 		userRepo:            userRepo,
 		refreshTokenUseCase: refreshTokenUseCase,
 		storage:             storage,
+		imageInspector:      imageInspector,
 		tokenBlacklist:      tokenBlacklist,
 		tx:                  tx,
 		jwtExpiration:       jwtExpiration,
@@ -175,17 +185,91 @@ func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs
 	return nil
 }
 
-func (u *userUseCase) UpdateImage(ctx context.Context, userID uuid.UUID, file shared.UploadedFile) error {
+func (u *userUseCase) UpdateImage(ctx context.Context, userID uuid.UUID, file io.Reader) error {
 	existingUser, err := findByID(ctx, u.userRepo, userID)
 	if err != nil {
 		return err
 	}
 
-	if existingUser.AvatarKey != "" {
-		if err := u.storage.Delete(ctx, )
+	image, err := u.imageInspector.Inspect(ctx, file)
+	if err != nil {
+		if errors.Is(err, port.ErrInvalidImage) || errors.Is(err, port.ErrUnsupportedImageFormat) {
+			return shared.NewAppError(shared.ErrTypeValidation, "Invalid or unsupported image format", err)
+		}
+		return shared.NewAppError(shared.ErrTypeInternal, "Failed to inspect user avatar", err)
 	}
+
+	key := path.Join(
+		"users",
+		userID.String(),
+		"avatars",
+		uuid.New().String()+image.Extension,
+	)
+
+	if err := u.storage.Put(ctx, key, image.Content, port.PutOptions{MaxBytes: maxAvatarSizeBytes}); err != nil {
+		if errors.Is(err, port.ErrFileTooLarge) {
+			return shared.NewAppError(
+				shared.ErrTypeValidation,
+				"User avatar must not exceed 3 MiB",
+				err,
+			)
+		}
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
+			"Failed to upload new user avatar to storage",
+			err,
+		)
+	}
+
+	previousKey := existingUser.AvatarKey
+	existingUser.AvatarKey = key
+	if err := u.userRepo.Update(ctx, existingUser); err != nil {
+		if cleanupErr := u.storage.Delete(ctx, key); cleanupErr != nil {
+			err = errors.Join(err, cleanupErr)
+		}
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
+			"Failed to update user avatar",
+			err,
+		)
+	}
+
+	if previousKey != "" {
+		if err := u.storage.Delete(ctx, previousKey); err != nil {
+			slog.ErrorContext(ctx, "failed to delete replaced user avatar", "path", previousKey, "error", err)
+		}
+	}
+
+	return nil
 }
 
 func (u *userUseCase) RemoveImage(ctx context.Context, userID uuid.UUID) error {
-	panic("uninplemented")
+	existingUser, err := findByID(ctx, u.userRepo, userID)
+	if err != nil {
+		return err
+	}
+
+	if existingUser.AvatarKey == "" {
+		return shared.NewAppError(
+			shared.ErrTypeValidation,
+			"User does not have an avatar to remove",
+			nil,
+		)
+	}
+
+	previousKey := existingUser.AvatarKey
+	existingUser.AvatarKey = ""
+	if err := u.userRepo.Update(ctx, existingUser); err != nil {
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
+			"Failed to update user after removing avatar",
+			err,
+		)
+	}
+
+	if err := u.storage.Delete(ctx, previousKey); err != nil {
+		slog.ErrorContext(ctx, "failed to delete removed user avatar", "path", previousKey, "error", err)
+	}
+
+	return nil
 }

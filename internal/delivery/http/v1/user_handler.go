@@ -1,14 +1,17 @@
 package v1
 
 import (
+	"net/http"
+
 	"gin-boilerplate/internal/delivery/http/dto"
 	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/shared"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
+
+const maxAvatarRequestBytes int64 = 4 * 1024 * 1024
 
 type UserHandler struct {
 	userUseCase domain.UserUseCase
@@ -311,4 +314,66 @@ func (h *UserHandler) RemoveRoles(c *gin.Context) {
 	}
 
 	response.Success(c, http.StatusOK, "Roles removed from user successfully", nil)
+}
+
+// UpdateImage godoc
+// @Summary      Update profile image
+// @Description  Update the current authenticated user's profile image
+// @Tags         Users
+// @Accept       multipart/form-data
+// @Produce      json
+// @Security     BearerAuth
+// @Param        image formData file true "Profile image"
+// @Success      200 {object} response.ApiResponse "User image updated successfully"
+// @Failure      401 {object} response.ApiResponse "Unauthorized"
+// @Failure      422 {object} response.ApiResponse "Invalid image or image larger than 3 MiB"
+// @Failure      500 {object} response.ApiResponse "Internal server error"
+// @Router       /api/v1/users/profile/image [put]
+func (h *UserHandler) UpdateImage(c *gin.Context) {
+	userID, err := extractCurrentUserID(c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	file, err := extractMultipartFile(c, "image", maxAvatarRequestBytes)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+	defer file.Close()
+
+	if err := h.userUseCase.UpdateImage(c.Request.Context(), userID, file); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User image updated successfully", nil)
+}
+
+// RemoveImage godoc
+// @Summary      Remove profile image
+// @Description  Remove the current authenticated user's profile image
+// @Tags         Users
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} response.ApiResponse "User image removed successfully"
+// @Failure      401 {object} response.ApiResponse "Unauthorized"
+// @Failure      404 {object} response.ApiResponse "User not found"
+// @Failure      422 {object} response.ApiResponse "User does not have a profile image"
+// @Failure      500 {object} response.ApiResponse "Internal server error"
+// @Router       /api/v1/users/profile/image [delete]
+func (h *UserHandler) RemoveImage(c *gin.Context) {
+	userID, err := extractCurrentUserID(c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.userUseCase.RemoveImage(c.Request.Context(), userID); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	response.Success(c, http.StatusOK, "User image removed successfully", nil)
 }
