@@ -1,4 +1,4 @@
-.PHONY: swagger migrate-create migrate-up migrate-down migrate-version
+.PHONY: swagger migrate-create migrate-up migrate-down migrate-version queue-worker queue-scheduler
 
 swagger:
 	go tool swag init -d ./cmd/api,./internal/delivery/http -g main.go -o docs --parseInternal
@@ -15,3 +15,9 @@ migrate-down:
 
 migrate-version:
 	go run ./cmd/migration version
+
+queue-worker:
+	go run ./cmd/worker
+
+queue-scheduler:
+	go run ./cmd/scheduler

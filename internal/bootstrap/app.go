@@ -16,6 +16,7 @@ import (
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/infra/health"
 	imageinfra "gin-boilerplate/internal/infra/image"
+	queueinfra "gin-boilerplate/internal/infra/queue"
 	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
 	"gin-boilerplate/internal/infra/seeder"
@@ -29,14 +30,16 @@ import (
 )
 
 type Application struct {
-	Config      *config.Config
-	DB          *gorm.DB
-	SQLDB       *sql.DB
-	RedisClient *redis.Client
-	Storage     port.Storage
-	Router      *gin.Engine
-	Server      *http.Server
-	localStore  *storage.Local
+	Config           *config.Config
+	DB               *gorm.DB
+	SQLDB            *sql.DB
+	RedisClient      *redis.Client
+	QueueRedisClient *redis.Client
+	Queue            port.QueueDispatcher
+	Storage          port.Storage
+	Router           *gin.Engine
+	Server           *http.Server
+	localStore       *storage.Local
 }
 
 func NewApplication(cfg *config.Config) (*Application, error) {
@@ -86,8 +89,24 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	}
 	cancelRedis()
 
+	queueRedisClient := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       cfg.QueueRedisDB,
+	})
+	queueRedisContext, cancelQueueRedis := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := queueRedisClient.Ping(queueRedisContext).Err(); err != nil {
+		cancelQueueRedis()
+		_ = queueRedisClient.Close()
+		_ = redisClient.Close()
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("connect to queue Redis: %w", err)
+	}
+	cancelQueueRedis()
+
 	localStore, err := storage.NewLocal(cfg.StorageRoot)
 	if err != nil {
+		_ = queueRedisClient.Close()
 		_ = redisClient.Close()
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize local storage: %w", err)
@@ -143,6 +162,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	})
 	if err != nil {
 		_ = localStore.Close()
+		_ = queueRedisClient.Close()
 		_ = redisClient.Close()
 		_ = sqlDB.Close()
 		return nil, err
@@ -158,14 +178,16 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	}
 
 	return &Application{
-		Config:      cfg,
-		DB:          db,
-		SQLDB:       sqlDB,
-		RedisClient: redisClient,
-		Storage:     localStore,
-		Router:      router,
-		Server:      server,
-		localStore:  localStore,
+		Config:           cfg,
+		DB:               db,
+		SQLDB:            sqlDB,
+		RedisClient:      redisClient,
+		QueueRedisClient: queueRedisClient,
+		Queue:            queueinfra.NewDispatcher(queueRedisClient),
+		Storage:          localStore,
+		Router:           router,
+		Server:           server,
+		localStore:       localStore,
 	}, nil
 }
 
@@ -185,7 +207,7 @@ func (a *Application) Seed(ctx context.Context) error {
 }
 
 func (a *Application) Close() error {
-	var storageError, databaseError, redisError error
+	var storageError, databaseError, redisError, queueRedisError error
 	if a.localStore != nil {
 		storageError = a.localStore.Close()
 	}
@@ -195,7 +217,10 @@ func (a *Application) Close() error {
 	if a.RedisClient != nil {
 		redisError = a.RedisClient.Close()
 	}
-	return errors.Join(storageError, databaseError, redisError)
+	if a.QueueRedisClient != nil {
+		queueRedisError = a.QueueRedisClient.Close()
+	}
+	return errors.Join(storageError, databaseError, redisError, queueRedisError)
 }
 
 func (a *Application) Shutdown(ctx context.Context) error {

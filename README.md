@@ -18,6 +18,62 @@ make migrate-up
 go run ./cmd/api
 ```
 
+## Queues and scheduled tasks
+
+Background work uses [Asynq](https://github.com/hibiken/asynq) backed by Redis.
+The API, queue worker, and scheduler are separate processes:
+
+```sh
+go run ./cmd/api
+make queue-worker
+make queue-scheduler
+```
+
+Run exactly one scheduler replica for each environment. It registers the
+recurring tasks declared in code and enqueues them in UTC; missed executions
+are not replayed after scheduler downtime. Workers can be scaled independently.
+
+Queue data uses `QUEUE_REDIS_DB=1` by default, separate from cache and rate
+limit data in `REDIS_DB=0`. The worker handles the `default` and `maintenance`
+queues with weighted priority. Queue failures, retries, and archived tasks are
+written as JSON to `storage/logs/queue.log`; this log does not rotate.
+
+Use cases receive `port.QueueDispatcher` and choose their own retry policy at
+dispatch time. For example:
+
+```go
+_, err := queue.Dispatch(ctx, port.QueueTask{
+    Type: "email.send",
+    Payload: json.RawMessage(`{"user_id":"..."}`),
+}, port.DispatchOptions{
+    Queue: "default",
+    Timeout: 30 * time.Second,
+    Retry: port.RetryPolicy{
+        MaxRetries: 5,
+        Backoff: port.RetryBackoffExponential,
+        InitialDelay: time.Minute,
+        MaxDelay: time.Hour,
+    },
+})
+```
+
+Register the corresponding `port.TaskHandler` in the worker bootstrap. Unknown
+task types and invalid JSON payloads are archived without retry.
+
+The included maintenance task removes refresh tokens that have been expired for
+`REFRESH_TOKEN_RETENTION` (30 days by default). It runs daily at 03:00 UTC.
+
+Use the official CLI for operational inspection and recovery:
+
+```sh
+go install github.com/hibiken/asynq/tools/asynq@v0.26.0
+asynq -u 127.0.0.1:6379 -n 1 queue ls
+asynq -u 127.0.0.1:6379 -n 1 task ls --queue=maintenance --state=archived
+```
+
+The API image starts `/api`. Deploy the worker and scheduler from the same
+image by overriding the entrypoint with `/worker` and `/scheduler`.
+
 To create the initial roles, permissions and administrator, set a strong `ADMIN_PASSWORD` and run:
 
 ```sh

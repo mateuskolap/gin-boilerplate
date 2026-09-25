@@ -57,3 +57,10 @@ func (r *refreshTokenRepository) RevokeByID(ctx context.Context, id uuid.UUID, r
 
 	return result.RowsAffected > 0, nil
 }
+
+func (r *refreshTokenRepository) DeleteExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	result := r.getDB(ctx).
+		Where("expires_at < ?", cutoff).
+		Delete(&domain.RefreshToken{})
+	return result.RowsAffected, result.Error
+}

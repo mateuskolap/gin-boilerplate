@@ -16,7 +16,19 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux go build \
     -ldflags="-s -w" \
-    -o /app/server ./cmd/api
+    -o /app/api ./cmd/api
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /app/worker ./cmd/worker
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /app/scheduler ./cmd/scheduler
 
 RUN mkdir -p /app/storage/private
 
@@ -36,8 +48,10 @@ COPY --from=build --chown=10001:10001 /app/storage /app/storage
 
 USER 10001:10001
 
-COPY --from=build /app/server /server
+COPY --from=build /app/api /api
+COPY --from=build /app/worker /worker
+COPY --from=build /app/scheduler /scheduler
 
 EXPOSE 8080
 
-ENTRYPOINT ["/server"]
+ENTRYPOINT ["/api"]

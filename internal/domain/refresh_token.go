@@ -32,6 +32,9 @@ type RefreshTokenRepository interface {
 	// RevokeByID atomically revokes a refresh token by ID only if it has not been revoked yet.
 	// Returns true if successfully revoked, or false if already revoked by a concurrent request.
 	RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (revoked bool, err error)
+
+	// DeleteExpiredBefore permanently removes refresh tokens expired before cutoff.
+	DeleteExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type RefreshTokenUseCase interface {
@@ -51,4 +54,10 @@ type RefreshTokenUseCase interface {
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 	// Validate checks that token exists, is unrevoked, and has not expired.
 	Validate(ctx context.Context, token string) (*RefreshToken, error)
+}
+
+// RefreshTokenMaintenanceUseCase contains maintenance operations that are run
+// outside HTTP request flows.
+type RefreshTokenMaintenanceUseCase interface {
+	PurgeExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }

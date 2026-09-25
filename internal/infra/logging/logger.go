@@ -9,6 +9,7 @@ import (
 )
 
 const FilePath = "storage/logs/app.log"
+const QueueFilePath = "storage/logs/queue.log"
 
 // New configures console logging and an error-only JSON log file.
 // The caller owns the returned file and must close it after the last log call.
