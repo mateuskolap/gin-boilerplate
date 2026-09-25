@@ -12,7 +12,7 @@ type User struct {
 	Name      string `json:"name" gorm:"not null"`
 	Email     string `json:"email" gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL"`
 	Password  string `json:"-" gorm:"not null"`
-	AvatarKey string `json:"avatar_key,omitempty" gorm:"index"`
+	AvatarKey string `json:"avatar_key,omitempty"`
 
 	Roles []Role `json:"roles,omitempty" gorm:"many2many:user_roles;constraint:OnDelete:CASCADE;"`
 }
