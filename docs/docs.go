@@ -1562,7 +1562,7 @@ const docTemplate = `{
         },
         "/api/v1/users/{id}/image": {
             "get": {
-                "description": "Stream a user's profile image by UUID. Requires authentication.",
+                "description": "Stream a user's profile image by UUID. Requires ownership or 'view_user' permission.",
                 "produces": [
                     "image/jpeg",
                     "image/png",
@@ -1591,6 +1591,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires ownership or view_user permission",
                         "schema": {
                             "$ref": "#/definitions/response.ApiResponse"
                         }

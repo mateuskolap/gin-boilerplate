@@ -90,7 +90,11 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 				users.PUT("/profile", cfg.UserHandler.UpdateProfile)
 				users.PUT("/profile/image", cfg.UserHandler.UpdateImage)
 				users.DELETE("/profile/image", cfg.UserHandler.RemoveImage)
-				users.GET("/:id/image", cfg.UserHandler.GetImage)
+				users.GET("/:id/image", middleware.RequirePermissionOrOwner(
+					domain.PermissionViewUser,
+					cfg.PermissionChecker,
+					middleware.OwnerFromUserIDParam("id"),
+				), cfg.UserHandler.GetImage)
 				users.PUT("/:id", requirePermission(domain.PermissionUpdateUser), cfg.UserHandler.UpdateUser)
 				users.GET("", requirePermission(domain.PermissionViewUser), cfg.UserHandler.ListUsers)
 				users.GET("/:id", requirePermission(domain.PermissionViewUser), cfg.UserHandler.FindUser)

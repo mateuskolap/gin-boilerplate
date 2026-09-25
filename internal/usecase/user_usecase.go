@@ -270,15 +270,6 @@ func (u *userUseCase) RemoveImage(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
-func (u *userUseCase) deleteAvatar(ctx context.Context, key string) {
-	if key == "" {
-		return
-	}
-	if err := u.storage.Delete(context.WithoutCancel(ctx), key); err != nil {
-		slog.ErrorContext(ctx, "failed to delete user avatar", "path", key, "error", err)
-	}
-}
-
 func (u *userUseCase) GetImage(ctx context.Context, userID uuid.UUID) (shared.ImageStream, error) {
 	existingUser, err := findByID(ctx, u.userRepo, userID)
 	if err != nil {
@@ -323,4 +314,13 @@ func (u *userUseCase) GetImage(ctx context.Context, userID uuid.UUID) (shared.Im
 		ContentType: imageFormat.ContentType,
 		Size:        file.Size,
 	}, nil
+}
+
+func (u *userUseCase) deleteAvatar(ctx context.Context, key string) {
+	if key == "" {
+		return
+	}
+	if err := u.storage.Delete(context.WithoutCancel(ctx), key); err != nil {
+		slog.ErrorContext(ctx, "failed to delete user avatar", "path", key, "error", err)
+	}
 }

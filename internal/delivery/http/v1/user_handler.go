@@ -380,13 +380,14 @@ func (h *UserHandler) RemoveImage(c *gin.Context) {
 
 // GetImage godoc
 // @Summary      Get user profile image
-// @Description  Stream a user's profile image by UUID. Requires authentication.
+// @Description  Stream a user's profile image by UUID. Requires ownership or 'view_user' permission.
 // @Tags         Users
 // @Produce      jpeg,png,json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "User UUID" format(uuid)
 // @Success      200  {file}    file    "Profile image"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
+// @Failure      403  {object}  response.ApiResponse "Forbidden - Requires ownership or view_user permission"
 // @Failure      404  {object}  response.ApiResponse "Not Found - User or profile image not found"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid UUID format"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
