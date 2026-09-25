@@ -83,3 +83,9 @@ Store the relative key in the owning entity's database table when that entity ha
 In the Docker image, the default root is `/app/storage/private` and is owned by UID `10001`. Mount a persistent volume at `/app/storage` when running the API in a container. A host-mounted directory must be writable by UID `10001`.
 
 An interrupted process may leave files with the `.storage-tmp-` prefix in storage directories. Stop the application before removing these temporary files manually.
+
+## Error logs
+
+The API creates `storage/logs/app.log` when it starts. Errors are appended as one JSON object per line, including HTTP 5xx failures and recovered panics. Normal requests and expected HTTP 4xx errors are not written to the file. Console logs continue to include operational messages and requests.
+
+The log file does not rotate automatically. Keep `storage/logs` on a persistent volume if logs must survive container replacement, and arrange rotation externally when needed. The application must be able to write to this directory; if it cannot open the file, startup fails.

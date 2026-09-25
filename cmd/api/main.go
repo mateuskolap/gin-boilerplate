@@ -13,6 +13,7 @@ import (
 
 	"gin-boilerplate/config"
 	"gin-boilerplate/internal/bootstrap"
+	"gin-boilerplate/internal/infra/logging"
 )
 
 // @title                      Gin Boilerplate API
@@ -31,12 +32,24 @@ import (
 // @description                Type "Bearer" followed by a space and JWT token (e.g. "Bearer eyJhbGci...").
 func main() {
 	if err := run(); err != nil {
-		slog.Error("application stopped", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func run() (runErr error) {
+	var logFile *os.File
+	defer func() {
+		if runErr != nil {
+			slog.Error("application stopped", "error", runErr)
+		}
+		if logFile != nil {
+			if err := logFile.Close(); err != nil {
+				runErr = errors.Join(runErr, fmt.Errorf("close log file: %w", err))
+				fmt.Fprintln(os.Stderr, runErr)
+			}
+		}
+	}()
+
 	seedFlag := flag.Bool("seed", false, "Run database seeders and run the application")
 	seedOnlyFlag := flag.Bool("seed-only", false, "Run database seeders only")
 	flag.Parse()
@@ -45,7 +58,12 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("load configuration: %w", err)
 	}
-	configureLogger(cfg.Env)
+	logger, file, err := logging.New(cfg.Env, os.Stdout, logging.FilePath)
+	if err != nil {
+		return fmt.Errorf("configure logger: %w", err)
+	}
+	logFile = file
+	slog.SetDefault(logger)
 
 	app, err := bootstrap.NewApplication(cfg)
 	if err != nil {
@@ -89,13 +107,4 @@ func run() error {
 
 	slog.Info("server stopped")
 	return nil
-}
-
-func configureLogger(environment string) {
-	options := &slog.HandlerOptions{Level: slog.LevelInfo}
-	var handler slog.Handler = slog.NewTextHandler(os.Stdout, options)
-	if environment == "production" {
-		handler = slog.NewJSONHandler(os.Stdout, options)
-	}
-	slog.SetDefault(slog.New(handler))
 }
