@@ -69,9 +69,6 @@ func (t QueueTask) Validate() error {
 }
 
 func (o DispatchOptions) Validate() error {
-	if o.Queue == "" {
-		o.Queue = DefaultQueue
-	}
 	if strings.TrimSpace(o.Queue) == "" {
 		return fmt.Errorf("queue name must not be empty")
 	}
