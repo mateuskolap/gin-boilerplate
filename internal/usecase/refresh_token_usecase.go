@@ -57,7 +57,7 @@ func (r *refreshTokenUseCase) Rotate(ctx context.Context, oldToken string, ipAdd
 			return err
 		}
 
-		revoked, err := r.refreshTokenRepo.RevokeByID(txCtx, storedToken.ID, newTokenEntity.ID)
+		revoked, err := r.refreshTokenRepo.Revoke(txCtx, storedToken.ID, storedToken.UserID, &newTokenEntity.ID)
 		if err != nil {
 			return shared.NewAppError(
 				shared.ErrTypeInternal,
@@ -152,18 +152,7 @@ func (r *refreshTokenUseCase) Revoke(ctx context.Context, token string) error {
 		return err
 	}
 
-	return r.RevokeEntity(ctx, existingRefreshToken)
-}
-
-func (r *refreshTokenUseCase) RevokeEntity(ctx context.Context, refreshToken *domain.RefreshToken) error {
-	if refreshToken.RevokedAt != nil {
-		return nil
-	}
-
-	now := time.Now().UTC()
-	refreshToken.RevokedAt = &now
-
-	if err := r.refreshTokenRepo.Update(ctx, refreshToken); err != nil {
+	if _, err := r.refreshTokenRepo.Revoke(ctx, existingRefreshToken.ID, existingRefreshToken.UserID, nil); err != nil {
 		return shared.NewAppError(
 			shared.ErrTypeInternal,
 			"Failed to revoke refresh token",
@@ -187,7 +176,7 @@ func (r *refreshTokenUseCase) RevokeAllByUserID(ctx context.Context, userID uuid
 }
 
 func (r *refreshTokenUseCase) RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error {
-	revoked, err := r.refreshTokenRepo.RevokeActiveByIDAndUserID(ctx, sessionID, userID)
+	revoked, err := r.refreshTokenRepo.Revoke(ctx, sessionID, userID, nil)
 	if err != nil {
 		return shared.NewAppError(
 			shared.ErrTypeInternal,
@@ -206,22 +195,21 @@ func (r *refreshTokenUseCase) RevokeSession(ctx context.Context, userID, session
 	return nil
 }
 
-func (r *refreshTokenUseCase) RevokeOtherSessions(ctx context.Context, userID uuid.UUID, currentRefreshToken string) (int64, error) {
+func (r *refreshTokenUseCase) RevokeOtherSessions(ctx context.Context, userID uuid.UUID, currentRefreshToken string) error {
 	currentSession, err := r.activeSessionForUser(ctx, userID, currentRefreshToken)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	revoked, err := r.refreshTokenRepo.RevokeAllByUserIDExceptID(ctx, userID, currentSession.ID)
-	if err != nil {
-		return 0, shared.NewAppError(
+	if err := r.refreshTokenRepo.RevokeAllExcept(ctx, userID, currentSession.ID); err != nil {
+		return shared.NewAppError(
 			shared.ErrTypeInternal,
 			"Failed to revoke other sessions",
 			err,
 		)
 	}
 
-	return revoked, nil
+	return nil
 }
 
 func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*domain.RefreshToken, error) {
