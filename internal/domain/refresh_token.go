@@ -32,6 +32,11 @@ type RefreshTokenRepository interface {
 	// RevokeByID atomically revokes a refresh token by ID only if it has not been revoked yet.
 	// Returns true if successfully revoked, or false if already revoked by a concurrent request.
 	RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (revoked bool, err error)
+	// RevokeActiveByIDAndUserID revokes an active refresh token only when it belongs to userID.
+	// Returns false when no matching active token exists.
+	RevokeActiveByIDAndUserID(ctx context.Context, id, userID uuid.UUID) (revoked bool, err error)
+	// RevokeAllByUserIDExceptID revokes all active refresh tokens for a user except one.
+	RevokeAllByUserIDExceptID(ctx context.Context, userID, exceptID uuid.UUID) (int64, error)
 
 	// DeleteExpiredBefore permanently removes refresh tokens expired before cutoff.
 	DeleteExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error)
@@ -52,6 +57,10 @@ type RefreshTokenUseCase interface {
 	RevokeEntity(ctx context.Context, refreshToken *RefreshToken) error
 	// RevokeAllByUserID revokes all refresh tokens belonging to the user.
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
+	// RevokeSession revokes one active session owned by userID.
+	RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error
+	// RevokeOtherSessions revokes every active session except the session identified by currentRefreshToken.
+	RevokeOtherSessions(ctx context.Context, userID uuid.UUID, currentRefreshToken string) (int64, error)
 	// Validate checks that token exists, is unrevoked, and has not expired.
 	Validate(ctx context.Context, token string) (*RefreshToken, error)
 }

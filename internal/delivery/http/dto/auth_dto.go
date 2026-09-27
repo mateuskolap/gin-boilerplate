@@ -23,3 +23,8 @@ type LoginResponse struct {
 type LogoutRequest struct {
 	RefreshToken string `json:"refresh_token" example:"a1b2c3d4e5f6..."`
 }
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required,max=72" example:"current-secret123"`
+	NewPassword     string `json:"new_password" binding:"required,min=8,max=72" example:"new-secret123"`
+}

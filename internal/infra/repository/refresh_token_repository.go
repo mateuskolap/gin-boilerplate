@@ -58,6 +58,28 @@ func (r *refreshTokenRepository) RevokeByID(ctx context.Context, id uuid.UUID, r
 	return result.RowsAffected > 0, nil
 }
 
+func (r *refreshTokenRepository) RevokeActiveByIDAndUserID(ctx context.Context, id, userID uuid.UUID) (bool, error) {
+	result := r.getDB(ctx).
+		Model(&domain.RefreshToken{}).
+		Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", id, userID, time.Now().UTC()).
+		Update("revoked_at", time.Now().UTC())
+
+	if result.Error != nil {
+		return false, result.Error
+	}
+
+	return result.RowsAffected > 0, nil
+}
+
+func (r *refreshTokenRepository) RevokeAllByUserIDExceptID(ctx context.Context, userID, exceptID uuid.UUID) (int64, error) {
+	result := r.getDB(ctx).
+		Model(&domain.RefreshToken{}).
+		Where("user_id = ? AND id <> ? AND revoked_at IS NULL AND expires_at > ?", userID, exceptID, time.Now().UTC()).
+		Update("revoked_at", time.Now().UTC())
+
+	return result.RowsAffected, result.Error
+}
+
 func (r *refreshTokenRepository) DeleteExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	result := r.getDB(ctx).
 		Where("expires_at < ?", cutoff).

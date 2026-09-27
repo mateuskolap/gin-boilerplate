@@ -164,3 +164,38 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	response.Success(c, http.StatusOK, "Logged out successfully", nil)
 }
+
+// ChangePassword godoc
+// @Summary      Change password
+// @Description  Verify the current password, set a new password, and invalidate all user sessions and access tokens
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body dto.ChangePasswordRequest true "Current and new password"
+// @Success      204  {object}  nil "Password changed; authenticate again with the new password"
+// @Failure      401  {object}  response.ApiResponse "Unauthorized - Current password is invalid"
+// @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid password payload"
+// @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
+// @Failure      500  {object}  response.ApiResponse "Internal server error"
+// @Router       /api/v1/auth/password [patch]
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userID, err := extractCurrentUserID(c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	req, err := bindJSON[dto.ChangePasswordRequest](c)
+	if err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	if err := h.authUseCase.ChangePassword(c.Request.Context(), userID, req.CurrentPassword, req.NewPassword); err != nil {
+		_ = c.Error(err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}

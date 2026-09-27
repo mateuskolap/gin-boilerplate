@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
 	"gin-boilerplate/internal/infra/security"
 	"strings"
@@ -30,6 +31,7 @@ type authUseCase struct {
 	roleRepo            domain.RoleRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
 	tokenBlacklist      domain.TokenBlackListRepository
+	tx                  port.TransactionManager
 	jwtSecret           string
 	jwtIssuer           string
 	jwtAudience         string
@@ -41,6 +43,7 @@ func NewAuthUseCase(
 	roleRepo domain.RoleRepository,
 	refreshTokenUseCase domain.RefreshTokenUseCase,
 	tokenBlacklist domain.TokenBlackListRepository,
+	tx port.TransactionManager,
 	jwtSecret, jwtIssuer, jwtAudience string,
 	jwtExpiration time.Duration,
 ) domain.AuthUseCase {
@@ -49,6 +52,7 @@ func NewAuthUseCase(
 		roleRepo:            roleRepo,
 		refreshTokenUseCase: refreshTokenUseCase,
 		tokenBlacklist:      tokenBlacklist,
+		tx:                  tx,
 		jwtSecret:           jwtSecret,
 		jwtIssuer:           jwtIssuer,
 		jwtAudience:         jwtAudience,
@@ -66,12 +70,8 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 			nil,
 		)
 	}
-	if len(user.Password) < 8 || len(user.Password) > 72 {
-		return shared.NewAppError(
-			shared.ErrTypeValidation,
-			"Password must contain between 8 and 72 bytes",
-			nil,
-		)
+	if err := validatePassword(user.Password); err != nil {
+		return err
 	}
 
 	existingUser, err := a.userRepo.GetByEmail(ctx, user.Email)
@@ -278,6 +278,61 @@ func (a *authUseCase) Logout(ctx context.Context, accessToken, refreshToken stri
 	return nil
 }
 
+func (a *authUseCase) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+	if err := validatePassword(newPassword); err != nil {
+		return err
+	}
+	if currentPassword == newPassword {
+		return shared.NewAppError(shared.ErrTypeValidation, "New password must differ from current password", nil)
+	}
+
+	user, err := a.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return shared.NewAppError(shared.ErrTypeInternal, "Failed to find user", err)
+	}
+	if user == nil {
+		return shared.NewAppError(shared.ErrTypeUnauthorized, "Invalid user", nil)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
+		return shared.NewAppError(shared.ErrTypeUnauthorized, "Current password is invalid", nil)
+	}
+
+	newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return shared.NewAppError(shared.ErrTypeInternal, "Failed to generate password hash", err)
+	}
+
+	if err := a.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), a.jwtExpiration); err != nil {
+		return shared.NewAppError(shared.ErrTypeInternal, "Failed to invalidate access tokens", err)
+	}
+
+	if err := a.tx.Do(ctx, func(txCtx context.Context) error {
+		existingUser, err := a.userRepo.GetByID(txCtx, userID)
+		if err != nil {
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to find user", err)
+		}
+		if existingUser == nil {
+			return shared.NewAppError(shared.ErrTypeUnauthorized, "Invalid user", nil)
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(currentPassword)); err != nil {
+			return shared.NewAppError(shared.ErrTypeUnauthorized, "Current password is invalid", nil)
+		}
+
+		existingUser.Password = string(newPasswordHash)
+		if err := a.userRepo.Update(txCtx, existingUser); err != nil {
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to update password", err)
+		}
+		if err := a.refreshTokenUseCase.RevokeAllByUserID(txCtx, userID); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString string) (*domain.TokenClaims, error) {
 	claims, err := security.ParseAndValidateJWT(tokenString, a.jwtSecret, a.jwtIssuer, a.jwtAudience)
 	if err != nil {
@@ -348,4 +403,15 @@ func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString strin
 		Subject: claims.Subject,
 		TokenID: claims.ID,
 	}, nil
+}
+
+func validatePassword(password string) error {
+	if len(password) < 8 || len(password) > 72 {
+		return shared.NewAppError(
+			shared.ErrTypeValidation,
+			"Password must contain between 8 and 72 bytes",
+			nil,
+		)
+	}
+	return nil
 }

@@ -186,6 +186,44 @@ func (r *refreshTokenUseCase) RevokeAllByUserID(ctx context.Context, userID uuid
 	return nil
 }
 
+func (r *refreshTokenUseCase) RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error {
+	revoked, err := r.refreshTokenRepo.RevokeActiveByIDAndUserID(ctx, sessionID, userID)
+	if err != nil {
+		return shared.NewAppError(
+			shared.ErrTypeInternal,
+			"Failed to revoke session",
+			err,
+		)
+	}
+	if !revoked {
+		return shared.NewAppError(
+			shared.ErrTypeNotFound,
+			"Active session not found",
+			nil,
+		)
+	}
+
+	return nil
+}
+
+func (r *refreshTokenUseCase) RevokeOtherSessions(ctx context.Context, userID uuid.UUID, currentRefreshToken string) (int64, error) {
+	currentSession, err := r.activeSessionForUser(ctx, userID, currentRefreshToken)
+	if err != nil {
+		return 0, err
+	}
+
+	revoked, err := r.refreshTokenRepo.RevokeAllByUserIDExceptID(ctx, userID, currentSession.ID)
+	if err != nil {
+		return 0, shared.NewAppError(
+			shared.ErrTypeInternal,
+			"Failed to revoke other sessions",
+			err,
+		)
+	}
+
+	return revoked, nil
+}
+
 func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*domain.RefreshToken, error) {
 	if token == "" {
 		return nil, shared.NewAppError(
@@ -225,6 +263,27 @@ func (r *refreshTokenUseCase) Validate(ctx context.Context, token string) (*doma
 			"Refresh token has expired",
 			nil,
 		)
+	}
+
+	return storedToken, nil
+}
+
+func (r *refreshTokenUseCase) activeSessionForUser(ctx context.Context, userID uuid.UUID, token string) (*domain.RefreshToken, error) {
+	if token == "" {
+		return nil, shared.NewAppError(shared.ErrTypeUnauthorized, "Invalid current refresh token", nil)
+	}
+
+	storedToken, err := r.FindByTokenHash(ctx, token)
+	if err != nil {
+		var appErr *shared.AppError
+		if errors.As(err, &appErr) && appErr.Type == shared.ErrTypeNotFound {
+			return nil, shared.NewAppError(shared.ErrTypeUnauthorized, "Invalid current refresh token", nil)
+		}
+		return nil, err
+	}
+
+	if storedToken.UserID != userID || storedToken.RevokedAt != nil || !time.Now().UTC().Before(storedToken.ExpiresAt) {
+		return nil, shared.NewAppError(shared.ErrTypeUnauthorized, "Invalid current refresh token", nil)
 	}
 
 	return storedToken, nil

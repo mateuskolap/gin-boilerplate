@@ -128,6 +128,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		roleRepo,
 		refreshTokenUseCase,
 		tokenBlacklistRepo,
+		txManager,
 		cfg.JWTSecret,
 		cfg.JWTIssuer,
 		cfg.JWTAudience,
