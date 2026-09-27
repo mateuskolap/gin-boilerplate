@@ -84,7 +84,7 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 			protected.POST("/auth/logout", cfg.AuthHandler.Logout)
 			protected.GET("/auth/sessions", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.ListRefreshTokensByAuthUser)
 			protected.DELETE("/auth/sessions/:id", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.RevokeSession)
-			protected.POST("/auth/sessions/revoke-others", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.RevokeOtherSessions)
+			protected.DELETE("/auth/sessions/revoke-others", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.RevokeOtherSessions)
 			protected.PATCH("/auth/password", rateLimit(5, time.Minute), cfg.AuthHandler.ChangePassword)
 
 			users := protected.Group("/users")

@@ -183,12 +183,6 @@ definitions:
     required:
     - current_refresh_token
     type: object
-  dto.RevokeOtherSessionsResponse:
-    properties:
-      revoked_sessions:
-        example: 2
-        type: integer
-    type: object
   dto.RoleResponse:
     properties:
       created_at:
@@ -623,7 +617,7 @@ paths:
       tags:
       - Auth
   /api/v1/auth/sessions/revoke-others:
-    post:
+    delete:
       consumes:
       - application/json
       description: Revoke every active session except the session identified by the
@@ -638,15 +632,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "204":
           description: Other sessions ended
-          schema:
-            allOf:
-            - $ref: '#/definitions/response.ApiResponse'
-            - properties:
-                data:
-                  $ref: '#/definitions/dto.RevokeOtherSessionsResponse'
-              type: object
         "401":
           description: Unauthorized - Invalid current refresh token
           schema:
@@ -843,10 +830,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "204":
           description: Role deleted successfully
-          schema:
-            $ref: '#/definitions/response.ApiResponse'
         "401":
           description: Unauthorized - Missing or invalid token
           schema:
@@ -995,10 +980,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "204":
           description: Permissions removed from role successfully
-          schema:
-            $ref: '#/definitions/response.ApiResponse'
         "401":
           description: Unauthorized - Missing or invalid token
           schema:
@@ -1148,10 +1131,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "204":
           description: User deleted successfully
-          schema:
-            $ref: '#/definitions/response.ApiResponse'
         "401":
           description: Unauthorized - Missing or invalid token
           schema:
@@ -1345,10 +1326,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "204":
           description: Roles removed from user successfully
-          schema:
-            $ref: '#/definitions/response.ApiResponse'
         "401":
           description: Unauthorized - Missing or invalid token
           schema:
@@ -1506,10 +1485,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
+        "204":
           description: User image removed successfully
-          schema:
-            $ref: '#/definitions/response.ApiResponse'
         "401":
           description: Unauthorized
           schema:

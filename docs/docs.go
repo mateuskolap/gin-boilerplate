@@ -436,7 +436,7 @@ const docTemplate = `{
             }
         },
         "/api/v1/auth/sessions/revoke-others": {
-            "post": {
+            "delete": {
                 "description": "Revoke every active session except the session identified by the current refresh token. Existing access tokens remain valid until expiry.",
                 "consumes": [
                     "application/json"
@@ -460,23 +460,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Other sessions ended",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/response.ApiResponse"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/dto.RevokeOtherSessionsResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+                    "204": {
+                        "description": "Other sessions ended"
                     },
                     "401": {
                         "description": "Unauthorized - Invalid current refresh token",
@@ -1014,11 +999,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Role deleted successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "Role deleted successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -1166,11 +1148,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Permissions removed from role successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "Permissions removed from role successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -1498,11 +1477,8 @@ const docTemplate = `{
                 ],
                 "summary": "Remove profile image",
                 "responses": {
-                    "200": {
-                        "description": "User image removed successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "User image removed successfully"
                     },
                     "401": {
                         "description": "Unauthorized",
@@ -1719,11 +1695,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "User deleted successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "User deleted successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -1938,11 +1911,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Roles removed from user successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "Roles removed from user successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -2243,15 +2213,6 @@ const docTemplate = `{
                 "current_refresh_token": {
                     "type": "string",
                     "example": "a1b2c3d4e5f6..."
-                }
-            }
-        },
-        "dto.RevokeOtherSessionsResponse": {
-            "type": "object",
-            "properties": {
-                "revoked_sessions": {
-                    "type": "integer",
-                    "example": 2
                 }
             }
         },

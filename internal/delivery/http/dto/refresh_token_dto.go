@@ -22,10 +22,6 @@ type RevokeOtherSessionsRequest struct {
 	CurrentRefreshToken string `json:"current_refresh_token" binding:"required" example:"a1b2c3d4e5f6..."`
 }
 
-type RevokeOtherSessionsResponse struct {
-	RevokedSessions int64 `json:"revoked_sessions" example:"2"`
-}
-
 func ToRefreshTokenResponse(refreshToken *domain.RefreshToken) RefreshTokenResponse {
 	return RefreshTokenResponse{
 		ID:        refreshToken.ID,

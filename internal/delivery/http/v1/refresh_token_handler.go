@@ -120,12 +120,12 @@ func (h *RefreshTokenHandler) RevokeSession(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request body dto.RevokeOtherSessionsRequest true "Current refresh token"
-// @Success      200  {object}  response.ApiResponse{data=dto.RevokeOtherSessionsResponse} "Other sessions ended"
+// @Success      204  {object}  nil "Other sessions ended"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid current refresh token"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid request payload"
 // @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
-// @Router       /api/v1/auth/sessions/revoke-others [post]
+// @Router       /api/v1/auth/sessions/revoke-others [delete]
 func (h *RefreshTokenHandler) RevokeOtherSessions(c *gin.Context) {
 	userID, err := extractCurrentUserID(c)
 	if err != nil {
@@ -139,13 +139,10 @@ func (h *RefreshTokenHandler) RevokeOtherSessions(c *gin.Context) {
 		return
 	}
 
-	revokedSessions, err := h.refreshTokenUseCase.RevokeOtherSessions(c.Request.Context(), userID, req.CurrentRefreshToken)
-	if err != nil {
+	if err := h.refreshTokenUseCase.RevokeOtherSessions(c.Request.Context(), userID, req.CurrentRefreshToken); err != nil {
 		_ = c.Error(err)
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Other sessions ended", dto.RevokeOtherSessionsResponse{
-		RevokedSessions: revokedSessions,
-	})
+	c.Status(http.StatusNoContent)
 }
