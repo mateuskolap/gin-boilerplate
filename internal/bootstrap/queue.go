@@ -87,7 +87,7 @@ func NewSchedulerApplication(cfg *config.Config, logger *slog.Logger) (*Schedule
 	if err != nil {
 		return nil, err
 	}
-	scheduler, err := queueinfra.NewScheduler(queueRedis, jobs.NewMaintenanceSchedule(), logger)
+	scheduler, err := queueinfra.NewScheduler(queueRedis, jobs.MaintenanceTasks(), logger)
 	if err != nil {
 		_ = queueRedis.Close()
 		return nil, fmt.Errorf("initialize queue scheduler: %w", err)

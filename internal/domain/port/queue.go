@@ -53,11 +53,6 @@ type PeriodicTask struct {
 	Options DispatchOptions
 }
 
-// PeriodicTaskProvider supplies the static recurring tasks to the scheduler.
-type PeriodicTaskProvider interface {
-	PeriodicTasks() []PeriodicTask
-}
-
 func (t QueueTask) Validate() error {
 	if strings.TrimSpace(t.Type) == "" {
 		return fmt.Errorf("queue task type must not be empty")

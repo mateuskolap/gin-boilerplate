@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"gin-boilerplate/internal/domain"
@@ -31,22 +30,12 @@ func (h *purgeExpiredRefreshTokensHandler) TaskType() string {
 	return PurgeExpiredRefreshTokensTask
 }
 
-func (h *purgeExpiredRefreshTokensHandler) HandleTask(ctx context.Context, payload json.RawMessage) error {
-	var request struct{}
-	if err := json.Unmarshal(payload, &request); err != nil {
-		return fmt.Errorf("decode refresh token purge task: %w", err)
-	}
+func (h *purgeExpiredRefreshTokensHandler) HandleTask(ctx context.Context, _ json.RawMessage) error {
 	_, err := h.refreshTokens.PurgeExpiredBefore(ctx, time.Now().UTC().Add(-h.retention))
 	return err
 }
 
-type maintenanceSchedule struct{}
-
-func NewMaintenanceSchedule() port.PeriodicTaskProvider {
-	return maintenanceSchedule{}
-}
-
-func (maintenanceSchedule) PeriodicTasks() []port.PeriodicTask {
+func MaintenanceTasks() []port.PeriodicTask {
 	return []port.PeriodicTask{{
 		Name: "purge-expired-refresh-tokens",
 		Cron: "0 3 * * *",

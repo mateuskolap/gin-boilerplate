@@ -158,10 +158,7 @@ type Scheduler struct {
 	scheduler *asynq.Scheduler
 }
 
-func NewScheduler(redisClient redis.UniversalClient, provider port.PeriodicTaskProvider, logger *slog.Logger) (*Scheduler, error) {
-	if provider == nil {
-		return nil, fmt.Errorf("periodic task provider is required")
-	}
+func NewScheduler(redisClient redis.UniversalClient, periodicTasks []port.PeriodicTask, logger *slog.Logger) (*Scheduler, error) {
 	s := asynq.NewSchedulerFromRedisClient(redisClient, &asynq.SchedulerOpts{
 		Location: time.UTC,
 		Logger:   queueLogger{logger: logger},
@@ -172,7 +169,7 @@ func NewScheduler(redisClient redis.UniversalClient, provider port.PeriodicTaskP
 			}
 		},
 	})
-	for _, periodicTask := range provider.PeriodicTasks() {
+	for _, periodicTask := range periodicTasks {
 		if periodicTask.Name == "" || periodicTask.Cron == "" {
 			return nil, fmt.Errorf("periodic task definition is invalid")
 		}
