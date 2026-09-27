@@ -139,6 +139,66 @@ const docTemplate = `{
                 ]
             }
         },
+        "/api/v1/auth/password": {
+            "patch": {
+                "description": "Verify the current password, set a new password, and invalidate all user sessions and access tokens",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Change password",
+                "parameters": [
+                    {
+                        "description": "Current and new password",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.ChangePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Password changed; authenticate again with the new password"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Current password is invalid",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid password payload",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests - Rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/auth/refresh": {
             "post": {
                 "description": "Exchange a valid refresh token for a newly issued access token and rotated refresh token",
@@ -351,6 +411,134 @@ const docTemplate = `{
                     },
                     "422": {
                         "description": "Unprocessable Entity - Invalid filter or sorting parameter",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests - Rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/sessions/revoke-others": {
+            "delete": {
+                "description": "Revoke every active session except the session identified by the current refresh token. Existing access tokens remain valid until expiry.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "End other sessions",
+                "parameters": [
+                    {
+                        "description": "Current refresh token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.RevokeOtherSessionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Other sessions ended"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Invalid current refresh token",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid request payload",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests - Rate limit exceeded",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/sessions/{id}": {
+            "delete": {
+                "description": "Revoke one active refresh token session owned by the authenticated user. Existing access tokens remain valid until expiry.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "End a session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Session UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Session ended"
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found - Active session not found",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid session UUID",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests - Rate limit exceeded",
                         "schema": {
                             "$ref": "#/definitions/response.ApiResponse"
                         }
@@ -811,11 +999,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Role deleted successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "Role deleted successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -963,11 +1148,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Permissions removed from role successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "Permissions removed from role successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -1295,11 +1477,8 @@ const docTemplate = `{
                 ],
                 "summary": "Remove profile image",
                 "responses": {
-                    "200": {
-                        "description": "User image removed successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "User image removed successfully"
                     },
                     "401": {
                         "description": "Unauthorized",
@@ -1516,11 +1695,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "User deleted successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "User deleted successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -1735,11 +1911,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Roles removed from user successfully",
-                        "schema": {
-                            "$ref": "#/definitions/response.ApiResponse"
-                        }
+                    "204": {
+                        "description": "Roles removed from user successfully"
                     },
                     "401": {
                         "description": "Unauthorized - Missing or invalid token",
@@ -1781,6 +1954,26 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.ChangePasswordRequest": {
+            "type": "object",
+            "required": [
+                "current_password",
+                "new_password"
+            ],
+            "properties": {
+                "current_password": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "example": "current-secret123"
+                },
+                "new_password": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 8,
+                    "example": "new-secret123"
+                }
+            }
+        },
         "dto.CreateRoleRequest": {
             "type": "object",
             "required": [
@@ -2008,6 +2201,18 @@ const docTemplate = `{
                     "maxLength": 72,
                     "minLength": 8,
                     "example": "secret12345"
+                }
+            }
+        },
+        "dto.RevokeOtherSessionsRequest": {
+            "type": "object",
+            "required": [
+                "current_refresh_token"
+            ],
+            "properties": {
+                "current_refresh_token": {
+                    "type": "string",
+                    "example": "a1b2c3d4e5f6..."
                 }
             }
         },

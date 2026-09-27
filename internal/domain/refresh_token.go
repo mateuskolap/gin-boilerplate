@@ -29,9 +29,14 @@ type RefreshTokenRepository interface {
 	// RevokeAllByUserID revokes every refresh token associated with the user.
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
 
-	// RevokeByID atomically revokes a refresh token by ID only if it has not been revoked yet.
-	// Returns true if successfully revoked, or false if already revoked by a concurrent request.
-	RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (revoked bool, err error)
+	// Revoke atomically revokes an active refresh token owned by userID.
+	// replacedBy is set when a refresh token is rotated.
+	Revoke(ctx context.Context, id, userID uuid.UUID, replacedBy *uuid.UUID) (revoked bool, err error)
+	// RevokeAllExcept revokes all active refresh tokens for a user except one.
+	RevokeAllExcept(ctx context.Context, userID, exceptID uuid.UUID) error
+
+	// DeleteExpiredBefore permanently removes refresh tokens expired before cutoff.
+	DeleteExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
 type RefreshTokenUseCase interface {
@@ -45,10 +50,18 @@ type RefreshTokenUseCase interface {
 	ListActiveByUserID(ctx context.Context, userID uuid.UUID, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[RefreshToken], error)
 	// Revoke revokes the refresh token identified by its plaintext value.
 	Revoke(ctx context.Context, token string) error
-	// RevokeEntity marks the supplied refresh token as revoked if it is still active.
-	RevokeEntity(ctx context.Context, refreshToken *RefreshToken) error
 	// RevokeAllByUserID revokes all refresh tokens belonging to the user.
 	RevokeAllByUserID(ctx context.Context, userID uuid.UUID) error
+	// RevokeSession revokes one active session owned by userID.
+	RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error
+	// RevokeOtherSessions revokes every active session except the session identified by currentRefreshToken.
+	RevokeOtherSessions(ctx context.Context, userID uuid.UUID, currentRefreshToken string) error
 	// Validate checks that token exists, is unrevoked, and has not expired.
 	Validate(ctx context.Context, token string) (*RefreshToken, error)
+}
+
+// RefreshTokenMaintenanceUseCase contains maintenance operations that are run
+// outside HTTP request flows.
+type RefreshTokenMaintenanceUseCase interface {
+	PurgeExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error)
 }

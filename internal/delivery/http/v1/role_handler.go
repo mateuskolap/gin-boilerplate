@@ -175,7 +175,7 @@ func (h *RoleHandler) UpdateRole(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Role UUID" format(uuid)
-// @Success      200  {object}  response.ApiResponse "Role deleted successfully"
+// @Success      204  {object}  nil "Role deleted successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403  {object}  response.ApiResponse "Forbidden - Requires delete_role permission"
 // @Failure      404  {object}  response.ApiResponse "Not Found - Role not found"
@@ -194,7 +194,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Role deleted successfully", nil)
+	c.Status(http.StatusNoContent)
 }
 
 // AddPermissions godoc
@@ -243,7 +243,7 @@ func (h *RoleHandler) AddPermissions(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        id       path      string                        true  "Role UUID" format(uuid)
 // @Param        request  body      dto.UpdatePermissionsRequest  true  "Permission UUIDs to remove"
-// @Success      200      {object}  response.ApiResponse "Permissions removed from role successfully"
+// @Success      204      {object}  nil "Permissions removed from role successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires remove_role_permission permission"
 // @Failure      404      {object}  response.ApiResponse "Not Found - Role not found"
@@ -268,5 +268,5 @@ func (h *RoleHandler) RemovePermissions(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Permissions removed successfully", nil)
+	c.Status(http.StatusNoContent)
 }

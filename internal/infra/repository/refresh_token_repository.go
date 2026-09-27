@@ -42,18 +42,36 @@ func (r *refreshTokenRepository) RevokeAllByUserID(ctx context.Context, userID u
 		Error
 }
 
-func (r *refreshTokenRepository) RevokeByID(ctx context.Context, id uuid.UUID, replacedBy uuid.UUID) (bool, error) {
+func (r *refreshTokenRepository) Revoke(ctx context.Context, id, userID uuid.UUID, replacedBy *uuid.UUID) (bool, error) {
+	now := time.Now().UTC()
+	updates := map[string]any{"revoked_at": now}
+	if replacedBy != nil {
+		updates["replaced_by"] = *replacedBy
+	}
+
 	result := r.getDB(ctx).
 		Model(&domain.RefreshToken{}).
-		Where("id = ? AND revoked_at IS NULL", id).
-		Updates(map[string]any{
-			"revoked_at":  time.Now().UTC(),
-			"replaced_by": replacedBy,
-		})
+		Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", id, userID, now).
+		Updates(updates)
 
 	if result.Error != nil {
 		return false, result.Error
 	}
 
 	return result.RowsAffected > 0, nil
+}
+
+func (r *refreshTokenRepository) RevokeAllExcept(ctx context.Context, userID, exceptID uuid.UUID) error {
+	return r.getDB(ctx).
+		Model(&domain.RefreshToken{}).
+		Where("user_id = ? AND id <> ? AND revoked_at IS NULL AND expires_at > ?", userID, exceptID, time.Now().UTC()).
+		Update("revoked_at", time.Now().UTC()).
+		Error
+}
+
+func (r *refreshTokenRepository) DeleteExpiredBefore(ctx context.Context, cutoff time.Time) (int64, error) {
+	result := r.getDB(ctx).
+		Where("expires_at < ?", cutoff).
+		Delete(&domain.RefreshToken{})
+	return result.RowsAffected, result.Error
 }

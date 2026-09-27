@@ -6,17 +6,74 @@ API boilerplate in Go using Gin, GORM, PostgreSQL, Redis and a clean/hexagonal s
 
 1. Copy `.env.example` to `.env` and set `JWT_SECRET` with at least 32 characters.
 2. Start PostgreSQL and Redis with `docker compose up -d`.
-3. Apply the versioned migrations using the project command. It loads the existing `DB_*` settings from `.env`:
+3. On the first run, or after pulling new migrations, apply them and start the API:
 
 ```sh
-make migrate-up
+make run-migrate
 ```
 
-4. Start the API:
+4. To start the API without applying migrations:
+
+```sh
+make run
+```
+
+## Queues and scheduled tasks
+
+Background work uses [Asynq](https://github.com/hibiken/asynq) backed by Redis.
+The API, queue worker, and scheduler are separate processes:
 
 ```sh
 go run ./cmd/api
+make queue-worker
+make queue-scheduler
 ```
+
+Run exactly one scheduler replica for each environment. It registers the
+recurring tasks declared in code and enqueues them in UTC; missed executions
+are not replayed after scheduler downtime. Workers can be scaled independently.
+`UniqueFor` only de-duplicates equal tasks while their unique lock exists; a
+successful task releases that lock, so it does not replace the singleton
+scheduler requirement.
+
+Queue data uses `QUEUE_REDIS_DB=1` by default, separate from cache and rate
+limit data in `REDIS_DB=0`. The worker handles the `default` and `maintenance`
+queues with weighted priority. Queue failures, retries, and archived tasks are
+written as JSON to `storage/logs/queue.log`; this log does not rotate. The
+worker also logs Redis health-check failures. Rotate `queue.log` outside the
+application and alert on archived tasks, retry volume, and Redis health failures.
+
+Use cases receive `port.QueueDispatcher` and choose the queue lifecycle at
+dispatch time. `MaxRetries` is the number of executions after the first
+failure; retry delays use Asynq's built-in policy. For example:
+
+```go
+_, err := queue.Dispatch(ctx, port.QueueTask{
+    Type: "email.send",
+    Payload: json.RawMessage(`{"user_id":"..."}`),
+}, port.DispatchOptions{
+    Queue:      "default",
+    Timeout:    30 * time.Second,
+    MaxRetries: 5,
+})
+```
+
+Register the corresponding `port.TaskHandler` in the worker bootstrap. Unknown
+task types and invalid JSON payloads are archived without retry.
+
+The included maintenance task removes refresh tokens that have been expired for
+`REFRESH_TOKEN_RETENTION` (30 days by default). It runs daily at 03:00 UTC.
+
+Use the official CLI for operational inspection and recovery:
+
+```sh
+go install github.com/hibiken/asynq/tools/asynq@v0.26.0
+asynq -u 127.0.0.1:6379 -n 1 queue ls
+asynq -u 127.0.0.1:6379 -n 1 task ls --queue=maintenance --state=archived
+```
+
+The API image starts `/api`. Deploy the worker and scheduler from the same
+image by overriding the entrypoint with `/worker` and `/scheduler`.
 
 To create the initial roles, permissions and administrator, set a strong `ADMIN_PASSWORD` and run:
 

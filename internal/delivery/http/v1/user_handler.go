@@ -220,7 +220,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "User UUID" format(uuid)
-// @Success      200  {object}  response.ApiResponse "User deleted successfully"
+// @Success      204  {object}  nil "User deleted successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403  {object}  response.ApiResponse "Forbidden - Requires delete_user permission"
 // @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
@@ -239,7 +239,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "User deleted successfully", nil)
+	c.Status(http.StatusNoContent)
 }
 
 // AddRoles godoc
@@ -288,7 +288,7 @@ func (h *UserHandler) AddRoles(c *gin.Context) {
 // @Security     BearerAuth
 // @Param        id       path      string                      true  "User UUID" format(uuid)
 // @Param        request  body      dto.UpdateUserRolesRequest  true  "Role UUIDs to remove"
-// @Success      200      {object}  response.ApiResponse "Roles removed from user successfully"
+// @Success      204      {object}  nil "Roles removed from user successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires remove_user_role permission"
 // @Failure      404      {object}  response.ApiResponse "Not Found - User not found"
@@ -313,7 +313,7 @@ func (h *UserHandler) RemoveRoles(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Roles removed from user successfully", nil)
+	c.Status(http.StatusNoContent)
 }
 
 // UpdateImage godoc
@@ -357,7 +357,7 @@ func (h *UserHandler) UpdateImage(c *gin.Context) {
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200 {object} response.ApiResponse "User image removed successfully"
+// @Success      204 {object} nil "User image removed successfully"
 // @Failure      401 {object} response.ApiResponse "Unauthorized"
 // @Failure      404 {object} response.ApiResponse "User not found"
 // @Failure      422 {object} response.ApiResponse "User does not have a profile image"
@@ -375,7 +375,7 @@ func (h *UserHandler) RemoveImage(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "User image removed successfully", nil)
+	c.Status(http.StatusNoContent)
 }
 
 // GetImage godoc

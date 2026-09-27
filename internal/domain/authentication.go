@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"time"
+	"uuid"
 )
 
 type AuthTokens struct {
@@ -41,6 +42,9 @@ type AuthUseCase interface {
 
 	// Logout invalidates a JWT token by adding its ID to the blacklist and revoking refresh token.
 	Logout(ctx context.Context, accessToken, refreshToken string) error
+
+	// ChangePassword verifies the current password, changes it, and invalidates all user tokens.
+	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error
 
 	// ValidateAccessToken verifies token signature, expiration, and checks the blacklist.
 	ValidateAccessToken(ctx context.Context, tokenString string) (*TokenClaims, error)
