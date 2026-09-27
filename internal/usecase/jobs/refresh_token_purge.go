@@ -52,15 +52,10 @@ func (maintenanceSchedule) PeriodicTasks() []port.PeriodicTask {
 		Cron: "0 3 * * *",
 		Task: port.QueueTask{Type: PurgeExpiredRefreshTokensTask, Payload: json.RawMessage(`{}`)},
 		Options: port.DispatchOptions{
-			Queue:   "maintenance",
-			Timeout: time.Minute,
-			Retry: port.RetryPolicy{
-				MaxRetries:   3,
-				Backoff:      port.RetryBackoffExponential,
-				InitialDelay: time.Minute,
-				MaxDelay:     time.Hour,
-			},
-			UniqueFor: 24 * time.Hour,
+			Queue:      "maintenance",
+			Timeout:    time.Minute,
+			MaxRetries: 3,
+			UniqueFor:  24 * time.Hour,
 		},
 	}}
 }

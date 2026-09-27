@@ -32,28 +32,29 @@ make queue-scheduler
 Run exactly one scheduler replica for each environment. It registers the
 recurring tasks declared in code and enqueues them in UTC; missed executions
 are not replayed after scheduler downtime. Workers can be scaled independently.
+`UniqueFor` only de-duplicates equal tasks while their unique lock exists; a
+successful task releases that lock, so it does not replace the singleton
+scheduler requirement.
 
 Queue data uses `QUEUE_REDIS_DB=1` by default, separate from cache and rate
 limit data in `REDIS_DB=0`. The worker handles the `default` and `maintenance`
 queues with weighted priority. Queue failures, retries, and archived tasks are
-written as JSON to `storage/logs/queue.log`; this log does not rotate.
+written as JSON to `storage/logs/queue.log`; this log does not rotate. The
+worker also logs Redis health-check failures. Rotate `queue.log` outside the
+application and alert on archived tasks, retry volume, and Redis health failures.
 
-Use cases receive `port.QueueDispatcher` and choose their own retry policy at
-dispatch time. For example:
+Use cases receive `port.QueueDispatcher` and choose the queue lifecycle at
+dispatch time. `MaxRetries` is the number of executions after the first
+failure; retry delays use Asynq's built-in policy. For example:
 
 ```go
 _, err := queue.Dispatch(ctx, port.QueueTask{
     Type: "email.send",
     Payload: json.RawMessage(`{"user_id":"..."}`),
 }, port.DispatchOptions{
-    Queue: "default",
-    Timeout: 30 * time.Second,
-    Retry: port.RetryPolicy{
-        MaxRetries: 5,
-        Backoff: port.RetryBackoffExponential,
-        InitialDelay: time.Minute,
-        MaxDelay: time.Hour,
-    },
+    Queue:      "default",
+    Timeout:    30 * time.Second,
+    MaxRetries: 5,
 })
 ```
 

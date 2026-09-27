@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"time"
 
 	"gin-boilerplate/internal/domain/port"
@@ -14,14 +13,6 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 )
-
-const retryPolicyHeader = "gin-boilerplate.retry-policy"
-
-type retryPolicyWire struct {
-	Backoff      port.RetryBackoff `json:"backoff"`
-	InitialDelay int64             `json:"initial_delay_ns"`
-	MaxDelay     int64             `json:"max_delay_ns"`
-}
 
 type dispatcher struct {
 	client *asynq.Client
@@ -40,10 +31,7 @@ func (d *dispatcher) Dispatch(ctx context.Context, task port.QueueTask, options 
 		return port.DispatchInfo{}, err
 	}
 
-	asynqTask, asynqOptions, err := toAsynqTask(task, options)
-	if err != nil {
-		return port.DispatchInfo{}, err
-	}
+	asynqTask, asynqOptions := toAsynqTask(task, options)
 	info, err := d.client.EnqueueContext(ctx, asynqTask, asynqOptions...)
 	if err != nil {
 		return port.DispatchInfo{}, fmt.Errorf("enqueue task %q: %w", task.Type, err)
@@ -58,24 +46,11 @@ func normalizeOptions(options port.DispatchOptions) port.DispatchOptions {
 	return options
 }
 
-func toAsynqTask(task port.QueueTask, options port.DispatchOptions) (*asynq.Task, []asynq.Option, error) {
-	headers := make(map[string]string)
-	if options.Retry.MaxRetries > 0 {
-		policy, err := json.Marshal(retryPolicyWire{
-			Backoff:      options.Retry.Backoff,
-			InitialDelay: int64(options.Retry.InitialDelay),
-			MaxDelay:     int64(options.Retry.MaxDelay),
-		})
-		if err != nil {
-			return nil, nil, fmt.Errorf("encode retry policy: %w", err)
-		}
-		headers[retryPolicyHeader] = string(policy)
-	}
-
+func toAsynqTask(task port.QueueTask, options port.DispatchOptions) (*asynq.Task, []asynq.Option) {
 	opts := []asynq.Option{
 		asynq.Queue(options.Queue),
 		asynq.Timeout(options.Timeout),
-		asynq.MaxRetry(options.Retry.MaxRetries),
+		asynq.MaxRetry(options.MaxRetries),
 	}
 	if options.ProcessAt != nil {
 		opts = append(opts, asynq.ProcessAt(options.ProcessAt.UTC()))
@@ -86,7 +61,7 @@ func toAsynqTask(task port.QueueTask, options port.DispatchOptions) (*asynq.Task
 	if options.Retention > 0 {
 		opts = append(opts, asynq.Retention(options.Retention))
 	}
-	return asynq.NewTaskWithHeaders(task.Type, task.Payload, headers), opts, nil
+	return asynq.NewTask(task.Type, task.Payload), opts
 }
 
 func dispatchInfo(info *asynq.TaskInfo) port.DispatchInfo {
@@ -96,70 +71,6 @@ func dispatchInfo(info *asynq.TaskInfo) port.DispatchInfo {
 		Type:      info.Type,
 		ProcessAt: info.NextProcessAt,
 	}
-}
-
-// RetryDelay calculates the retry delay configured by the producer. Invalid or
-// absent policy metadata falls back to Asynq's default exponential strategy.
-func RetryDelay(retryCount int, _ error, task *asynq.Task) time.Duration {
-	policy, err := parseRetryPolicy(task.Headers())
-	if err != nil {
-		return asynq.DefaultRetryDelayFunc(retryCount, nil, task)
-	}
-	return retryDelayFor(policy, retryCount)
-}
-
-func parseRetryPolicy(headers map[string]string) (retryPolicyWire, error) {
-	raw, ok := headers[retryPolicyHeader]
-	if !ok {
-		return retryPolicyWire{}, fmt.Errorf("retry policy header is missing")
-	}
-	var policy retryPolicyWire
-	if err := json.Unmarshal([]byte(raw), &policy); err != nil {
-		return retryPolicyWire{}, fmt.Errorf("decode retry policy: %w", err)
-	}
-	if policy.InitialDelay <= 0 || policy.MaxDelay < policy.InitialDelay {
-		return retryPolicyWire{}, fmt.Errorf("retry policy delays are invalid")
-	}
-	switch policy.Backoff {
-	case port.RetryBackoffFixed, port.RetryBackoffLinear, port.RetryBackoffExponential:
-		return policy, nil
-	default:
-		return retryPolicyWire{}, fmt.Errorf("retry policy backoff is invalid")
-	}
-}
-
-func retryDelayFor(policy retryPolicyWire, retryCount int) time.Duration {
-	initial := time.Duration(policy.InitialDelay)
-	maximum := time.Duration(policy.MaxDelay)
-	if retryCount < 1 {
-		retryCount = 1
-	}
-
-	var delay time.Duration
-	switch policy.Backoff {
-	case port.RetryBackoffFixed:
-		delay = initial
-	case port.RetryBackoffLinear:
-		delay = multiplyDuration(initial, retryCount)
-	case port.RetryBackoffExponential:
-		factor := math.Pow(2, float64(retryCount-1))
-		if factor > float64(math.MaxInt64/int64(initial)) {
-			delay = maximum
-		} else {
-			delay = time.Duration(float64(initial) * factor)
-		}
-	}
-	if delay > maximum {
-		return maximum
-	}
-	return delay
-}
-
-func multiplyDuration(value time.Duration, multiplier int) time.Duration {
-	if multiplier > 0 && value > time.Duration(math.MaxInt64/int64(multiplier)) {
-		return time.Duration(math.MaxInt64)
-	}
-	return value * time.Duration(multiplier)
 }
 
 type Worker struct {
@@ -181,7 +92,7 @@ func NewWorker(redisClient redis.UniversalClient, config WorkerConfig, logger *s
 			}
 			err := next.ProcessTask(ctx, task)
 			if errors.Is(err, asynq.ErrHandlerNotFound) {
-				return fmt.Errorf("%w: %v", asynq.SkipRetry, err)
+				return fmt.Errorf("%w: %w", asynq.SkipRetry, err)
 			}
 			return err
 		})
@@ -204,7 +115,11 @@ func NewWorker(redisClient redis.UniversalClient, config WorkerConfig, logger *s
 		Concurrency:     config.Concurrency,
 		Queues:          map[string]int{port.DefaultQueue: 5, "maintenance": 1},
 		ShutdownTimeout: config.ShutdownTimeout,
-		RetryDelayFunc:  RetryDelay,
+		HealthCheckFunc: func(err error) {
+			if err != nil {
+				logger.Error("queue Redis health check failed", "error", err)
+			}
+		},
 		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
 			retried, _ := asynq.GetRetryCount(ctx)
 			maxRetries, _ := asynq.GetMaxRetry(ctx)
@@ -243,20 +158,19 @@ type Scheduler struct {
 	scheduler *asynq.Scheduler
 }
 
-func NewScheduler(redisClient *redis.Client, provider port.PeriodicTaskProvider, logger *slog.Logger) (*Scheduler, error) {
+func NewScheduler(redisClient redis.UniversalClient, provider port.PeriodicTaskProvider, logger *slog.Logger) (*Scheduler, error) {
 	if provider == nil {
 		return nil, fmt.Errorf("periodic task provider is required")
 	}
-	redisOptions := redisClient.Options()
-	s := asynq.NewScheduler(asynq.RedisClientOpt{
-		Addr:     redisOptions.Addr,
-		Username: redisOptions.Username,
-		Password: redisOptions.Password,
-		DB:       redisOptions.DB,
-	}, &asynq.SchedulerOpts{
+	s := asynq.NewSchedulerFromRedisClient(redisClient, &asynq.SchedulerOpts{
 		Location: time.UTC,
 		Logger:   queueLogger{logger: logger},
 		LogLevel: asynq.WarnLevel,
+		PostEnqueueFunc: func(_ *asynq.TaskInfo, err error) {
+			if err != nil {
+				logger.Error("scheduled queue task enqueue failed", "error", err)
+			}
+		},
 	})
 	for _, periodicTask := range provider.PeriodicTasks() {
 		if periodicTask.Name == "" || periodicTask.Cron == "" {
@@ -269,10 +183,7 @@ func NewScheduler(redisClient *redis.Client, provider port.PeriodicTaskProvider,
 		if err := options.Validate(); err != nil {
 			return nil, fmt.Errorf("validate periodic task %q options: %w", periodicTask.Name, err)
 		}
-		task, asynqOptions, err := toAsynqTask(periodicTask.Task, options)
-		if err != nil {
-			return nil, fmt.Errorf("create periodic task %q: %w", periodicTask.Name, err)
-		}
+		task, asynqOptions := toAsynqTask(periodicTask.Task, options)
 		if _, err := s.Register(periodicTask.Cron, task, asynqOptions...); err != nil {
 			return nil, fmt.Errorf("register periodic task %q: %w", periodicTask.Name, err)
 		}

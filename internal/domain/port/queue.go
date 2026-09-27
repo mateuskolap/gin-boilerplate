@@ -10,31 +10,15 @@ import (
 
 const DefaultQueue = "default"
 
-type RetryBackoff string
-
-const (
-	RetryBackoffFixed       RetryBackoff = "fixed"
-	RetryBackoffLinear      RetryBackoff = "linear"
-	RetryBackoffExponential RetryBackoff = "exponential"
-)
-
-// RetryPolicy controls retries for one task. MaxRetries is the number of
-// additional executions after the first failed attempt.
-type RetryPolicy struct {
-	MaxRetries   int
-	Backoff      RetryBackoff
-	InitialDelay time.Duration
-	MaxDelay     time.Duration
-}
-
 // DispatchOptions configures the lifecycle of a queued task.
 type DispatchOptions struct {
 	Queue     string
 	ProcessAt *time.Time
 	Timeout   time.Duration
-	Retry     RetryPolicy
-	UniqueFor time.Duration
-	Retention time.Duration
+	// MaxRetries is the number of attempts after the first failed execution.
+	MaxRetries int
+	UniqueFor  time.Duration
+	Retention  time.Duration
 }
 
 // QueueTask is the transport-neutral representation of a background task.
@@ -97,17 +81,8 @@ func (o DispatchOptions) Validate() error {
 	if o.UniqueFor < 0 || o.Retention < 0 {
 		return fmt.Errorf("queue task durations must not be negative")
 	}
-	if o.Retry.MaxRetries < 0 {
+	if o.MaxRetries < 0 {
 		return fmt.Errorf("queue max retries must not be negative")
-	}
-	if o.Retry.MaxRetries == 0 {
-		return nil
-	}
-	if o.Retry.Backoff != RetryBackoffFixed && o.Retry.Backoff != RetryBackoffLinear && o.Retry.Backoff != RetryBackoffExponential {
-		return fmt.Errorf("queue retry backoff is invalid")
-	}
-	if o.Retry.InitialDelay <= 0 || o.Retry.MaxDelay <= 0 || o.Retry.MaxDelay < o.Retry.InitialDelay {
-		return fmt.Errorf("queue retry delays are invalid")
 	}
 	return nil
 }
