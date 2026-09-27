@@ -6,16 +6,16 @@ API boilerplate in Go using Gin, GORM, PostgreSQL, Redis and a clean/hexagonal s
 
 1. Copy `.env.example` to `.env` and set `JWT_SECRET` with at least 32 characters.
 2. Start PostgreSQL and Redis with `docker compose up -d`.
-3. Apply the versioned migrations using the project command. It loads the existing `DB_*` settings from `.env`:
+3. On the first run, or after pulling new migrations, apply them and start the API:
 
 ```sh
-make migrate-up
+make run-migrate
 ```
 
-4. Start the API:
+4. To start the API without applying migrations:
 
 ```sh
-go run ./cmd/api
+make run
 ```
 
 ## Queues and scheduled tasks
