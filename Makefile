@@ -1,7 +1,8 @@
 .PHONY: run run-migrate swagger migrate-create migrate-up migrate-down migrate-version queue-worker queue-scheduler
 
 run:
-	go run ./cmd/api
+	$(MAKE) swagger
+	go run ./cmd/api --seed
 
 run-migrate: migrate-up
 	$(MAKE) run
