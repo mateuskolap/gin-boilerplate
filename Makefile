@@ -2,6 +2,8 @@
 
 run:
 	$(MAKE) swagger
+	$(MAKE) queue-worker &
+	$(MAKE) queue-scheduler &
 	go run ./cmd/api --seed
 
 run-migrate: migrate-up
