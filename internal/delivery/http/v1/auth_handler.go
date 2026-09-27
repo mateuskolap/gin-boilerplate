@@ -2,23 +2,33 @@ package v1
 
 import (
 	"errors"
+	"gin-boilerplate/internal/delivery/http/authcookie"
 	"gin-boilerplate/internal/delivery/http/dto"
 	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/shared"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	authUseCase domain.AuthUseCase
+	authUseCase   domain.AuthUseCase
+	useCookies    bool
+	secureCookies bool
+	accessTTL     time.Duration
+	refreshTTL    time.Duration
 }
 
-func NewAuthHandler(authUseCase domain.AuthUseCase) *AuthHandler {
+func NewAuthHandler(authUseCase domain.AuthUseCase, useCookies, secureCookies bool, accessTTL, refreshTTL time.Duration) *AuthHandler {
 	return &AuthHandler{
-		authUseCase: authUseCase,
+		authUseCase:   authUseCase,
+		useCookies:    useCookies,
+		secureCookies: secureCookies,
+		accessTTL:     accessTTL,
+		refreshTTL:    refreshTTL,
 	}
 }
 
@@ -58,12 +68,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 // Login godoc
 // @Summary      User authentication
-// @Description  Authenticate user with email and password, returning JWT access token and refresh token
+// @Description  Authenticate with email and password. Tokens are returned in the response body or set as HttpOnly cookies according to AUTH_TOKEN_TRANSPORT.
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
 // @Param        request body dto.LoginRequest true "Login credentials"
-// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Login successful with token pair"
+// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Login successful; token data is omitted in cookie mode"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid email or password"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
 // @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
@@ -88,35 +98,36 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Login successful", dto.LoginResponse{
-		AccessToken:  authTokens.AccessToken,
-		RefreshToken: authTokens.RefreshToken,
-	})
+	h.respondWithTokens(c, "Login successful", authTokens)
 }
 
 // Refresh godoc
 // @Summary      Refresh access token
-// @Description  Exchange a valid refresh token for a newly issued access token and rotated refresh token
+// @Description  Exchange a valid refresh token for a new token pair. The refresh token is read from the body or cookie according to AUTH_TOKEN_TRANSPORT; the response uses the same transport.
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.RefreshRequest true "Refresh token payload"
-// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Tokens refreshed successfully"
+// @Param        request body dto.RefreshRequest false "Refresh token payload in body mode; omitted in cookie mode"
+// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Token data is omitted in cookie mode"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid, expired or revoked refresh token"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
 // @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/refresh [post]
 func (h *AuthHandler) Refresh(c *gin.Context) {
-	req, err := bindJSON[dto.RefreshRequest](c)
-	if err != nil {
-		_ = c.Error(err)
-		return
+	refreshToken := authcookie.Get(c, authcookie.RefreshTokenName)
+	if !h.useCookies {
+		req, err := bindJSON[dto.RefreshRequest](c)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
+		refreshToken = req.RefreshToken
 	}
 
 	authTokens, err := h.authUseCase.Refresh(
 		c.Request.Context(),
-		req.RefreshToken,
+		refreshToken,
 		c.ClientIP(),
 		c.Request.UserAgent(),
 	)
@@ -125,10 +136,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, http.StatusOK, "Token refreshed successfully", dto.LoginResponse{
-		AccessToken:  authTokens.AccessToken,
-		RefreshToken: authTokens.RefreshToken,
-	})
+	h.respondWithTokens(c, "Token refreshed successfully", authTokens)
 }
 
 // Logout godoc
@@ -138,30 +146,37 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.LogoutRequest false "Optional refresh token to revoke alongside access token"
+// @Param        request body dto.LogoutRequest false "Refresh token in body mode; cookie mode reads it from the HttpOnly cookie"
 // @Success      200  {object}  response.ApiResponse "Logged out successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
 // @Router       /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
-	var req dto.LogoutRequest
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)
-	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
-		_ = c.Error(shared.NewAppError(
-			shared.ErrTypeValidation,
-			"Validation failed",
-			err,
-		))
-		return
+	refreshToken := authcookie.Get(c, authcookie.RefreshTokenName)
+	if !h.useCookies {
+		var req dto.LogoutRequest
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBodyBytes)
+		if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+			_ = c.Error(shared.NewAppError(
+				shared.ErrTypeValidation,
+				"Validation failed",
+				err,
+			))
+			return
+		}
+		refreshToken = req.RefreshToken
 	}
 
 	token, _ := extractToken(c)
 
-	if err := h.authUseCase.Logout(c.Request.Context(), token, req.RefreshToken); err != nil {
+	if err := h.authUseCase.Logout(c.Request.Context(), token, refreshToken); err != nil {
 		_ = c.Error(err)
 		return
 	}
 
+	if h.useCookies {
+		authcookie.Clear(c, h.secureCookies)
+	}
 	response.Success(c, http.StatusOK, "Logged out successfully", nil)
 }
 
@@ -197,5 +212,21 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
+	if h.useCookies {
+		authcookie.Clear(c, h.secureCookies)
+	}
 	c.Status(http.StatusNoContent)
+}
+
+func (h *AuthHandler) respondWithTokens(c *gin.Context, message string, tokens *domain.AuthTokens) {
+	c.Header("Cache-Control", "no-store")
+	if h.useCookies {
+		authcookie.Set(c, tokens.AccessToken, tokens.RefreshToken, h.accessTTL, h.refreshTTL, h.secureCookies)
+		response.Success(c, http.StatusOK, message, nil)
+		return
+	}
+	response.Success(c, http.StatusOK, message, dto.LoginResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	})
 }

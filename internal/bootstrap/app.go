@@ -148,17 +148,18 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(authorizationRepo)
 
 	router, err := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
-		AuthHandler:         v1.NewAuthHandler(authUseCase),
+		AuthHandler:         v1.NewAuthHandler(authUseCase, cfg.AuthTokenTransport == "cookie", cfg.Env == "production", cfg.JWTExpiration, cfg.RefreshExpiration),
 		UserHandler:         v1.NewUserHandler(userUseCase),
 		RoleHandler:         v1.NewRoleHandler(roleUseCase),
 		PermissionHandler:   v1.NewPermissionHandler(permissionUseCase),
-		RefreshTokenHandler: v1.NewRefreshTokenHandler(refreshTokenUseCase),
+		RefreshTokenHandler: v1.NewRefreshTokenHandler(refreshTokenUseCase, cfg.AuthTokenTransport == "cookie"),
 		HealthHandler:       v1.NewHealthHandler(health.NewChecker(sqlDB, redisClient)),
 		AuthUseCase:         authUseCase,
 		PermissionChecker:   permissionCheckerUseCase,
 		RateLimiter:         ratelimit.NewRedisLimiter(redisClient),
 		TrustedProxies:      cfg.TrustedProxies,
 		CORSAllowedOrigins:  cfg.CORSAllowedOrigins,
+		UseAuthCookies:      cfg.AuthTokenTransport == "cookie",
 		Env:                 cfg.Env,
 	})
 	if err != nil {

@@ -27,6 +27,7 @@ type RouterConfig struct {
 	RateLimiter         port.RateLimiter
 	TrustedProxies      []string
 	CORSAllowedOrigins  []string
+	UseAuthCookies      bool
 	Env                 string
 }
 
@@ -50,7 +51,7 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Authorization", "Content-Type", "X-Request-ID"},
 			ExposeHeaders:    []string{"X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
-			AllowCredentials: false,
+			AllowCredentials: cfg.UseAuthCookies,
 			MaxAge:           12 * time.Hour,
 		}))
 	}
@@ -79,7 +80,7 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 		}
 
 		protected := api.Group("")
-		protected.Use(middleware.AuthenticationMiddleware(cfg.AuthUseCase))
+		protected.Use(middleware.AuthenticationMiddleware(cfg.AuthUseCase, cfg.UseAuthCookies))
 		{
 			protected.POST("/auth/logout", cfg.AuthHandler.Logout)
 			protected.GET("/auth/sessions", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.ListRefreshTokensByAuthUser)

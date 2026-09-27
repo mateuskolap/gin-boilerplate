@@ -21,7 +21,7 @@ const docTemplate = `{
     "paths": {
         "/api/v1/auth/login": {
             "post": {
-                "description": "Authenticate user with email and password, returning JWT access token and refresh token",
+                "description": "Authenticate with email and password. Tokens are returned in the response body or set as HttpOnly cookies according to AUTH_TOKEN_TRANSPORT.",
                 "consumes": [
                     "application/json"
                 ],
@@ -45,7 +45,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Login successful with token pair",
+                        "description": "Login successful; token data is omitted in cookie mode",
                         "schema": {
                             "allOf": [
                                 {
@@ -104,7 +104,7 @@ const docTemplate = `{
                 "summary": "User logout",
                 "parameters": [
                     {
-                        "description": "Optional refresh token to revoke alongside access token",
+                        "description": "Refresh token in body mode; cookie mode reads it from the HttpOnly cookie",
                         "name": "request",
                         "in": "body",
                         "schema": {
@@ -201,7 +201,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/refresh": {
             "post": {
-                "description": "Exchange a valid refresh token for a newly issued access token and rotated refresh token",
+                "description": "Exchange a valid refresh token for a new token pair. The refresh token is read from the body or cookie according to AUTH_TOKEN_TRANSPORT; the response uses the same transport.",
                 "consumes": [
                     "application/json"
                 ],
@@ -214,10 +214,9 @@ const docTemplate = `{
                 "summary": "Refresh access token",
                 "parameters": [
                     {
-                        "description": "Refresh token payload",
+                        "description": "Refresh token payload in body mode; omitted in cookie mode",
                         "name": "request",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/dto.RefreshRequest"
                         }
@@ -225,7 +224,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Tokens refreshed successfully",
+                        "description": "Token data is omitted in cookie mode",
                         "schema": {
                             "allOf": [
                                 {
@@ -450,10 +449,9 @@ const docTemplate = `{
                 "summary": "End other sessions",
                 "parameters": [
                     {
-                        "description": "Current refresh token",
+                        "description": "Current refresh token in body mode; omitted in cookie mode",
                         "name": "request",
                         "in": "body",
-                        "required": true,
                         "schema": {
                             "$ref": "#/definitions/dto.RevokeOtherSessionsRequest"
                         }

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"gin-boilerplate/internal/delivery/http/authcookie"
 	"gin-boilerplate/internal/delivery/http/dto"
 	"gin-boilerplate/internal/delivery/http/response"
 	"gin-boilerplate/internal/domain"
@@ -12,11 +13,13 @@ import (
 
 type RefreshTokenHandler struct {
 	refreshTokenUseCase domain.RefreshTokenUseCase
+	useCookies          bool
 }
 
-func NewRefreshTokenHandler(refreshTokenUseCase domain.RefreshTokenUseCase) *RefreshTokenHandler {
+func NewRefreshTokenHandler(refreshTokenUseCase domain.RefreshTokenUseCase, useCookies bool) *RefreshTokenHandler {
 	return &RefreshTokenHandler{
 		refreshTokenUseCase: refreshTokenUseCase,
+		useCookies:          useCookies,
 	}
 }
 
@@ -119,7 +122,7 @@ func (h *RefreshTokenHandler) RevokeSession(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.RevokeOtherSessionsRequest true "Current refresh token"
+// @Param        request body dto.RevokeOtherSessionsRequest false "Current refresh token in body mode; omitted in cookie mode"
 // @Success      204  {object}  nil "Other sessions ended"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid current refresh token"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid request payload"
@@ -133,13 +136,17 @@ func (h *RefreshTokenHandler) RevokeOtherSessions(c *gin.Context) {
 		return
 	}
 
-	req, err := bindJSON[dto.RevokeOtherSessionsRequest](c)
-	if err != nil {
-		_ = c.Error(err)
-		return
+	refreshToken := authcookie.Get(c, authcookie.RefreshTokenName)
+	if !h.useCookies {
+		req, err := bindJSON[dto.RevokeOtherSessionsRequest](c)
+		if err != nil {
+			_ = c.Error(err)
+			return
+		}
+		refreshToken = req.CurrentRefreshToken
 	}
 
-	if err := h.refreshTokenUseCase.RevokeOtherSessions(c.Request.Context(), userID, req.CurrentRefreshToken); err != nil {
+	if err := h.refreshTokenUseCase.RevokeOtherSessions(c.Request.Context(), userID, refreshToken); err != nil {
 		_ = c.Error(err)
 		return
 	}

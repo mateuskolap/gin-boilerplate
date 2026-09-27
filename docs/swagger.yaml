@@ -315,8 +315,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticate user with email and password, returning JWT access
-        token and refresh token
+      description: Authenticate with email and password. Tokens are returned in the
+        response body or set as HttpOnly cookies according to AUTH_TOKEN_TRANSPORT.
       parameters:
       - description: Login credentials
         in: body
@@ -328,7 +328,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Login successful with token pair
+          description: Login successful; token data is omitted in cookie mode
           schema:
             allOf:
             - $ref: '#/definitions/response.ApiResponse'
@@ -362,7 +362,8 @@ paths:
       description: Revoke access token by adding it to the blacklist and optionally
         revoke the refresh token
       parameters:
-      - description: Optional refresh token to revoke alongside access token
+      - description: Refresh token in body mode; cookie mode reads it from the HttpOnly
+          cookie
         in: body
         name: request
         schema:
@@ -430,20 +431,20 @@ paths:
     post:
       consumes:
       - application/json
-      description: Exchange a valid refresh token for a newly issued access token
-        and rotated refresh token
+      description: Exchange a valid refresh token for a new token pair. The refresh
+        token is read from the body or cookie according to AUTH_TOKEN_TRANSPORT; the
+        response uses the same transport.
       parameters:
-      - description: Refresh token payload
+      - description: Refresh token payload in body mode; omitted in cookie mode
         in: body
         name: request
-        required: true
         schema:
           $ref: '#/definitions/dto.RefreshRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Tokens refreshed successfully
+          description: Token data is omitted in cookie mode
           schema:
             allOf:
             - $ref: '#/definitions/response.ApiResponse'
@@ -623,10 +624,9 @@ paths:
       description: Revoke every active session except the session identified by the
         current refresh token. Existing access tokens remain valid until expiry.
       parameters:
-      - description: Current refresh token
+      - description: Current refresh token in body mode; omitted in cookie mode
         in: body
         name: request
-        required: true
         schema:
           $ref: '#/definitions/dto.RevokeOtherSessionsRequest'
       produces:

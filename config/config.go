@@ -15,6 +15,7 @@ import (
 
 type Config struct {
 	DatabaseConfig
+	AuthTokenTransport    string        `env:"AUTH_TOKEN_TRANSPORT" envDefault:"body"`
 	Port                  int           `env:"PORT" envDefault:"8080"`
 	DBMaxOpenConnections  int           `env:"DB_MAX_OPEN_CONNECTIONS" envDefault:"25"`
 	DBMaxIdleConnections  int           `env:"DB_MAX_IDLE_CONNECTIONS" envDefault:"5"`
@@ -99,6 +100,17 @@ func (c *Config) Validate() error {
 	var errs []error
 
 	errs = append(errs, c.DatabaseConfig.Validate())
+	if c.AuthTokenTransport != "body" && c.AuthTokenTransport != "cookie" {
+		errs = append(errs, fmt.Errorf("AUTH_TOKEN_TRANSPORT must be body or cookie"))
+	}
+	if c.AuthTokenTransport == "cookie" {
+		for _, origin := range c.CORSAllowedOrigins {
+			if strings.TrimSpace(origin) == "*" {
+				errs = append(errs, fmt.Errorf("CORS_ALLOWED_ORIGINS must list explicit origins when AUTH_TOKEN_TRANSPORT=cookie"))
+				break
+			}
+		}
+	}
 	if strings.TrimSpace(c.RedisHost) == "" {
 		errs = append(errs, fmt.Errorf("REDIS_HOST must not be empty"))
 	}
