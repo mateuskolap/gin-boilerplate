@@ -25,7 +25,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -49,30 +48,10 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 
 	middleware.InitValidator()
 
-	db, err := gorm.Open(postgres.Open(cfg.DatabaseConfig.URL()), &gorm.Config{
-		TranslateError:       true,
-		DisableAutomaticPing: true,
-	})
+	db, sqlDB, err := openDatabase(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("connect to database: %w", err)
+		return nil, err
 	}
-
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, fmt.Errorf("get database instance: %w", err)
-	}
-	sqlDB.SetMaxOpenConns(cfg.DBMaxOpenConnections)
-	sqlDB.SetMaxIdleConns(cfg.DBMaxIdleConnections)
-	sqlDB.SetConnMaxLifetime(cfg.DBConnectionLifetime)
-	sqlDB.SetConnMaxIdleTime(cfg.DBConnectionIdleTime)
-
-	databaseContext, cancelDatabase := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := sqlDB.PingContext(databaseContext); err != nil {
-		cancelDatabase()
-		_ = sqlDB.Close()
-		return nil, fmt.Errorf("ping database: %w", err)
-	}
-	cancelDatabase()
 
 	redisClient := redis.NewClient(&redis.Options{
 		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
