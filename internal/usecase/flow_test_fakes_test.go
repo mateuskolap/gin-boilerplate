@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
 	"gin-boilerplate/internal/infra/security"
 )
@@ -279,7 +280,13 @@ func newTestAuthUseCase() (domain.AuthUseCase, *testUserRepo, *testRoleRepo, *te
 	refresh := &testRefreshUseCase{}
 	blacklist := &testBlacklist{}
 	tx := &testTransaction{}
-	return NewAuthUseCase(userRepo, roleRepo, refresh, blacklist, tx, "test-secret-with-at-least-32-characters", "issuer", "audience", time.Hour), userRepo, roleRepo, refresh, blacklist, tx
+	return NewAuthUseCase(userRepo, roleRepo, refresh, blacklist, tx, "test-secret-with-at-least-32-characters", "issuer", "audience", time.Hour, allowAllRateLimiter{}), userRepo, roleRepo, refresh, blacklist, tx
+}
+
+type allowAllRateLimiter struct{}
+
+func (allowAllRateLimiter) Allow(context.Context, string, int, time.Duration) (*port.RateLimitResult, error) {
+	return &port.RateLimitResult{Allowed: true}, nil
 }
 
 func appErrorType(err error) shared.ErrorType {

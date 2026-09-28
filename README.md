@@ -308,7 +308,7 @@ Workers mantêm suas próprias conexões com PostgreSQL e o database Redis da fi
 - Logs de requisição incluem request ID, método, caminho, status, duração, IP e bytes; o identificador é devolvido no header `X-Request-ID`.
 - Console usa logs textuais fora de produção e JSON em produção. Erros também vão para `storage/logs/app.log`; processos de fila usam `storage/logs/queue.log`.
 - `/health/live` confirma que o processo HTTP responde. `/health/ready` verifica PostgreSQL e Redis.
-- Rate limiting Redis protege cadastro (5/min), login (10/min), refresh (30/min), operações de sessão (10/min) e troca de senha (5/min), por rota e IP.
+- Rate limiting Redis aplica proteção por IP nas rotas públicas (60/min), limites por e-mail em cadastro e login (5/min), e por usuário na renovação (30/min), operações de sessão (10/min) e troca de senha (5/min).
 - Headers incluem `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`.
 - Imagens de perfil são limitadas a 4 MiB e o conteúdo é inspecionado como JPEG ou PNG antes de salvar em `STORAGE_ROOT`.
 - Cookies usam `HttpOnly`, `SameSite=Lax` e `Secure` em produção; CORS com credenciais exige origens explícitas.

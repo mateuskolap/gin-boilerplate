@@ -18,6 +18,8 @@ import (
 
 var dummyPasswordHash = mustGenerateDummyPasswordHash()
 
+const accountRateLimit = 5
+
 func mustGenerateDummyPasswordHash() []byte {
 	hash, err := bcrypt.GenerateFromPassword([]byte("invalid-password-placeholder"), bcrypt.DefaultCost)
 	if err != nil {
@@ -31,6 +33,7 @@ type authUseCase struct {
 	roleRepo            domain.RoleRepository
 	refreshTokenUseCase domain.RefreshTokenUseCase
 	tokenBlacklist      domain.TokenBlackListRepository
+	rateLimiter         port.RateLimiter
 	tx                  port.TransactionManager
 	jwtSecret           string
 	jwtIssuer           string
@@ -46,12 +49,14 @@ func NewAuthUseCase(
 	tx port.TransactionManager,
 	jwtSecret, jwtIssuer, jwtAudience string,
 	jwtExpiration time.Duration,
+	rateLimiter port.RateLimiter,
 ) domain.AuthUseCase {
 	return &authUseCase{
 		userRepo:            userRepo,
 		roleRepo:            roleRepo,
 		refreshTokenUseCase: refreshTokenUseCase,
 		tokenBlacklist:      tokenBlacklist,
+		rateLimiter:         rateLimiter,
 		tx:                  tx,
 		jwtSecret:           jwtSecret,
 		jwtIssuer:           jwtIssuer,
@@ -71,6 +76,9 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 		)
 	}
 	if err := validatePassword(user.Password); err != nil {
+		return err
+	}
+	if err := a.limitAccount(ctx, "register", user.Email, accountRateLimit); err != nil {
 		return err
 	}
 
@@ -139,6 +147,9 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 
 func (a *authUseCase) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.AuthTokens, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
+	if err := a.limitAccount(ctx, "login", email, accountRateLimit); err != nil {
+		return nil, err
+	}
 	user, err := a.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return nil, shared.NewAppError(
@@ -193,9 +204,24 @@ func (a *authUseCase) Login(ctx context.Context, email, password, ipAddress, use
 	}, nil
 }
 
+func (a *authUseCase) limitAccount(ctx context.Context, action, identifier string, limit int) error {
+	key := "rate_limit:account:" + action + ":" + security.HashSHA256(identifier)
+	result, err := a.rateLimiter.Allow(ctx, key, limit, time.Minute)
+	if err != nil {
+		return shared.NewAppError(shared.ErrTypeUnavailable, "Rate limiting service is unavailable", err)
+	}
+	if !result.Allowed {
+		return shared.NewAppError(shared.ErrTypeTooManyRequests, "Too many account attempts. Please try again later.", nil)
+	}
+	return nil
+}
+
 func (a *authUseCase) Refresh(ctx context.Context, refreshToken string, ipAddress, userAgent string) (*domain.AuthTokens, error) {
 	storedToken, err := a.refreshTokenUseCase.Validate(ctx, refreshToken)
 	if err != nil {
+		return nil, err
+	}
+	if err := a.limitAccount(ctx, "refresh", storedToken.UserID.String(), 30); err != nil {
 		return nil, err
 	}
 

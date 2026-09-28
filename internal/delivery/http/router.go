@@ -71,24 +71,27 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 	rateLimit := func(limit int, window time.Duration) gin.HandlerFunc {
 		return middleware.RateLimiter(cfg.RateLimiter, limit, window)
 	}
+	rateLimitByUser := func(limit int, window time.Duration) gin.HandlerFunc {
+		return middleware.RateLimiterByUser(cfg.RateLimiter, limit, window)
+	}
 
 	api := r.Group("/api/v1")
 	{
 		auth := api.Group("/auth")
 		{
-			auth.POST("/register", rateLimit(5, time.Minute), cfg.AuthHandler.Register)
-			auth.POST("/login", rateLimit(10, time.Minute), cfg.AuthHandler.Login)
-			auth.POST("/refresh", rateLimit(30, time.Minute), cfg.AuthHandler.Refresh)
+			auth.POST("/register", rateLimit(60, time.Minute), cfg.AuthHandler.Register)
+			auth.POST("/login", rateLimit(60, time.Minute), cfg.AuthHandler.Login)
+			auth.POST("/refresh", rateLimit(60, time.Minute), cfg.AuthHandler.Refresh)
 		}
 
 		protected := api.Group("")
 		protected.Use(middleware.AuthenticationMiddleware(cfg.AuthUseCase, cfg.UseAuthCookies))
 		{
 			protected.POST("/auth/logout", cfg.AuthHandler.Logout)
-			protected.GET("/auth/sessions", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.ListRefreshTokensByAuthUser)
-			protected.DELETE("/auth/sessions/:id", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.RevokeSession)
-			protected.DELETE("/auth/sessions/revoke-others", rateLimit(10, time.Minute), cfg.RefreshTokenHandler.RevokeOtherSessions)
-			protected.PATCH("/auth/password", rateLimit(5, time.Minute), cfg.AuthHandler.ChangePassword)
+			protected.GET("/auth/sessions", rateLimitByUser(10, time.Minute), cfg.RefreshTokenHandler.ListRefreshTokensByAuthUser)
+			protected.DELETE("/auth/sessions/:id", rateLimitByUser(10, time.Minute), cfg.RefreshTokenHandler.RevokeSession)
+			protected.DELETE("/auth/sessions/revoke-others", rateLimitByUser(10, time.Minute), cfg.RefreshTokenHandler.RevokeOtherSessions)
+			protected.PATCH("/auth/password", rateLimitByUser(5, time.Minute), cfg.AuthHandler.ChangePassword)
 
 			users := protected.Group("/users")
 			{

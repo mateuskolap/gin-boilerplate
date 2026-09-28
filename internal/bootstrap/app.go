@@ -101,6 +101,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 	authorizationRepo := repository.NewAuthorizationRepository(db)
 	txManager := repository.NewGormTransactionManagerRepository(db)
+	rateLimiter := ratelimit.NewRedisLimiter(redisClient)
 
 	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, txManager, cfg.RefreshExpiration)
 	authUseCase := usecase.NewAuthUseCase(
@@ -113,6 +114,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		cfg.JWTIssuer,
 		cfg.JWTAudience,
 		cfg.JWTExpiration,
+		rateLimiter,
 	)
 	userUseCase := usecase.NewUserUseCase(
 		userRepo,
@@ -139,7 +141,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		HealthHandler:       v1.NewHealthHandler(health.NewChecker(sqlDB, redisClient)),
 		AuthUseCase:         authUseCase,
 		PermissionChecker:   permissionCheckerUseCase,
-		RateLimiter:         ratelimit.NewRedisLimiter(redisClient),
+		RateLimiter:         rateLimiter,
 		TrustedProxies:      cfg.TrustedProxies,
 		CORSAllowedOrigins:  cfg.CORSAllowedOrigins,
 		UseAuthCookies:      cfg.AuthTokenTransport == "cookie",

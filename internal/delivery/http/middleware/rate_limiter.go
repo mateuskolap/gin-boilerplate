@@ -13,8 +13,21 @@ import (
 )
 
 func RateLimiter(limiter port.RateLimiter, limit int, window time.Duration) gin.HandlerFunc {
+	return rateLimiter(limiter, limit, window, func(c *gin.Context) string {
+		return c.ClientIP()
+	})
+}
+
+func RateLimiterByUser(limiter port.RateLimiter, limit int, window time.Duration) gin.HandlerFunc {
+	return rateLimiter(limiter, limit, window, func(c *gin.Context) string {
+		userID, _ := c.Get("user_id")
+		return "user:" + fmt.Sprint(userID)
+	})
+}
+
+func rateLimiter(limiter port.RateLimiter, limit int, window time.Duration, identity func(*gin.Context) string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		key := fmt.Sprintf("rate_limit:%s:%s", c.FullPath(), c.ClientIP())
+		key := fmt.Sprintf("rate_limit:%s:%s", c.FullPath(), identity(c))
 		result, err := limiter.Allow(c.Request.Context(), key, limit, window)
 		if err != nil {
 			_ = c.Error(shared.NewAppError(
