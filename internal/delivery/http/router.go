@@ -40,6 +40,7 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 
 	r.Use(
 		middleware.RequestID(),
+		middleware.RequestIP(),
 		middleware.RequestLogger(),
 		middleware.Recovery(),
 		middleware.ErrorHandler(),

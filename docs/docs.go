@@ -79,13 +79,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "format": "uuid",
-                        "description": "Filter by request UUID",
-                        "name": "request_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
                         "description": "Filter from RFC3339 timestamp",
                         "name": "created_from",
                         "in": "query"
@@ -2100,7 +2093,7 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "request_id": {
+                "ip_address": {
                     "type": "string"
                 },
                 "subject_id": {

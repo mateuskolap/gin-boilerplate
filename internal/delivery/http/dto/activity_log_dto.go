@@ -15,7 +15,7 @@ type ActivityLogResponse struct {
 	SubjectType string         `json:"subject_type"`
 	SubjectID   uuid.UUID      `json:"subject_id"`
 	Changes     map[string]any `json:"changes"`
-	RequestID   *uuid.UUID     `json:"request_id"`
+	IPAddress   *string        `json:"ip_address,omitempty"`
 	CreatedAt   time.Time      `json:"created_at"`
 }
 
@@ -29,7 +29,7 @@ func ToActivityLogResponse(activity *domain.ActivityLog) ActivityLogResponse {
 		SubjectType: string(activity.SubjectType),
 		SubjectID:   activity.SubjectID,
 		Changes:     activity.Changes,
-		RequestID:   activity.RequestID,
+		IPAddress:   activity.IPAddress,
 		CreatedAt:   activity.CreatedAt,
 	}
 }

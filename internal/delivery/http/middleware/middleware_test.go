@@ -276,8 +276,8 @@ func TestRequestIDSecurityHeadersAndRecovery(t *testing.T) {
 			router := gin.New()
 			router.Use(RequestID(), Recovery(), SecurityHeaders())
 			router.GET("/panic", func(c *gin.Context) {
-				if requestID := shared.RequestIDFromContext(c.Request.Context()); requestID == nil {
-					t.Error("activity request ID is missing from context")
+				if requestID, exists := c.Get(requestIDKey); !exists || requestID == "" {
+					t.Error("request ID is missing from Gin context")
 				}
 				panic("test panic")
 			})

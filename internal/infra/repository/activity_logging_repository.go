@@ -178,7 +178,7 @@ func newModelActivity(ctx context.Context, entity any, action string, oldAttribu
 				"new": newAttributes,
 			},
 		},
-		RequestID: shared.RequestIDFromContext(ctx),
+		IPAddress: shared.RequestIPFromContext(ctx),
 	}
 }
 

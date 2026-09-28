@@ -15,7 +15,7 @@ import (
 func Recovery() gin.HandlerFunc {
 	return gin.CustomRecoveryWithWriter(io.Discard, func(c *gin.Context, recovered any) {
 		slog.ErrorContext(c.Request.Context(), "request panic",
-			"request_id", requestIDFromContext(c.Request.Context()),
+			"request_id", requestIDFromContext(c),
 			"method", c.Request.Method,
 			"path", c.Request.URL.Path,
 			"error", fmt.Sprint(recovered),

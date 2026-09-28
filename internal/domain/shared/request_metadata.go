@@ -10,7 +10,7 @@ type requestMetadataKey uint8
 
 const (
 	actorIDKey requestMetadataKey = iota
-	requestIDKey
+	requestIPKey
 )
 
 // WithActorID adds the authenticated user ID to a request context.
@@ -27,16 +27,16 @@ func ActorIDFromContext(ctx context.Context) *uuid.UUID {
 	return &id
 }
 
-// WithRequestID adds a request correlation ID to a request context.
-func WithRequestID(ctx context.Context, id uuid.UUID) context.Context {
-	return context.WithValue(ctx, requestIDKey, id)
+// WithRequestIP adds the client IP address to a request context.
+func WithRequestIP(ctx context.Context, ip string) context.Context {
+	return context.WithValue(ctx, requestIPKey, ip)
 }
 
-// RequestIDFromContext returns the request correlation ID, when the call has one.
-func RequestIDFromContext(ctx context.Context) *uuid.UUID {
-	id, ok := ctx.Value(requestIDKey).(uuid.UUID)
-	if !ok {
+// RequestIPFromContext returns the client IP address, when the call has one.
+func RequestIPFromContext(ctx context.Context) *string {
+	ip, ok := ctx.Value(requestIPKey).(string)
+	if !ok || ip == "" {
 		return nil
 	}
-	return &id
+	return &ip
 }

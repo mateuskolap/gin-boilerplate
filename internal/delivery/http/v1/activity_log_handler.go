@@ -35,7 +35,6 @@ func NewActivityLogHandler(activityLogUseCase domain.ActivityLogUseCase) *Activi
 // @Param        subject_type  query     string  false  "Filter by subject type"
 // @Param        subject_id    query     string  false  "Filter by subject UUID" format(uuid)
 // @Param        actor_id      query     string  false  "Filter by actor UUID" format(uuid)
-// @Param        request_id    query     string  false  "Filter by request UUID" format(uuid)
 // @Param        created_from  query     string  false  "Filter from RFC3339 timestamp"
 // @Param        created_to    query     string  false  "Filter until RFC3339 timestamp"
 // @Success      200  {object}  response.ApiResponse{data=dto.PaginatedActivityLogResponse} "Activity logs retrieved successfully"
@@ -76,7 +75,7 @@ func activityLogFilters(c *gin.Context) ([]shared.Filter, error) {
 			filters = append(filters, shared.Filter{Field: field, Operator: shared.OperatorEquals, Value: value})
 		}
 	}
-	for _, field := range []string{"subject_id", "actor_id", "request_id"} {
+	for _, field := range []string{"subject_id", "actor_id"} {
 		if value := c.Query(field); value != "" {
 			id, err := uuid.Parse(value)
 			if err != nil {

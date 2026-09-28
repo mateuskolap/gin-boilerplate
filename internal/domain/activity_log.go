@@ -43,7 +43,7 @@ type ActivityLog struct {
 	SubjectType ActivitySubjectType `json:"subject_type" gorm:"size:32;not null"`
 	SubjectID   uuid.UUID           `json:"subject_id" gorm:"type:uuid;not null"`
 	Changes     map[string]any      `json:"changes" gorm:"serializer:json;type:jsonb;not null"`
-	RequestID   *uuid.UUID          `json:"request_id,omitempty" gorm:"type:uuid"`
+	IPAddress   *string             `json:"ip_address,omitempty" gorm:"type:inet"`
 	CreatedAt   time.Time           `json:"created_at"`
 }
 

@@ -80,15 +80,15 @@ func TestBaseRepositoryUsesTransactionFromContext(t *testing.T) {
 }
 
 func TestNewModelActivityTracksOnlyTaggedFields(t *testing.T) {
-	actorID, requestID := uuid.New(), uuid.New()
-	ctx := shared.WithRequestID(shared.WithActorID(context.Background(), actorID), requestID)
+	actorID, requestIP := uuid.New(), "192.0.2.1"
+	ctx := shared.WithRequestIP(shared.WithActorID(context.Background(), actorID), requestIP)
 	user := &domain.User{Name: "Alice", Email: "alice@example.com", Password: "secret"}
 	user.ID = uuid.New()
 	activity := newModelActivity(ctx, user, "created", nil)
 	if activity == nil {
 		t.Fatal("activity was not created")
 	}
-	if activity.Event != domain.ActivityEvent("user.created") || activity.ActorID == nil || *activity.ActorID != actorID || activity.RequestID == nil || *activity.RequestID != requestID {
+	if activity.Event != domain.ActivityEvent("user.created") || activity.ActorID == nil || *activity.ActorID != actorID || activity.IPAddress == nil || *activity.IPAddress != requestIP {
 		t.Fatalf("activity=%+v", activity)
 	}
 	attributes := activity.Changes["attributes"].(map[string]any)["new"].(map[string]any)

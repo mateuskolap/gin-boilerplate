@@ -35,7 +35,7 @@ func ErrorHandler() gin.HandlerFunc {
 		var appErr *shared.AppError
 		if !errors.As(c.Errors.Last().Err, &appErr) {
 			slog.ErrorContext(c.Request.Context(), "unhandled request error",
-				"request_id", requestIDFromContext(c.Request.Context()),
+				"request_id", requestIDFromContext(c),
 				"error", c.Errors.Last().Err,
 			)
 			c.JSON(http.StatusInternalServerError, response.ApiResponse{
@@ -51,7 +51,7 @@ func ErrorHandler() gin.HandlerFunc {
 		}
 		if status >= http.StatusInternalServerError {
 			slog.ErrorContext(c.Request.Context(), "request failed",
-				"request_id", requestIDFromContext(c.Request.Context()),
+				"request_id", requestIDFromContext(c),
 				"error_type", appErr.Type,
 				"error", appErr.Err,
 			)

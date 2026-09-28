@@ -13,7 +13,7 @@ definitions:
         type: string
       id:
         type: string
-      request_id:
+      ip_address:
         type: string
       subject_id:
         type: string
@@ -383,11 +383,6 @@ paths:
         format: uuid
         in: query
         name: actor_id
-        type: string
-      - description: Filter by request UUID
-        format: uuid
-        in: query
-        name: request_id
         type: string
       - description: Filter from RFC3339 timestamp
         in: query

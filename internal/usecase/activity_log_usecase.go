@@ -13,7 +13,6 @@ var allowedActivityLogFilterFields = map[string]bool{
 	"actor_id":     true,
 	"created_at":   true,
 	"event":        true,
-	"request_id":   true,
 	"subject_id":   true,
 	"subject_type": true,
 }
@@ -35,7 +34,7 @@ func newActivityLog(
 		SubjectType: subjectType,
 		SubjectID:   subjectID,
 		Changes:     changes,
-		RequestID:   shared.RequestIDFromContext(ctx),
+		IPAddress:   shared.RequestIPFromContext(ctx),
 	}
 }
 

@@ -12,7 +12,8 @@ import (
 )
 
 func TestActivityLogHandlerListsWithFilters(t *testing.T) {
-	actorID, subjectID, requestID := uuid.New(), uuid.New(), uuid.New()
+	actorID, subjectID := uuid.New(), uuid.New()
+	requestIP := "192.0.2.1"
 	activity := &domain.ActivityLog{
 		ID:          uuid.New(),
 		Event:       domain.ActivityUserUpdated,
@@ -20,15 +21,15 @@ func TestActivityLogHandlerListsWithFilters(t *testing.T) {
 		SubjectType: domain.ActivitySubjectUser,
 		SubjectID:   subjectID,
 		Changes:     map[string]any{"attributes": map[string]any{}},
-		RequestID:   &requestID,
+		IPAddress:   &requestIP,
 		CreatedAt:   time.Now().UTC(),
 	}
 	fake := &httpActivityLogUseCase{result: &shared.PaginatedResult[domain.ActivityLog]{Page: 1, Limit: 10, Items: []*domain.ActivityLog{activity}}}
 	handler := NewActivityLogHandler(fake)
-	target := "/activity-logs?event=user.updated&subject_type=user&subject_id=" + subjectID.String() + "&actor_id=" + actorID.String() + "&request_id=" + requestID.String() + "&created_from=2026-01-01T00:00:00Z&created_to=2026-01-02T00:00:00Z"
+	target := "/activity-logs?event=user.updated&subject_type=user&subject_id=" + subjectID.String() + "&actor_id=" + actorID.String() + "&created_from=2026-01-01T00:00:00Z&created_to=2026-01-02T00:00:00Z"
 	recorder := serveHTTPHandler(t, http.MethodGet, "/activity-logs", target, "", handler.ListActivityLogs)
 
-	if recorder.Code != http.StatusOK || fake.calls != 1 || len(fake.filters) != 7 {
+	if recorder.Code != http.StatusOK || fake.calls != 1 || len(fake.filters) != 6 {
 		t.Fatalf("status=%d calls=%d filters=%+v body=%s", recorder.Code, fake.calls, fake.filters, recorder.Body.String())
 	}
 	if len(fake.params.Sort) != 1 || fake.params.Sort[0] != (shared.SortParam{Field: "created_at", Direction: shared.SortDesc}) {
