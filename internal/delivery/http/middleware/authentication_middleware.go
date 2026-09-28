@@ -6,6 +6,8 @@ import (
 	"gin-boilerplate/internal/domain/shared"
 	"strings"
 
+	"uuid"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,9 +45,16 @@ func AuthenticationMiddleware(authUseCase domain.AuthUseCase, useCookies bool) g
 			c.Abort()
 			return
 		}
+		userID, err := uuid.Parse(claims.Subject)
+		if err != nil {
+			_ = c.Error(shared.NewAppError(shared.ErrTypeUnauthorized, "Invalid authenticated user", err))
+			c.Abort()
+			return
+		}
 
 		c.Set("user_id", claims.Subject)
 		c.Set("raw_token", tokenString)
+		c.Request = c.Request.WithContext(shared.WithActorID(c.Request.Context(), userID))
 		c.Next()
 	}
 }

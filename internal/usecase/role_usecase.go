@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"gin-boilerplate/internal/domain"
+	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
 	"strings"
 	"unicode/utf8"
@@ -23,11 +24,15 @@ type roleUseCase struct {
 	shared.BaseListUseCase[domain.Role]
 	shared.BaseFindUseCase[domain.Role]
 	shared.BaseDeleteUseCase
-	roleRepo domain.RoleRepository
+	roleRepo        domain.RoleRepository
+	tx              port.TransactionManager
+	activityLogRepo domain.ActivityLogRepository
 }
 
 func NewRoleUseCase(
 	roleRepo domain.RoleRepository,
+	tx port.TransactionManager,
+	activityLogRepo domain.ActivityLogRepository,
 ) domain.RoleUseCase {
 	return &roleUseCase{
 		BaseListUseCase: NewBaseListUseCase(
@@ -38,10 +43,10 @@ func NewRoleUseCase(
 			roleRepo,
 			"Permissions",
 		),
-		BaseDeleteUseCase: NewBaseDeleteUseCase(
-			roleRepo,
-		),
-		roleRepo: roleRepo,
+		BaseDeleteUseCase: NewBaseDeleteUseCase(roleRepo),
+		roleRepo:          roleRepo,
+		tx:                tx,
+		activityLogRepo:   activityLogRepo,
 	}
 }
 
@@ -68,17 +73,9 @@ func (r *roleUseCase) Create(ctx context.Context, role *domain.Role) error {
 
 	if err := r.roleRepo.Create(ctx, role); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return shared.NewAppError(
-				shared.ErrTypeConflict,
-				"This role already exists",
-				err,
-			)
+			return shared.NewAppError(shared.ErrTypeConflict, "This role already exists", err)
 		}
-		return shared.NewAppError(
-			shared.ErrTypeInternal,
-			"Failed to create role",
-			err,
-		)
+		return shared.NewAppError(shared.ErrTypeInternal, "Failed to create role", err)
 	}
 
 	return nil
@@ -93,21 +90,14 @@ func (r *roleUseCase) Update(ctx context.Context, role *domain.Role) error {
 		return err
 	}
 
-	existingRole.Name = role.Name
-
-	if err = r.roleRepo.Update(ctx, existingRole); err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return shared.NewAppError(
-				shared.ErrTypeConflict,
-				"This role already exists",
-				err,
-			)
+	if existingRole.Name != role.Name {
+		existingRole.Name = role.Name
+		if err = r.roleRepo.Update(ctx, existingRole); err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				return shared.NewAppError(shared.ErrTypeConflict, "This role already exists", err)
+			}
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to update role", err)
 		}
-		return shared.NewAppError(
-			shared.ErrTypeInternal,
-			"Failed to update role",
-			err,
-		)
 	}
 
 	*role = *existingRole
@@ -127,19 +117,47 @@ func normalizeRoleName(role *domain.Role) error {
 }
 
 func (r *roleUseCase) AddPermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
-	role, err := findByID(ctx, r.roleRepo, roleID)
+	role, err := findByID(ctx, r.roleRepo, roleID, "Permissions")
 	if err != nil {
 		return err
 	}
 
-	return r.roleRepo.AddPermissions(ctx, *role, permissionIDs)
+	currentPermissionIDs := make([]uuid.UUID, len(role.Permissions))
+	for i, permission := range role.Permissions {
+		currentPermissionIDs[i] = permission.ID
+	}
+	addedPermissionIDs := effectiveRelationIDs(currentPermissionIDs, permissionIDs, true)
+	if len(addedPermissionIDs) == 0 {
+		return nil
+	}
+	return r.tx.Do(ctx, func(txCtx context.Context) error {
+		if err := r.roleRepo.AddPermissions(txCtx, *role, addedPermissionIDs); err != nil {
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to add permissions to role", err)
+		}
+		return recordActivity(txCtx, r.activityLogRepo, domain.ActivityRolePermissionsAdded, domain.ActivitySubjectRole, role.ID,
+			relationChanges("permissions", addedPermissionIDs, []uuid.UUID{}))
+	})
 }
 
 func (r *roleUseCase) RemovePermissions(ctx context.Context, roleID uuid.UUID, permissionIDs []uuid.UUID) error {
-	role, err := findByID(ctx, r.roleRepo, roleID)
+	role, err := findByID(ctx, r.roleRepo, roleID, "Permissions")
 	if err != nil {
 		return err
 	}
 
-	return r.roleRepo.RemovePermissions(ctx, *role, permissionIDs)
+	currentPermissionIDs := make([]uuid.UUID, len(role.Permissions))
+	for i, permission := range role.Permissions {
+		currentPermissionIDs[i] = permission.ID
+	}
+	removedPermissionIDs := effectiveRelationIDs(currentPermissionIDs, permissionIDs, false)
+	if len(removedPermissionIDs) == 0 {
+		return nil
+	}
+	return r.tx.Do(ctx, func(txCtx context.Context) error {
+		if err := r.roleRepo.RemovePermissions(txCtx, *role, removedPermissionIDs); err != nil {
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to remove permissions from role", err)
+		}
+		return recordActivity(txCtx, r.activityLogRepo, domain.ActivityRolePermissionsRemoved, domain.ActivitySubjectRole, role.ID,
+			relationChanges("permissions", []uuid.UUID{}, removedPermissionIDs))
+	})
 }

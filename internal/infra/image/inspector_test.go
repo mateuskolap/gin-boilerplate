@@ -25,7 +25,7 @@ func encodedPNG(t *testing.T) []byte {
 
 func TestInspectorRecognizesSupportedFormatsAndPreservesBytes(t *testing.T) {
 	source := encodedPNG(t)
-	inspected, err := NewInspector().Inspect(context.Background(), bytes.NewReader(source))
+	inspected, err := (&Inspector{}).Inspect(context.Background(), bytes.NewReader(source))
 	if err != nil {
 		t.Fatalf("Inspect() error = %v", err)
 	}
@@ -36,7 +36,7 @@ func TestInspectorRecognizesSupportedFormatsAndPreservesBytes(t *testing.T) {
 }
 
 func TestInspectorRejectsInvalidUnsupportedAndCanceledInput(t *testing.T) {
-	inspector := NewInspector()
+	inspector := &Inspector{}
 	if _, err := inspector.Inspect(context.Background(), nil); !errors.Is(err, port.ErrInvalidImage) {
 		t.Fatalf("Inspect(nil) error = %v", err)
 	}

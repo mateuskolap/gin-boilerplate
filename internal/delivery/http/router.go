@@ -20,6 +20,7 @@ type RouterConfig struct {
 	UserHandler         *v1.UserHandler
 	RoleHandler         *v1.RoleHandler
 	PermissionHandler   *v1.PermissionHandler
+	ActivityLogHandler  *v1.ActivityLogHandler
 	RefreshTokenHandler *v1.RefreshTokenHandler
 	HealthHandler       *v1.HealthHandler
 	AuthUseCase         domain.AuthUseCase
@@ -122,6 +123,8 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 			{
 				permissions.GET("", requirePermission(domain.PermissionViewPermission), cfg.PermissionHandler.ListPermissions)
 			}
+
+			protected.GET("/activity-logs", requirePermission(domain.PermissionViewActivityLog), cfg.ActivityLogHandler.ListActivityLogs)
 		}
 	}
 

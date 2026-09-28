@@ -22,6 +22,7 @@ Foi pensado para serviços backend que podem começar como um monólito modular.
 - Worker e scheduler separados. O cron existente remove refresh tokens expirados após o período de retenção.
 - Validação de payloads, paginação, filtros, erros HTTP padronizados e documentação Swagger/OpenAPI.
 - Logs estruturados, `X-Request-ID`, health checks e alguns headers de segurança.
+- Activity logs administrativos imutáveis para usuários e RBAC, consultáveis com a permissão `view_activity_log`.
 - Adaptador SMTP disponível, mas ainda sem fluxo de produto que envie e-mails.
 
 ## Stack
@@ -210,7 +211,7 @@ Em modo cookie, os cookies usam `SameSite=Lax` e `Secure` em produção. Para ch
 | `make migrate-up` | Aplica migrations pendentes. |
 | `make migrate-down` | Reverte uma migration; `make migrate-down STEPS=2` reverte duas. |
 | `make migrate-version` | Mostra a versão atual das migrations. |
-| `go test ./...` | Executa os testes Go existentes. |
+| `make test` | Executa os testes Go existentes. |
 
 Não há comandos Make para build, lint ou reset do banco. O servidor não aplica migrations automaticamente ao iniciar.
 
@@ -312,8 +313,6 @@ Workers mantêm suas próprias conexões com PostgreSQL e o database Redis da fi
 - Imagens de perfil são limitadas a 4 MiB e o conteúdo é inspecionado como JPEG ou PNG antes de salvar em `STORAGE_ROOT`.
 - Cookies usam `HttpOnly`, `SameSite=Lax` e `Secure` em produção; CORS com credenciais exige origens explícitas.
 
-Não há métricas, tracing distribuído, rotação de arquivos de log ou workflow CI/CD neste repositório.
-
 ## Testes
 
 Execute:
@@ -339,13 +338,10 @@ O `Dockerfile` multi-stage compila uma imagem `scratch` não root com os binári
 5. Escolha `body` ou `cookie` para o transporte de tokens e configure o cliente correspondente.
 6. Defina processo de deploy, observabilidade e CI/CD conforme o ambiente alvo.
 
-Os recursos implementados (usuários, papéis, permissões e sessões) são exemplos funcionais do boilerplate, não apenas scaffolding. O repositório não contém template generator nem configuração de CI.
-
 ## Limitações e licença
 
 - A persistência de imagens é local; em deploy com múltiplas réplicas, use um volume compartilhado ou substitua o adaptador por storage apropriado.
 - O SMTP está implementado como adaptador, mas cadastro, login e outros casos de uso não enviam e-mail.
-- Ainda não há MFA, confirmação de e-mail, recuperação de senha, auditoria de administração, métricas ou tracing.
-- Filas distribuídas estão configuradas, mas a tarefa funcional atual é a limpeza periódica de refresh tokens.
+- Ainda não há MFA, confirmação de e-mail, recuperação de senha, métricas ou tracing.
 - Não há suites de integração/e2e nem CI/CD no repositório.
 - Este projeto está licenciado sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE).

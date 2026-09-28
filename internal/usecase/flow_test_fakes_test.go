@@ -163,6 +163,26 @@ type testTransaction struct {
 	err   error
 }
 
+type testActivityLogRepo struct {
+	domain.ActivityLogRepository
+	activities []*domain.ActivityLog
+	createErr  error
+	listErr    error
+	listResult *shared.PaginatedResult[domain.ActivityLog]
+}
+
+func (r *testActivityLogRepo) Create(_ context.Context, activity *domain.ActivityLog) error {
+	if r.createErr != nil {
+		return r.createErr
+	}
+	r.activities = append(r.activities, activity)
+	return nil
+}
+
+func (r *testActivityLogRepo) List(_ context.Context, _ shared.PaginationParams, _ []shared.Filter, _ ...string) (*shared.PaginatedResult[domain.ActivityLog], error) {
+	return r.listResult, r.listErr
+}
+
 func (tx *testTransaction) Do(ctx context.Context, fn func(context.Context) error) error {
 	tx.calls++
 	if err := fn(ctx); err != nil {

@@ -139,8 +139,9 @@ func isTestDatabaseName(path string) bool {
 func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 	db := testPostgres(t)
 	ctx := context.Background()
-	users := repository.NewUserRepository(db)
-	roles := repository.NewRoleRepository(db)
+	activityLogs := repository.NewActivityLogRepository(db)
+	users := repository.NewUserRepository(db, activityLogs)
+	roles := repository.NewRoleRepository(db, activityLogs)
 	permissions := repository.NewPermissionRepository(db)
 	authorization := repository.NewAuthorizationRepository(db)
 
@@ -250,7 +251,7 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 func TestRefreshTokenRepositoryStateTransitionsAgainstPostgres(t *testing.T) {
 	db := testPostgres(t)
 	ctx := context.Background()
-	users := repository.NewUserRepository(db)
+	users := repository.NewUserRepository(db, repository.NewActivityLogRepository(db))
 	tokens := repository.NewRefreshTokenRepository(db)
 	owner := &domain.User{Name: "Owner", Email: "owner@example.test", Password: "hash"}
 	other := &domain.User{Name: "Other", Email: "other@example.test", Password: "hash"}
@@ -353,7 +354,7 @@ func TestDatabaseSeederIsRepeatableAndTransactional(t *testing.T) {
 	if err := db.Model(&domain.Permission{}).Where("name = ?", "obsolete.integration.permission").Count(&obsoleteCount).Error; err != nil || obsoleteCount != 0 {
 		t.Fatalf("obsolete permission count = %d, %v; want zero", obsoleteCount, err)
 	}
-	admin, err := repository.NewUserRepository(db).GetByEmail(context.Background(), cfg.AdminEmail, "Roles")
+	admin, err := repository.NewUserRepository(db, repository.NewActivityLogRepository(db)).GetByEmail(context.Background(), cfg.AdminEmail, "Roles")
 	if err != nil || admin == nil || len(admin.Roles) != 1 || admin.Roles[0].Name != domain.RoleAdmin {
 		t.Fatalf("seeded admin = %#v, %v", admin, err)
 	}

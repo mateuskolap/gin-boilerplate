@@ -13,6 +13,135 @@
     "host": "localhost:8080",
     "basePath": "/",
     "paths": {
+        "/api/v1/activity-logs": {
+            "get": {
+                "description": "Retrieve paginated administrative activity logs. Requires 'view_activity_log' permission.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Activity logs"
+                ],
+                "summary": "List activity logs",
+                "parameters": [
+                    {
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Page number (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer",
+                        "description": "Items per page (default: 10, max: 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sorting criteria (default: created_at:desc)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by event",
+                        "name": "event",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by subject type",
+                        "name": "subject_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Filter by subject UUID",
+                        "name": "subject_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Filter by actor UUID",
+                        "name": "actor_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Filter by request UUID",
+                        "name": "request_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter from RFC3339 timestamp",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter until RFC3339 timestamp",
+                        "name": "created_to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Activity logs retrieved successfully",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/response.ApiResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/dto.PaginatedActivityLogResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized - Missing or invalid token",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden - Requires view_activity_log permission",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity - Invalid filter or sorting parameter",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/response.ApiResponse"
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "description": "Authenticate with email and password. Tokens are returned in the response body or set as HttpOnly cookies according to AUTH_TOKEN_TRANSPORT.",
@@ -1946,6 +2075,36 @@
         }
     },
     "definitions": {
+        "dto.ActivityLogResponse": {
+            "type": "object",
+            "properties": {
+                "actor_id": {
+                    "type": "string"
+                },
+                "changes": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "event": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "request_id": {
+                    "type": "string"
+                },
+                "subject_id": {
+                    "type": "string"
+                },
+                "subject_type": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.ChangePasswordRequest": {
             "type": "object",
             "required": [
@@ -2017,6 +2176,29 @@
                 "refresh_token": {
                     "type": "string",
                     "example": "a1b2c3d4e5f6..."
+                }
+            }
+        },
+        "dto.PaginatedActivityLogResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.ActivityLogResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
                 }
             }
         },

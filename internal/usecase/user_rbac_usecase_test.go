@@ -192,7 +192,7 @@ func (i *userTestImageInspector) Inspect(context.Context, io.Reader) (port.Inspe
 }
 
 func newUserUseCaseForTest(repo *rbacUserRepo, refresh *testRefreshUseCase, storage port.Storage, inspector port.ImageInspector, blacklist *testBlacklist, tx *testTransaction) domain.UserUseCase {
-	return NewUserUseCase(repo, refresh, storage, inspector, blacklist, tx, time.Hour)
+	return NewUserUseCase(repo, refresh, storage, inspector, blacklist, tx, time.Hour, &testActivityLogRepo{})
 }
 
 func TestUserUpdateProfileTrimsNameAndValidatesRunes(t *testing.T) {
@@ -224,6 +224,9 @@ func TestUserRoleChangesInvalidateAccessTokens(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			user := &domain.User{ID: userID}
+			if tc.name == "remove" {
+				user.Roles = []domain.Role{{ID: roleID}}
+			}
 			repo := &rbacUserRepo{users: map[uuid.UUID]*domain.User{userID: user}}
 			blacklist := &testBlacklist{}
 			uc := newUserUseCaseForTest(repo, &testRefreshUseCase{}, &userTestStorage{}, &userTestImageInspector{}, blacklist, &testTransaction{})
@@ -260,6 +263,7 @@ func TestUserRoleChangeFailuresDoNotHidePartialFailure(t *testing.T) {
 	})
 
 	t.Run("token invalidation failure is returned", func(t *testing.T) {
+		user := &domain.User{ID: userID, Roles: []domain.Role{{ID: roleID}}}
 		repo := &rbacUserRepo{users: map[uuid.UUID]*domain.User{userID: user}}
 		blacklist := &testBlacklist{revokeUserErr: io.ErrClosedPipe}
 		useCase := newUserUseCaseForTest(repo, &testRefreshUseCase{}, &userTestStorage{}, &userTestImageInspector{}, blacklist, &testTransaction{})
@@ -419,7 +423,7 @@ func TestUserAvatarReadAndRemove(t *testing.T) {
 
 func TestRoleCreateUpdateAndDuplicateErrors(t *testing.T) {
 	repo := &rbacRoleRepo{roles: make(map[uuid.UUID]*domain.Role)}
-	useCase := NewRoleUseCase(repo)
+	useCase := NewRoleUseCase(repo, &testTransaction{}, &testActivityLogRepo{})
 	role := &domain.Role{Name: "  Support  "}
 	if err := useCase.Create(context.Background(), role); err != nil || role.Name != "Support" || repo.queriedName != "Support" || repo.created != role {
 		t.Fatalf("Create() role=%+v queried=%q created=%p error=%v", role, repo.queriedName, repo.created, err)
@@ -447,21 +451,21 @@ func TestRoleDeleteRequiresExistingRoleAndMapsRepositoryErrors(t *testing.T) {
 	id := uuid.New()
 	t.Run("deletes existing role", func(t *testing.T) {
 		repo := &rbacRoleRepo{roles: map[uuid.UUID]*domain.Role{id: {ID: id}}}
-		if err := NewRoleUseCase(repo).Delete(context.Background(), id); err != nil || repo.deletedID != id {
+		if err := NewRoleUseCase(repo, &testTransaction{}, &testActivityLogRepo{}).Delete(context.Background(), id); err != nil || repo.deletedID != id {
 			t.Fatalf("Delete() deletedID=%v error=%v", repo.deletedID, err)
 		}
 	})
 
 	t.Run("does not delete a missing role", func(t *testing.T) {
 		repo := &rbacRoleRepo{roles: make(map[uuid.UUID]*domain.Role)}
-		if err := NewRoleUseCase(repo).Delete(context.Background(), id); appErrorType(err) != shared.ErrTypeNotFound || repo.deletedID != uuid.Nil() {
+		if err := NewRoleUseCase(repo, &testTransaction{}, &testActivityLogRepo{}).Delete(context.Background(), id); appErrorType(err) != shared.ErrTypeNotFound || repo.deletedID != uuid.Nil() {
 			t.Fatalf("Delete() error=%v deletedID=%v, want not found without repository delete", err, repo.deletedID)
 		}
 	})
 
 	t.Run("maps repository failure", func(t *testing.T) {
 		repo := &rbacRoleRepo{roles: map[uuid.UUID]*domain.Role{id: {ID: id}}, deleteErr: io.ErrClosedPipe}
-		if err := NewRoleUseCase(repo).Delete(context.Background(), id); appErrorType(err) != shared.ErrTypeInternal || repo.deletedID != id {
+		if err := NewRoleUseCase(repo, &testTransaction{}, &testActivityLogRepo{}).Delete(context.Background(), id); appErrorType(err) != shared.ErrTypeInternal || repo.deletedID != id {
 			t.Fatalf("Delete() error=%v deletedID=%v, want internal error", err, repo.deletedID)
 		}
 	})
@@ -471,7 +475,7 @@ func TestRolePermissionChangesAndFindPreload(t *testing.T) {
 	roleID, permissionID := uuid.New(), uuid.New()
 	role := &domain.Role{ID: roleID, Name: "Editor"}
 	repo := &rbacRoleRepo{roles: map[uuid.UUID]*domain.Role{roleID: role}}
-	useCase := NewRoleUseCase(repo)
+	useCase := NewRoleUseCase(repo, &testTransaction{}, &testActivityLogRepo{})
 	permissionIDs := []uuid.UUID{permissionID}
 
 	if err := useCase.AddPermissions(context.Background(), roleID, permissionIDs); err != nil {
@@ -480,6 +484,7 @@ func TestRolePermissionChangesAndFindPreload(t *testing.T) {
 	if repo.addedRole.ID != roleID || len(repo.addedPermissionIDs) != 1 || repo.addedPermissionIDs[0] != permissionID {
 		t.Fatalf("AddPermissions() passed wrong role or IDs: %+v %v", repo.addedRole, repo.addedPermissionIDs)
 	}
+	role.Permissions = []domain.Permission{{ID: permissionID}}
 	if err := useCase.RemovePermissions(context.Background(), roleID, permissionIDs); err != nil {
 		t.Fatalf("RemovePermissions() error = %v", err)
 	}
@@ -493,7 +498,7 @@ func TestRolePermissionChangesAndFindPreload(t *testing.T) {
 
 func TestRoleListValidatesFieldsBeforeRepository(t *testing.T) {
 	repo := &rbacRoleRepo{listResult: &shared.PaginatedResult[domain.Role]{Page: 1}}
-	useCase := NewRoleUseCase(repo)
+	useCase := NewRoleUseCase(repo, &testTransaction{}, &testActivityLogRepo{})
 	params := shared.PaginationParams{Page: 1, Limit: 10, Sort: []shared.SortParam{{Field: "name", Direction: shared.SortAsc}}}
 	if _, err := useCase.List(context.Background(), params, []shared.Filter{{Field: "name", Operator: shared.OperatorEquals, Value: "Admin"}}); err != nil {
 		t.Fatalf("List() error = %v", err)

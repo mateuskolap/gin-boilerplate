@@ -102,6 +102,9 @@ func TestAuthenticationMiddlewareReadsBearerAndCookieTokens(t *testing.T) {
 				if gotUser != userID.String() || gotToken != wantToken {
 					t.Errorf("authentication context user=%v token=%v", gotUser, gotToken)
 				}
+				if actorID := shared.ActorIDFromContext(c.Request.Context()); actorID == nil || *actorID != userID {
+					t.Errorf("activity actor context = %v, want %v", actorID, userID)
+				}
 				nextCalled = true
 				c.Status(http.StatusNoContent)
 			}
@@ -272,7 +275,12 @@ func TestRequestIDSecurityHeadersAndRecovery(t *testing.T) {
 			gin.SetMode(gin.TestMode)
 			router := gin.New()
 			router.Use(RequestID(), Recovery(), SecurityHeaders())
-			router.GET("/panic", func(c *gin.Context) { panic("test panic") })
+			router.GET("/panic", func(c *gin.Context) {
+				if requestID := shared.RequestIDFromContext(c.Request.Context()); requestID == nil {
+					t.Error("activity request ID is missing from context")
+				}
+				panic("test panic")
+			})
 			req := httptest.NewRequest(http.MethodGet, "/panic", nil)
 			if tc.requestID != "" {
 				req.Header.Set("X-Request-ID", tc.requestID)

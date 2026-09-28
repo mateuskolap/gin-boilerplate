@@ -9,13 +9,17 @@ import (
 
 type User struct {
 	shared.BaseSoftDeleteModel
-	Name      string `json:"name" gorm:"not null"`
-	Email     string `json:"email" gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL"`
-	Password  string `json:"-" gorm:"not null"`
+	Name      string `json:"name" gorm:"not null" activity:"track"`
+	Email     string `json:"email" gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL" activity:"track"`
+	Password  string `json:"-" gorm:"not null" activity:"-"`
 	AvatarKey string `json:"avatar_key,omitempty"`
 
 	Roles []Role `json:"roles,omitempty" gorm:"many2many:user_roles;constraint:OnDelete:CASCADE;"`
 }
+
+func (u User) ActivityLogSubjectType() ActivitySubjectType { return ActivitySubjectUser }
+
+func (u User) ActivityLogID() uuid.UUID { return u.ID }
 
 type UserRepository interface {
 	shared.BaseRepository[User]

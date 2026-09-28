@@ -14,11 +14,15 @@ const (
 
 type Role struct {
 	shared.BaseModel
-	Name string `json:"name" gorm:"not null;unique"`
+	Name string `json:"name" gorm:"not null;unique" activity:"track"`
 
 	Permissions []Permission `json:"permissions,omitempty" gorm:"many2many:role_permissions;constraint:OnDelete:CASCADE;"`
 	Users       []User       `json:"users,omitempty" gorm:"many2many:user_roles;constraint:OnDelete:CASCADE;"`
 }
+
+func (r Role) ActivityLogSubjectType() ActivitySubjectType { return ActivitySubjectRole }
+
+func (r Role) ActivityLogID() uuid.UUID { return r.ID }
 
 type RoleRepository interface {
 	shared.BaseRepository[Role]

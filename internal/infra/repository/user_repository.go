@@ -9,12 +9,16 @@ import (
 )
 
 type userRepository struct {
-	*baseRepository[domain.User]
+	*activityLoggingRepository[domain.User]
 }
 
-func NewUserRepository(db *gorm.DB) domain.UserRepository {
+func NewUserRepository(db *gorm.DB, activityLogRepo domain.ActivityLogRepository) domain.UserRepository {
 	return &userRepository{
-		baseRepository: newBaseRepository[domain.User](db),
+		activityLoggingRepository: newActivityLoggingRepository(
+			db,
+			newBaseRepository[domain.User](db),
+			activityLogRepo,
+		),
 	}
 }
 

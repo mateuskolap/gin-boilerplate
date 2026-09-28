@@ -12,6 +12,7 @@ import (
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/port"
+	"gin-boilerplate/internal/domain/shared"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,6 +32,17 @@ type routerRefreshUseCase struct {
 	userID uuid.UUID
 	token  string
 	err    error
+}
+
+type routerActivityLogUseCase struct {
+	domain.ActivityLogUseCase
+	params  shared.PaginationParams
+	filters []shared.Filter
+}
+
+func (f *routerActivityLogUseCase) List(_ context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[domain.ActivityLog], error) {
+	f.params, f.filters = params, filters
+	return &shared.PaginatedResult[domain.ActivityLog]{Page: params.Page, Limit: params.Limit}, nil
 }
 
 func (f *routerRefreshUseCase) RevokeOtherSessions(_ context.Context, userID uuid.UUID, token string) error {
@@ -81,6 +93,7 @@ func routerForTest(t *testing.T, auth *routerAuthUseCase, refresh *routerRefresh
 		UserHandler:         v1.NewUserHandler(users),
 		RoleHandler:         v1.NewRoleHandler(nil),
 		PermissionHandler:   v1.NewPermissionHandler(nil),
+		ActivityLogHandler:  v1.NewActivityLogHandler(&routerActivityLogUseCase{}),
 		RefreshTokenHandler: v1.NewRefreshTokenHandler(refresh, false),
 		HealthHandler:       v1.NewHealthHandler(routerHealthChecker{}),
 		AuthUseCase:         auth,
@@ -151,6 +164,24 @@ func TestSetupRouterAppliesPermissionGuard(t *testing.T) {
 	allowed := serveRouter(router, nethttp.MethodGet, "/api/v1/users/"+targetID.String(), "", "token")
 	if allowed.Code != nethttp.StatusOK || users.userID != targetID {
 		t.Fatalf("permitted route status=%d user lookup=%v body=%s", allowed.Code, users.userID, allowed.Body.String())
+	}
+}
+
+func TestSetupRouterProtectsActivityLogs(t *testing.T) {
+	userID := uuid.New()
+	auth := &routerAuthUseCase{claims: &domain.TokenClaims{Subject: userID.String()}}
+	permissions := &routerPermissionChecker{}
+	router := routerForTest(t, auth, &routerRefreshUseCase{}, &routerUserUseCase{}, permissions)
+
+	denied := serveRouter(router, nethttp.MethodGet, "/api/v1/activity-logs", "", "token")
+	if denied.Code != nethttp.StatusForbidden || permissions.name != domain.PermissionViewActivityLog || permissions.userID != userID {
+		t.Fatalf("activity logs denial status=%d checker=%+v", denied.Code, permissions)
+	}
+
+	permissions.allowed = true
+	allowed := serveRouter(router, nethttp.MethodGet, "/api/v1/activity-logs", "", "token")
+	if allowed.Code != nethttp.StatusOK {
+		t.Fatalf("activity logs allowed status=%d body=%s", allowed.Code, allowed.Body.String())
 	}
 }
 

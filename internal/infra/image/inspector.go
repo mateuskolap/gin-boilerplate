@@ -19,10 +19,6 @@ type Inspector struct{}
 
 var _ port.ImageInspector = (*Inspector)(nil)
 
-func NewInspector() *Inspector {
-	return &Inspector{}
-}
-
 func (i *Inspector) Inspect(ctx context.Context, src io.Reader) (port.InspectedImage, error) {
 	if src == nil {
 		return port.InspectedImage{}, port.ErrInvalidImage

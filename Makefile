@@ -30,3 +30,6 @@ queue-worker:
 
 queue-scheduler:
 	go run ./cmd/scheduler
+
+test:
+	go test ./... -cover

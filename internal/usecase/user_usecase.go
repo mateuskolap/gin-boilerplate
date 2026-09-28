@@ -37,6 +37,7 @@ type userUseCase struct {
 	tokenBlacklist      domain.TokenBlackListRepository
 	tx                  port.TransactionManager
 	jwtExpiration       time.Duration
+	activityLogRepo     domain.ActivityLogRepository
 }
 
 func NewUserUseCase(
@@ -47,6 +48,7 @@ func NewUserUseCase(
 	tokenBlacklist domain.TokenBlackListRepository,
 	tx port.TransactionManager,
 	jwtExpiration time.Duration,
+	activityLogRepo domain.ActivityLogRepository,
 ) domain.UserUseCase {
 	return &userUseCase{
 		BaseListUseCase: NewBaseListUseCase(
@@ -64,6 +66,7 @@ func NewUserUseCase(
 		tokenBlacklist:      tokenBlacklist,
 		tx:                  tx,
 		jwtExpiration:       jwtExpiration,
+		activityLogRepo:     activityLogRepo,
 	}
 }
 
@@ -81,14 +84,11 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, user *domain.User) erro
 		return err
 	}
 
-	existingUser.Name = user.Name
-
-	if err := u.userRepo.Update(ctx, existingUser); err != nil {
-		return shared.NewAppError(
-			shared.ErrTypeInternal,
-			"Failed to update profile",
-			err,
-		)
+	if existingUser.Name != user.Name {
+		existingUser.Name = user.Name
+		if err := u.userRepo.Update(ctx, existingUser); err != nil {
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to update profile", err)
+		}
 	}
 
 	*user = *existingUser
@@ -117,7 +117,6 @@ func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
 				err,
 			)
 		}
-
 		return nil
 	})
 	if err != nil {
@@ -138,17 +137,27 @@ func (u *userUseCase) Delete(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (u *userUseCase) AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
-	user, err := findByID(ctx, u.userRepo, userID)
+	user, err := findByID(ctx, u.userRepo, userID, "Roles")
 	if err != nil {
 		return err
 	}
 
-	if err := u.userRepo.AddRoles(ctx, *user, roleIDs); err != nil {
-		return shared.NewAppError(
-			shared.ErrTypeInternal,
-			"Failed to add roles to user",
-			err,
-		)
+	currentRoleIDs := make([]uuid.UUID, len(user.Roles))
+	for i, role := range user.Roles {
+		currentRoleIDs[i] = role.ID
+	}
+	addedRoleIDs := effectiveRelationIDs(currentRoleIDs, roleIDs, true)
+	if len(addedRoleIDs) == 0 {
+		return nil
+	}
+	if err := u.tx.Do(ctx, func(txCtx context.Context) error {
+		if err := u.userRepo.AddRoles(txCtx, *user, addedRoleIDs); err != nil {
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to add roles to user", err)
+		}
+		return recordActivity(txCtx, u.activityLogRepo, domain.ActivityUserRolesAdded, domain.ActivitySubjectUser, user.ID,
+			relationChanges("roles", addedRoleIDs, []uuid.UUID{}))
+	}); err != nil {
+		return err
 	}
 
 	if err := u.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), u.jwtExpiration); err != nil {
@@ -163,17 +172,27 @@ func (u *userUseCase) AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []
 }
 
 func (u *userUseCase) RemoveRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error {
-	user, err := findByID(ctx, u.userRepo, userID)
+	user, err := findByID(ctx, u.userRepo, userID, "Roles")
 	if err != nil {
 		return err
 	}
 
-	if err := u.userRepo.RemoveRoles(ctx, *user, roleIDs); err != nil {
-		return shared.NewAppError(
-			shared.ErrTypeInternal,
-			"Failed to remove roles from user",
-			err,
-		)
+	currentRoleIDs := make([]uuid.UUID, len(user.Roles))
+	for i, role := range user.Roles {
+		currentRoleIDs[i] = role.ID
+	}
+	removedRoleIDs := effectiveRelationIDs(currentRoleIDs, roleIDs, false)
+	if len(removedRoleIDs) == 0 {
+		return nil
+	}
+	if err := u.tx.Do(ctx, func(txCtx context.Context) error {
+		if err := u.userRepo.RemoveRoles(txCtx, *user, removedRoleIDs); err != nil {
+			return shared.NewAppError(shared.ErrTypeInternal, "Failed to remove roles from user", err)
+		}
+		return recordActivity(txCtx, u.activityLogRepo, domain.ActivityUserRolesRemoved, domain.ActivitySubjectUser, user.ID,
+			relationChanges("roles", []uuid.UUID{}, removedRoleIDs))
+	}); err != nil {
+		return err
 	}
 
 	if err := u.tokenBlacklist.RevokeUserTokens(ctx, userID.String(), u.jwtExpiration); err != nil {

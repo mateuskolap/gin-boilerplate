@@ -10,12 +10,16 @@ import (
 )
 
 type roleRepository struct {
-	*baseRepository[domain.Role]
+	*activityLoggingRepository[domain.Role]
 }
 
-func NewRoleRepository(db *gorm.DB) domain.RoleRepository {
+func NewRoleRepository(db *gorm.DB, activityLogRepo domain.ActivityLogRepository) domain.RoleRepository {
 	return &roleRepository{
-		baseRepository: newBaseRepository[domain.Role](db),
+		activityLoggingRepository: newActivityLoggingRepository(
+			db,
+			newBaseRepository[domain.Role](db),
+			activityLogRepo,
+		),
 	}
 }
 

@@ -16,7 +16,8 @@ const (
 	PermissionRemoveRolePermission PermissionName = "remove_role_permission"
 
 	// Permissions
-	PermissionViewPermission PermissionName = "view_permission"
+	PermissionViewPermission  PermissionName = "view_permission"
+	PermissionViewActivityLog PermissionName = "view_activity_log"
 
 	// Users
 	PermissionViewUser       PermissionName = "view_user"
@@ -34,6 +35,7 @@ var AllPermissions = []PermissionName{
 	PermissionAddRolePermission,
 	PermissionRemoveRolePermission,
 	PermissionViewPermission,
+	PermissionViewActivityLog,
 	PermissionViewUser,
 	PermissionAddUserRole,
 	PermissionRemoveUserRole,

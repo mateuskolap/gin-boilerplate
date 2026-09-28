@@ -167,6 +167,21 @@ type httpPermissionUseCase struct {
 	calls   int
 }
 
+type httpActivityLogUseCase struct {
+	domain.ActivityLogUseCase
+	result  *shared.PaginatedResult[domain.ActivityLog]
+	params  shared.PaginationParams
+	filters []shared.Filter
+	err     error
+	calls   int
+}
+
+func (f *httpActivityLogUseCase) List(_ context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[domain.ActivityLog], error) {
+	f.calls++
+	f.params, f.filters = params, filters
+	return f.result, f.err
+}
+
 func (f *httpPermissionUseCase) List(_ context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[domain.Permission], error) {
 	f.calls++
 	f.params, f.filters = params, filters

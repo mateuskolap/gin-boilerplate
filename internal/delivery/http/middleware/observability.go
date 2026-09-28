@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"context"
+	"gin-boilerplate/internal/domain/shared"
 	"log/slog"
 	"time"
 	"uuid"
@@ -8,17 +10,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const requestIDKey = "request_id"
-
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		requestID := c.GetHeader("X-Request-ID")
-		if _, err := uuid.Parse(requestID); err != nil {
-			requestID = uuid.New().String()
+		requestID, err := uuid.Parse(c.GetHeader("X-Request-ID"))
+		if err != nil {
+			requestID = uuid.New()
 		}
+		requestIDValue := requestID.String()
 
-		c.Set(requestIDKey, requestID)
-		c.Header("X-Request-ID", requestID)
+		c.Request = c.Request.WithContext(shared.WithRequestID(c.Request.Context(), requestID))
+		c.Header("X-Request-ID", requestIDValue)
 		c.Next()
 	}
 }
@@ -29,7 +30,7 @@ func RequestLogger() gin.HandlerFunc {
 		c.Next()
 
 		slog.InfoContext(c.Request.Context(), "http request",
-			"request_id", requestIDFromContext(c),
+			"request_id", requestIDFromContext(c.Request.Context()),
 			"method", c.Request.Method,
 			"path", c.Request.URL.Path,
 			"status", c.Writer.Status(),
@@ -40,8 +41,10 @@ func RequestLogger() gin.HandlerFunc {
 	}
 }
 
-func requestIDFromContext(c *gin.Context) string {
-	requestID, _ := c.Get(requestIDKey)
-	value, _ := requestID.(string)
-	return value
+func requestIDFromContext(ctx context.Context) string {
+	requestID := shared.RequestIDFromContext(ctx)
+	if requestID == nil {
+		return ""
+	}
+	return requestID.String()
 }

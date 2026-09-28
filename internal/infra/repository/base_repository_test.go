@@ -8,6 +8,8 @@ import (
 	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/shared"
 
+	"uuid"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -74,5 +76,23 @@ func TestBaseRepositoryUsesTransactionFromContext(t *testing.T) {
 	plainContext := context.Background()
 	if got := repo.getDB(plainContext); got.Statement.Context != plainContext {
 		t.Fatal("repository did not attach the request context to the default database")
+	}
+}
+
+func TestNewModelActivityTracksOnlyTaggedFields(t *testing.T) {
+	actorID, requestID := uuid.New(), uuid.New()
+	ctx := shared.WithRequestID(shared.WithActorID(context.Background(), actorID), requestID)
+	user := &domain.User{Name: "Alice", Email: "alice@example.com", Password: "secret"}
+	user.ID = uuid.New()
+	activity := newModelActivity(ctx, user, "created", nil)
+	if activity == nil {
+		t.Fatal("activity was not created")
+	}
+	if activity.Event != domain.ActivityEvent("user.created") || activity.ActorID == nil || *activity.ActorID != actorID || activity.RequestID == nil || *activity.RequestID != requestID {
+		t.Fatalf("activity=%+v", activity)
+	}
+	attributes := activity.Changes["attributes"].(map[string]any)["new"].(map[string]any)
+	if attributes["name"] != "Alice" || attributes["email"] != "alice@example.com" || attributes["password"] != nil {
+		t.Fatalf("logged attributes=%+v", attributes)
 	}
 }

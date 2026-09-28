@@ -111,12 +111,13 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		_ = sqlDB.Close()
 		return nil, fmt.Errorf("initialize local storage: %w", err)
 	}
-	imageInspector := imageinfra.NewInspector()
+	imageInspector := &imageinfra.Inspector{}
 
 	cacheRepo := repository.NewRedisCache(redisClient)
 	tokenBlacklistRepo := repository.NewTokenBlackListRepository(cacheRepo)
-	userRepo := repository.NewUserRepository(db)
-	roleRepo := repository.NewRoleRepository(db)
+	activityLogRepo := repository.NewActivityLogRepository(db)
+	userRepo := repository.NewUserRepository(db, activityLogRepo)
+	roleRepo := repository.NewRoleRepository(db, activityLogRepo)
 	permissionRepo := repository.NewPermissionRepository(db)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
 	authorizationRepo := repository.NewAuthorizationRepository(db)
@@ -142,9 +143,11 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		tokenBlacklistRepo,
 		txManager,
 		cfg.JWTExpiration,
+		activityLogRepo,
 	)
-	roleUseCase := usecase.NewRoleUseCase(roleRepo)
+	roleUseCase := usecase.NewRoleUseCase(roleRepo, txManager, activityLogRepo)
 	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
+	activityLogUseCase := usecase.NewActivityLogUseCase(activityLogRepo)
 	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(authorizationRepo)
 
 	router, err := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
@@ -152,6 +155,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		UserHandler:         v1.NewUserHandler(userUseCase),
 		RoleHandler:         v1.NewRoleHandler(roleUseCase),
 		PermissionHandler:   v1.NewPermissionHandler(permissionUseCase),
+		ActivityLogHandler:  v1.NewActivityLogHandler(activityLogUseCase),
 		RefreshTokenHandler: v1.NewRefreshTokenHandler(refreshTokenUseCase, cfg.AuthTokenTransport == "cookie"),
 		HealthHandler:       v1.NewHealthHandler(health.NewChecker(sqlDB, redisClient)),
 		AuthUseCase:         authUseCase,
