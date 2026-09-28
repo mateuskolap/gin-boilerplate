@@ -84,7 +84,7 @@ func testPostgres(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("open schema-scoped connection: %v", err)
 	}
-	if err := db.AutoMigrate(&domain.User{}, &domain.Role{}, &domain.Permission{}, &domain.RefreshToken{}); err != nil {
+	if err := db.AutoMigrate(&domain.User{}, &domain.Role{}, &domain.Permission{}, &domain.RefreshToken{}, &domain.ActivityLog{}); err != nil {
 		t.Fatalf("migrate isolated schema: %v", err)
 	}
 	return db

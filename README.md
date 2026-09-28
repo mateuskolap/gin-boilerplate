@@ -315,13 +315,31 @@ Workers mantêm suas próprias conexões com PostgreSQL e o database Redis da fi
 
 ## Testes
 
-Execute:
+Os testes unitários não precisam de serviços externos:
 
 ```bash
 go test ./...
 ```
 
-O comando percorre todos os pacotes; atualmente a cobertura automatizada é pequena e não inclui uma suíte de integração ou e2e para API e banco. Ao adicionar uma feature, inclua testes para regras de negócio e casos HTTP relevantes, em vez de assumir que compilação cobre esses fluxos.
+O pacote `internal/integration` cobre PostgreSQL, Redis, filas, seeders e o bootstrap da aplicação. `cmd/migration` também tem um teste que aplica as migrations. Sem as variáveis de teste, esses casos são ignorados.
+
+Para executar a suíte completa localmente, use serviços descartáveis e crie previamente um banco PostgreSQL de teste chamado `test` (ou com nome terminado em `_test` ou `-test`). Os dois bancos Redis precisam ser diferentes:
+
+```bash
+export TEST_DATABASE_URL='postgres://postgres:postgres@localhost:5438/test?sslmode=disable'
+export TEST_REDIS_ADDR='localhost:6379'
+export TEST_REDIS_DB=14
+export TEST_QUEUE_REDIS_DB=15
+go test ./... -count=1
+```
+
+As credenciais e portas acima correspondem aos padrões do Compose; ajuste a URL se o seu `.env` usar outros valores. Os testes PostgreSQL criam schemas isolados e os removem ao terminar. Não aponte `TEST_DATABASE_URL` para um banco com dados importantes.
+
+## Integração contínua
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em pushes, pull requests e manualmente. Ele inicia PostgreSQL e Redis descartáveis, verifica dependências, executa `go vet`, roda toda a suíte com os testes de integração habilitados e compila API, worker, scheduler e CLI de migrations.
+
+Ainda não há uma suíte e2e de fluxos completos da API nem publicação ou deploy automatizados.
 
 ## Docker
 
@@ -343,5 +361,4 @@ O `Dockerfile` multi-stage compila uma imagem `scratch` não root com os binári
 - A persistência de imagens é local; em deploy com múltiplas réplicas, use um volume compartilhado ou substitua o adaptador por storage apropriado.
 - O SMTP está implementado como adaptador, mas cadastro, login e outros casos de uso não enviam e-mail.
 - Ainda não há MFA, confirmação de e-mail, recuperação de senha, métricas ou tracing.
-- Não há suites de integração/e2e nem CI/CD no repositório.
 - Este projeto está licenciado sob a licença MIT. Consulte o arquivo [LICENSE](LICENSE).
