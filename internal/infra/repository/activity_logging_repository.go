@@ -37,7 +37,7 @@ func (r *activityLoggingRepository[T]) getDB(ctx context.Context) *gorm.DB {
 }
 
 func (r *activityLoggingRepository[T]) Create(ctx context.Context, entity *T) error {
-	if !shouldAuditModel(ctx, entity) {
+	if !shouldAuditModel(entity) {
 		return r.BaseRepository.Create(ctx, entity)
 	}
 	return r.withTransaction(ctx, func(txCtx context.Context) error {
@@ -49,7 +49,7 @@ func (r *activityLoggingRepository[T]) Create(ctx context.Context, entity *T) er
 }
 
 func (r *activityLoggingRepository[T]) Update(ctx context.Context, entity *T) error {
-	if !shouldAuditModel(ctx, entity) {
+	if !shouldAuditModel(entity) {
 		return r.BaseRepository.Update(ctx, entity)
 	}
 	return r.withTransaction(ctx, func(txCtx context.Context) error {
@@ -71,7 +71,7 @@ func (r *activityLoggingRepository[T]) Update(ctx context.Context, entity *T) er
 
 func (r *activityLoggingRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
 	var entity T
-	if !shouldAuditModel(ctx, &entity) {
+	if !shouldAuditModel(&entity) {
 		return r.BaseRepository.Delete(ctx, id)
 	}
 	return r.withTransaction(ctx, func(txCtx context.Context) error {
@@ -98,9 +98,9 @@ func (r *activityLoggingRepository[T]) withTransaction(ctx context.Context, fn f
 	})
 }
 
-func shouldAuditModel(ctx context.Context, entity any) bool {
+func shouldAuditModel(entity any) bool {
 	_, ok := entity.(domain.ActivityLoggable)
-	return ok && shared.ActorIDFromContext(ctx) != nil && len(activityAttributes(entity)) > 0
+	return ok && len(activityAttributes(entity)) > 0
 }
 
 func activityLogID(entity any) uuid.UUID {
@@ -147,7 +147,7 @@ func newModelActivity(ctx context.Context, entity any, action string, oldAttribu
 	model, ok := entity.(domain.ActivityLoggable)
 	actorID := shared.ActorIDFromContext(ctx)
 	attributes := activityAttributes(entity)
-	if !ok || actorID == nil {
+	if !ok {
 		return nil
 	}
 	if action == "updated" {
