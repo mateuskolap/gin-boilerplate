@@ -47,5 +47,6 @@ jobs:
           cache: true
       - run: go mod verify
       - run: go vet ./...
+      - run: go tool govulncheck ./...
       - run: go test ./... -count=1
       - run: go build ./cmd/api ./cmd/worker ./cmd/scheduler ./cmd/migration

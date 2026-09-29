@@ -1,4 +1,4 @@
-.PHONY: run run-migrate swagger migrate-create migrate-up migrate-down migrate-version queue-worker queue-scheduler
+.PHONY: run run-migrate swagger migrate-create migrate-up migrate-down migrate-version queue-worker queue-scheduler test test-e2e vulncheck
 
 run:
 	$(MAKE) swagger
@@ -33,3 +33,9 @@ queue-scheduler:
 
 test:
 	go test ./... -cover
+
+test-e2e:
+	go test ./internal/integration -run '^TestAuthenticationE2E$$' -count=1 -v
+
+vulncheck:
+	go tool govulncheck ./...
