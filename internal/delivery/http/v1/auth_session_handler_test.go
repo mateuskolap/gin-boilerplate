@@ -148,7 +148,7 @@ func TestAuthLoginReturnsTokensInConfiguredTransport(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := &httpAuthUseCase{tokens: &domain.AuthTokens{AccessToken: "access-value", RefreshToken: "refresh-value"}}
-			handler := NewAuthHandler(fake, tc.useCookies, true, 15*time.Minute, 24*time.Hour)
+			handler := NewAuthHandler(fake, tc.useCookies, true, 15*time.Minute, 24*time.Hour, http.SameSiteLaxMode)
 			recorder := serveHTTPHandler(t, http.MethodPost, "/login", "/login", `{"email":"a@example.com","password":"pass-word"}`, handler.Login)
 			if recorder.Code != http.StatusOK || recorder.Header().Get("Cache-Control") != "no-store" {
 				t.Fatalf("Login() status=%d cache-control=%q body=%s", recorder.Code, recorder.Header().Get("Cache-Control"), recorder.Body.String())
@@ -183,7 +183,7 @@ func TestAuthLoginReturnsTokensInConfiguredTransport(t *testing.T) {
 
 func TestAuthRegisterCreatesUserAndReturnsCreated(t *testing.T) {
 	fake := &httpAuthUseCase{}
-	handler := NewAuthHandler(fake, false, false, time.Minute, time.Hour)
+	handler := NewAuthHandler(fake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode)
 	recorder := serveHTTPHandler(t, http.MethodPost, "/register", "/register", `{"name":"Alice","email":"alice@example.com","password":"password-123"}`, handler.Register)
 	result := decodeResponse(t, recorder)
 	if recorder.Code != http.StatusCreated || !result.Success || fake.registeredUser == nil || fake.registeredUser.Name != "Alice" || fake.registeredUser.Email != "alice@example.com" || fake.registeredUser.Password != "password-123" {
@@ -203,7 +203,7 @@ func TestAuthRefreshReadsTokenFromConfiguredTransport(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fake := &httpAuthUseCase{tokens: &domain.AuthTokens{AccessToken: "new-access", RefreshToken: "new-refresh"}}
-			handler := NewAuthHandler(fake, tc.useCookies, false, time.Minute, time.Hour)
+			handler := NewAuthHandler(fake, tc.useCookies, false, time.Minute, time.Hour, http.SameSiteLaxMode)
 			recorder := serveHTTPHandler(t, http.MethodPost, "/refresh", "/refresh", tc.body, handler.Refresh, tc.setup)
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("Refresh() status=%d body=%s", recorder.Code, recorder.Body.String())
@@ -221,14 +221,14 @@ func TestAuthRefreshReadsTokenFromConfiguredTransport(t *testing.T) {
 
 func TestAuthLogoutAcceptsBodyAndClearsCookies(t *testing.T) {
 	fake := &httpAuthUseCase{}
-	bodyHandler := NewAuthHandler(fake, false, false, time.Minute, time.Hour)
+	bodyHandler := NewAuthHandler(fake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode)
 	bodyRecorder := serveHTTPHandler(t, http.MethodPost, "/logout", "/logout", `{"refresh_token":"refresh-body"}`, bodyHandler.Logout, withRawToken("access-from-auth-middleware"))
 	if bodyRecorder.Code != http.StatusOK || len(fake.logoutArgs) != 2 || fake.logoutArgs[0] != "access-from-auth-middleware" || fake.logoutArgs[1] != "refresh-body" {
 		t.Fatalf("body logout status=%d args=%v body=%s", bodyRecorder.Code, fake.logoutArgs, bodyRecorder.Body.String())
 	}
 
 	fake.logoutArgs = nil
-	cookieHandler := NewAuthHandler(fake, true, true, time.Minute, time.Hour)
+	cookieHandler := NewAuthHandler(fake, true, true, time.Minute, time.Hour, http.SameSiteLaxMode)
 	cookieRecorder := serveHTTPHandler(t, http.MethodPost, "/logout", "/logout", "", cookieHandler.Logout, withRawToken("access-cookie"), withRequestCookie(authcookie.RefreshTokenName, "refresh-cookie"))
 	if cookieRecorder.Code != http.StatusOK || len(fake.logoutArgs) != 2 || fake.logoutArgs[0] != "access-cookie" || fake.logoutArgs[1] != "refresh-cookie" {
 		t.Fatalf("cookie logout status=%d args=%v body=%s", cookieRecorder.Code, fake.logoutArgs, cookieRecorder.Body.String())
@@ -244,7 +244,7 @@ func TestAuthLogoutAcceptsBodyAndClearsCookies(t *testing.T) {
 func TestChangePasswordReturnsNoContentAndClearsCookies(t *testing.T) {
 	userID := uuid.New()
 	fake := &httpAuthUseCase{}
-	handler := NewAuthHandler(fake, true, true, time.Minute, time.Hour)
+	handler := NewAuthHandler(fake, true, true, time.Minute, time.Hour, http.SameSiteLaxMode)
 	recorder := serveHTTPHandler(t, http.MethodPatch, "/password", "/password", `{"current_password":"old-password","new_password":"new-password"}`, handler.ChangePassword, withAuthenticatedUser(userID))
 	if recorder.Code != http.StatusNoContent || recorder.Body.Len() != 0 || fake.changedUserID != userID || len(fake.changedPasswords) != 2 {
 		t.Fatalf("ChangePassword() status=%d body=%q user=%v passwords=%v", recorder.Code, recorder.Body.String(), fake.changedUserID, fake.changedPasswords)
@@ -256,7 +256,7 @@ func TestChangePasswordReturnsNoContentAndClearsCookies(t *testing.T) {
 
 func TestAuthHandlerMapsInvalidPayloadAndUseCaseErrors(t *testing.T) {
 	fake := &httpAuthUseCase{loginErr: shared.NewAppError(shared.ErrTypeUnauthorized, "invalid credentials", nil)}
-	handler := NewAuthHandler(fake, false, false, time.Minute, time.Hour)
+	handler := NewAuthHandler(fake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode)
 
 	badPayload := serveHTTPHandler(t, http.MethodPost, "/login", "/login", `{`, handler.Login)
 	if badPayload.Code != http.StatusUnprocessableEntity {
@@ -274,25 +274,25 @@ func TestAuthMutationHandlersPropagateUseCaseErrors(t *testing.T) {
 	unauthorized := shared.NewAppError(shared.ErrTypeUnauthorized, "credentials are invalid", nil)
 
 	registerFake := &httpAuthUseCase{registerErr: conflict}
-	register := serveHTTPHandler(t, http.MethodPost, "/register", "/register", `{"name":"Alice","email":"alice@example.com","password":"password-123"}`, NewAuthHandler(registerFake, false, false, time.Minute, time.Hour).Register)
+	register := serveHTTPHandler(t, http.MethodPost, "/register", "/register", `{"name":"Alice","email":"alice@example.com","password":"password-123"}`, NewAuthHandler(registerFake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode).Register)
 	if register.Code != http.StatusConflict || decodeResponse(t, register).Error != "request conflicts with existing data" {
 		t.Fatalf("Register() status=%d body=%s", register.Code, register.Body.String())
 	}
 
 	refreshFake := &httpAuthUseCase{refreshErr: unauthorized}
-	refresh := serveHTTPHandler(t, http.MethodPost, "/refresh", "/refresh", `{"refresh_token":"old-token"}`, NewAuthHandler(refreshFake, false, false, time.Minute, time.Hour).Refresh)
+	refresh := serveHTTPHandler(t, http.MethodPost, "/refresh", "/refresh", `{"refresh_token":"old-token"}`, NewAuthHandler(refreshFake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode).Refresh)
 	if refresh.Code != http.StatusUnauthorized || decodeResponse(t, refresh).Error != "credentials are invalid" {
 		t.Fatalf("Refresh() status=%d body=%s", refresh.Code, refresh.Body.String())
 	}
 
 	logoutFake := &httpAuthUseCase{logoutErr: unauthorized}
-	logout := serveHTTPHandler(t, http.MethodPost, "/logout", "/logout", `{"refresh_token":"old-token"}`, NewAuthHandler(logoutFake, false, false, time.Minute, time.Hour).Logout, withRawToken("access-token"))
+	logout := serveHTTPHandler(t, http.MethodPost, "/logout", "/logout", `{"refresh_token":"old-token"}`, NewAuthHandler(logoutFake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode).Logout, withRawToken("access-token"))
 	if logout.Code != http.StatusUnauthorized || decodeResponse(t, logout).Error != "credentials are invalid" {
 		t.Fatalf("Logout() status=%d body=%s", logout.Code, logout.Body.String())
 	}
 
 	passwordFake := &httpAuthUseCase{changePasswordErr: unauthorized}
-	password := serveHTTPHandler(t, http.MethodPatch, "/password", "/password", `{"current_password":"old-password","new_password":"new-password"}`, NewAuthHandler(passwordFake, true, true, time.Minute, time.Hour).ChangePassword, withAuthenticatedUser(userID))
+	password := serveHTTPHandler(t, http.MethodPatch, "/password", "/password", `{"current_password":"old-password","new_password":"new-password"}`, NewAuthHandler(passwordFake, true, true, time.Minute, time.Hour, http.SameSiteLaxMode).ChangePassword, withAuthenticatedUser(userID))
 	if password.Code != http.StatusUnauthorized || decodeResponse(t, password).Error != "credentials are invalid" || len(password.Result().Cookies()) != 0 {
 		t.Fatalf("ChangePassword() status=%d body=%s cookies=%v", password.Code, password.Body.String(), password.Result().Cookies())
 	}

@@ -15,20 +15,22 @@ import (
 )
 
 type AuthHandler struct {
-	authUseCase   domain.AuthUseCase
-	useCookies    bool
-	secureCookies bool
-	accessTTL     time.Duration
-	refreshTTL    time.Duration
+	authUseCase    domain.AuthUseCase
+	useCookies     bool
+	secureCookies  bool
+	cookieSameSite http.SameSite
+	accessTTL      time.Duration
+	refreshTTL     time.Duration
 }
 
-func NewAuthHandler(authUseCase domain.AuthUseCase, useCookies, secureCookies bool, accessTTL, refreshTTL time.Duration) *AuthHandler {
+func NewAuthHandler(authUseCase domain.AuthUseCase, useCookies, secureCookies bool, accessTTL, refreshTTL time.Duration, cookieSameSite http.SameSite) *AuthHandler {
 	return &AuthHandler{
-		authUseCase:   authUseCase,
-		useCookies:    useCookies,
-		secureCookies: secureCookies,
-		accessTTL:     accessTTL,
-		refreshTTL:    refreshTTL,
+		authUseCase:    authUseCase,
+		useCookies:     useCookies,
+		secureCookies:  secureCookies,
+		cookieSameSite: cookieSameSite,
+		accessTTL:      accessTTL,
+		refreshTTL:     refreshTTL,
 	}
 }
 
@@ -175,7 +177,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	}
 
 	if h.useCookies {
-		authcookie.Clear(c, h.secureCookies)
+		authcookie.Clear(c, h.secureCookies, h.cookieSameSite)
 	}
 	response.Success(c, http.StatusOK, "Logged out successfully", nil)
 }
@@ -213,7 +215,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 	}
 
 	if h.useCookies {
-		authcookie.Clear(c, h.secureCookies)
+		authcookie.Clear(c, h.secureCookies, h.cookieSameSite)
 	}
 	c.Status(http.StatusNoContent)
 }
@@ -221,7 +223,7 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 func (h *AuthHandler) respondWithTokens(c *gin.Context, message string, tokens *domain.AuthTokens) {
 	c.Header("Cache-Control", "no-store")
 	if h.useCookies {
-		authcookie.Set(c, tokens.AccessToken, tokens.RefreshToken, h.accessTTL, h.refreshTTL, h.secureCookies)
+		authcookie.Set(c, tokens.AccessToken, tokens.RefreshToken, h.accessTTL, h.refreshTTL, h.secureCookies, h.cookieSameSite)
 		response.Success(c, http.StatusOK, message, nil)
 		return
 	}

@@ -14,14 +14,16 @@ const (
 	refreshTokenPath = "/api/v1/auth"
 )
 
-func Set(c *gin.Context, accessToken, refreshToken string, accessTTL, refreshTTL time.Duration, secure bool) {
-	c.SetSameSite(http.SameSiteLaxMode)
+func Set(c *gin.Context, accessToken, refreshToken string, accessTTL, refreshTTL time.Duration, secure bool, sameSite http.SameSite) {
+	c.SetSameSite(sameSite)
+	secure = secure || sameSite == http.SameSiteNoneMode
 	c.SetCookie(AccessTokenName, accessToken, int(accessTTL.Seconds()), accessTokenPath, "", secure, true)
 	c.SetCookie(RefreshTokenName, refreshToken, int(refreshTTL.Seconds()), refreshTokenPath, "", secure, true)
 }
 
-func Clear(c *gin.Context, secure bool) {
-	c.SetSameSite(http.SameSiteLaxMode)
+func Clear(c *gin.Context, secure bool, sameSite http.SameSite) {
+	c.SetSameSite(sameSite)
+	secure = secure || sameSite == http.SameSiteNoneMode
 	c.SetCookie(AccessTokenName, "", -1, accessTokenPath, "", secure, true)
 	c.SetCookie(RefreshTokenName, "", -1, refreshTokenPath, "", secure, true)
 }

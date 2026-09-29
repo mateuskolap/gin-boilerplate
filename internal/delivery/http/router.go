@@ -76,6 +76,9 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 	}
 
 	api := r.Group("/api/v1")
+	if cfg.UseAuthCookies {
+		api.Use(middleware.ValidateOrigin(cfg.CORSAllowedOrigins))
+	}
 	{
 		auth := api.Group("/auth")
 		{

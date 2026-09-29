@@ -14,7 +14,7 @@ func TestSetGetAndClearAuthCookies(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
-	Set(ctx, "access-value", "refresh-value", 15*time.Minute, 24*time.Hour, true)
+	Set(ctx, "access-value", "refresh-value", 15*time.Minute, 24*time.Hour, true, http.SameSiteLaxMode)
 	cookies := recorder.Result().Cookies()
 	if len(cookies) != 2 {
 		t.Fatalf("Set() cookies = %v", cookies)
@@ -34,7 +34,7 @@ func TestSetGetAndClearAuthCookies(t *testing.T) {
 	recorder = httptest.NewRecorder()
 	ctx, _ = gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
-	Clear(ctx, false)
+	Clear(ctx, false, http.SameSiteLaxMode)
 	for _, cookie := range recorder.Result().Cookies() {
 		if cookie.MaxAge >= 0 || cookie.Value != "" || cookie.Secure {
 			t.Errorf("Clear() cookie = %+v", cookie)
@@ -49,4 +49,25 @@ func findCookie(cookies []*http.Cookie, name string) *http.Cookie {
 		}
 	}
 	return nil
+}
+
+func TestCrossSiteCookiesAlwaysRequireSecure(t *testing.T) {
+	for _, clear := range []bool{false, true} {
+		recorder := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(recorder)
+		if clear {
+			Clear(ctx, false, http.SameSiteNoneMode)
+		} else {
+			Set(ctx, "access", "refresh", time.Minute, time.Hour, false, http.SameSiteNoneMode)
+		}
+		cookies := recorder.Result().Cookies()
+		if len(cookies) != 2 {
+			t.Fatalf("expected two cookies, got %d", len(cookies))
+		}
+		for _, cookie := range cookies {
+			if !cookie.Secure || !cookie.HttpOnly || cookie.SameSite != http.SameSiteNoneMode {
+				t.Fatalf("cross-site cookie must be Secure, HttpOnly and SameSite=None: %+v", cookie)
+			}
+		}
+	}
 }

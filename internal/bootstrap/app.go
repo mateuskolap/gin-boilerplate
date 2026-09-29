@@ -135,8 +135,15 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	activityLogUseCase := usecase.NewActivityLogUseCase(activityLogRepo)
 	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(authorizationRepo)
 
+	cookieSameSite := http.SameSiteLaxMode
+	switch cfg.AuthCookieSameSite {
+	case "strict":
+		cookieSameSite = http.SameSiteStrictMode
+	case "none":
+		cookieSameSite = http.SameSiteNoneMode
+	}
 	router, err := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
-		AuthHandler:         v1.NewAuthHandler(authUseCase, cfg.AuthTokenTransport == "cookie", cfg.Env == "production", cfg.JWTExpiration, cfg.RefreshExpiration),
+		AuthHandler:         v1.NewAuthHandler(authUseCase, cfg.AuthTokenTransport == "cookie", cfg.Env == "production", cfg.JWTExpiration, cfg.RefreshExpiration, cookieSameSite),
 		UserHandler:         v1.NewUserHandler(userUseCase),
 		RoleHandler:         v1.NewRoleHandler(roleUseCase),
 		PermissionHandler:   v1.NewPermissionHandler(permissionUseCase),

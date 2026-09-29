@@ -87,7 +87,7 @@ func (routerHealthChecker) Readiness(context.Context) error { return nil }
 func routerForTest(t *testing.T, auth *routerAuthUseCase, refresh *routerRefreshUseCase, users *routerUserUseCase, permissions *routerPermissionChecker) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	authHandler := v1.NewAuthHandler(auth, false, false, time.Minute, time.Hour)
+	authHandler := v1.NewAuthHandler(auth, false, false, time.Minute, time.Hour, nethttp.SameSiteLaxMode)
 	returnRouter, err := SetupRouter(RouterConfig{
 		AuthHandler:         authHandler,
 		UserHandler:         v1.NewUserHandler(users),

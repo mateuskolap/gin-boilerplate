@@ -11,7 +11,7 @@ func validConfig() Config {
 	return Config{
 		Env: "test", DBHost: "localhost", DBPort: 5432, DBUser: "postgres",
 		DBPassword: "secret", DBName: "app", DBSSLMode: "disable",
-		AuthTokenTransport: "body", Port: 8080,
+		AuthTokenTransport: "body", AuthCookieSameSite: "lax", Port: 8080,
 		DBMaxOpenConnections: 10, DBMaxIdleConnections: 5,
 		DBConnectionLifetime: time.Minute, DBConnectionIdleTime: time.Minute,
 		RedisHost: "localhost", RedisPort: 6379, QueueRedisDB: 1, QueueConcurrency: 1,
@@ -36,10 +36,28 @@ func TestConfigValidateTokenTransport(t *testing.T) {
 			c.CORSAllowedOrigins = []string{"https://app.example.com"}
 		}},
 		{name: "unknown transport", setup: func(c *Config) { c.AuthTokenTransport = "header" }, wantErr: "AUTH_TOKEN_TRANSPORT"},
+		{name: "cross-site cookies", setup: func(c *Config) {
+			c.AuthTokenTransport = "cookie"
+			c.AuthCookieSameSite = "none"
+			c.CORSAllowedOrigins = []string{"https://frontend.example.com"}
+		}},
+		{name: "strict cookies", setup: func(c *Config) { c.AuthCookieSameSite = "strict" }},
+		{name: "invalid same-site", setup: func(c *Config) { c.AuthCookieSameSite = "invalid" }, wantErr: "AUTH_COOKIE_SAME_SITE"},
+		{name: "cookies without origins", setup: func(c *Config) { c.AuthTokenTransport = "cookie" }, wantErr: "explicit origins"},
 		{name: "wildcard origin with cookies", setup: func(c *Config) {
 			c.AuthTokenTransport = "cookie"
 			c.CORSAllowedOrigins = []string{"*"}
 		}, wantErr: "explicit origins"},
+	}
+	for _, origin := range []string{"null", "", "https://*.example.com", "https://app.example.com/", "https://app.example.com?", "https://app.example.com#", "https://app.example.com?query=1", "https://app.example.com#fragment", "https://user@app.example.com", "ftp://app.example.com"} {
+		tests = append(tests, struct {
+			name    string
+			setup   func(*Config)
+			wantErr string
+		}{name: "invalid cookie origin " + origin, setup: func(c *Config) {
+			c.AuthTokenTransport = "cookie"
+			c.CORSAllowedOrigins = []string{origin}
+		}, wantErr: "explicit origins"})
 	}
 
 	for _, tt := range tests {
