@@ -600,7 +600,7 @@ func TestBootstrapConstructorsAndShutdown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSchedulerApplication(): %v", err)
 	}
-	if schedulerApp.Scheduler == nil || schedulerApp.QueueRedis == nil {
+	if schedulerApp.Scheduler == nil {
 		t.Fatal("NewSchedulerApplication() returned an incomplete application")
 	}
 	if err := schedulerApp.Start(); err != nil {

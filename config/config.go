@@ -15,41 +15,42 @@ import (
 
 type Config struct {
 	DatabaseConfig
-	AuthTokenTransport    string        `env:"AUTH_TOKEN_TRANSPORT" envDefault:"body"`
-	Port                  int           `env:"PORT" envDefault:"8080"`
-	DBMaxOpenConnections  int           `env:"DB_MAX_OPEN_CONNECTIONS" envDefault:"25"`
-	DBMaxIdleConnections  int           `env:"DB_MAX_IDLE_CONNECTIONS" envDefault:"5"`
-	DBConnectionLifetime  time.Duration `env:"DB_CONNECTION_LIFETIME" envDefault:"30m"`
-	DBConnectionIdleTime  time.Duration `env:"DB_CONNECTION_IDLE_TIME" envDefault:"5m"`
-	RedisHost             string        `env:"REDIS_HOST" envDefault:"localhost"`
-	RedisPort             int           `env:"REDIS_PORT" envDefault:"6379"`
-	RedisPassword         string        `env:"REDIS_PASSWORD"`
-	RedisDB               int           `env:"REDIS_DB" envDefault:"0"`
-	QueueRedisDB          int           `env:"QUEUE_REDIS_DB" envDefault:"1"`
-	QueueConcurrency      int           `env:"QUEUE_CONCURRENCY" envDefault:"10"`
-	QueueShutdownTimeout  time.Duration `env:"QUEUE_SHUTDOWN_TIMEOUT" envDefault:"30s"`
-	RefreshTokenRetention time.Duration `env:"REFRESH_TOKEN_RETENTION" envDefault:"720h"`
-	JWTSecret             string        `env:"JWT_SECRET,required,notEmpty"`
-	JWTIssuer             string        `env:"JWT_ISSUER" envDefault:"gin-boilerplate"`
-	JWTAudience           string        `env:"JWT_AUDIENCE" envDefault:"gin-boilerplate-api"`
-	JWTExpiration         time.Duration `env:"JWT_EXPIRATION" envDefault:"10m"`
-	RefreshExpiration     time.Duration `env:"REFRESH_EXPIRATION" envDefault:"24h"`
-	StorageRoot           string        `env:"STORAGE_ROOT" envDefault:"./storage/private"`
-	SMTPHost              string        `env:"SMTP_HOST"`
-	SMTPPort              int           `env:"SMTP_PORT" envDefault:"587"`
-	SMTPUser              string        `env:"SMTP_USER"`
-	SMTPPassword          string        `env:"SMTP_PASSWORD"`
-	SMTPFrom              string        `env:"SMTP_FROM"`
-	AdminName             string        `env:"ADMIN_NAME" envDefault:"Admin"`
-	AdminEmail            string        `env:"ADMIN_EMAIL" envDefault:"admin@example.com"`
-	AdminPassword         string        `env:"ADMIN_PASSWORD"`
-	TrustedProxies        []string      `env:"TRUSTED_PROXIES" envSeparator:","`
-	CORSAllowedOrigins    []string      `env:"CORS_ALLOWED_ORIGINS" envSeparator:","`
-	ReadHeaderTimeout     time.Duration `env:"HTTP_READ_HEADER_TIMEOUT" envDefault:"5s"`
-	ReadTimeout           time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"10s"`
-	WriteTimeout          time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"10s"`
-	IdleTimeout           time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"60s"`
-	ShutdownTimeout       time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" envDefault:"10s"`
+	AuthTokenTransport      string        `env:"AUTH_TOKEN_TRANSPORT" envDefault:"body"`
+	PasswordValidationLevel int           `env:"PASSWORD_VALIDATION_LEVEL" envDefault:"1"`
+	Port                    int           `env:"PORT" envDefault:"8080"`
+	DBMaxOpenConnections    int           `env:"DB_MAX_OPEN_CONNECTIONS" envDefault:"25"`
+	DBMaxIdleConnections    int           `env:"DB_MAX_IDLE_CONNECTIONS" envDefault:"5"`
+	DBConnectionLifetime    time.Duration `env:"DB_CONNECTION_LIFETIME" envDefault:"30m"`
+	DBConnectionIdleTime    time.Duration `env:"DB_CONNECTION_IDLE_TIME" envDefault:"5m"`
+	RedisHost               string        `env:"REDIS_HOST" envDefault:"localhost"`
+	RedisPort               int           `env:"REDIS_PORT" envDefault:"6379"`
+	RedisPassword           string        `env:"REDIS_PASSWORD"`
+	RedisDB                 int           `env:"REDIS_DB" envDefault:"0"`
+	QueueRedisDB            int           `env:"QUEUE_REDIS_DB" envDefault:"1"`
+	QueueConcurrency        int           `env:"QUEUE_CONCURRENCY" envDefault:"10"`
+	QueueShutdownTimeout    time.Duration `env:"QUEUE_SHUTDOWN_TIMEOUT" envDefault:"30s"`
+	RefreshTokenRetention   time.Duration `env:"REFRESH_TOKEN_RETENTION" envDefault:"720h"`
+	JWTSecret               string        `env:"JWT_SECRET,required,notEmpty"`
+	JWTIssuer               string        `env:"JWT_ISSUER" envDefault:"gin-boilerplate"`
+	JWTAudience             string        `env:"JWT_AUDIENCE" envDefault:"gin-boilerplate-api"`
+	JWTExpiration           time.Duration `env:"JWT_EXPIRATION" envDefault:"10m"`
+	RefreshExpiration       time.Duration `env:"REFRESH_EXPIRATION" envDefault:"24h"`
+	StorageRoot             string        `env:"STORAGE_ROOT" envDefault:"./storage/private"`
+	SMTPHost                string        `env:"SMTP_HOST"`
+	SMTPPort                int           `env:"SMTP_PORT" envDefault:"587"`
+	SMTPUser                string        `env:"SMTP_USER"`
+	SMTPPassword            string        `env:"SMTP_PASSWORD"`
+	SMTPFrom                string        `env:"SMTP_FROM"`
+	AdminName               string        `env:"ADMIN_NAME" envDefault:"Admin"`
+	AdminEmail              string        `env:"ADMIN_EMAIL" envDefault:"admin@example.com"`
+	AdminPassword           string        `env:"ADMIN_PASSWORD"`
+	TrustedProxies          []string      `env:"TRUSTED_PROXIES" envSeparator:","`
+	CORSAllowedOrigins      []string      `env:"CORS_ALLOWED_ORIGINS" envSeparator:","`
+	ReadHeaderTimeout       time.Duration `env:"HTTP_READ_HEADER_TIMEOUT" envDefault:"5s"`
+	ReadTimeout             time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"10s"`
+	WriteTimeout            time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"10s"`
+	IdleTimeout             time.Duration `env:"HTTP_IDLE_TIMEOUT" envDefault:"60s"`
+	ShutdownTimeout         time.Duration `env:"HTTP_SHUTDOWN_TIMEOUT" envDefault:"10s"`
 }
 
 type DatabaseConfig struct {
@@ -102,6 +103,9 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.DatabaseConfig.Validate())
 	if c.AuthTokenTransport != "body" && c.AuthTokenTransport != "cookie" {
 		errs = append(errs, fmt.Errorf("AUTH_TOKEN_TRANSPORT must be body or cookie"))
+	}
+	if c.PasswordValidationLevel < 1 || c.PasswordValidationLevel > 3 {
+		errs = append(errs, fmt.Errorf("PASSWORD_VALIDATION_LEVEL must be 1, 2, or 3"))
 	}
 	if c.AuthTokenTransport == "cookie" {
 		for _, origin := range c.CORSAllowedOrigins {

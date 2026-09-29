@@ -19,6 +19,7 @@ import (
 	queueinfra "gin-boilerplate/internal/infra/queue"
 	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
+	securityinfra "gin-boilerplate/internal/infra/security"
 	"gin-boilerplate/internal/infra/seeder"
 	"gin-boilerplate/internal/infra/storage"
 	"gin-boilerplate/internal/usecase"
@@ -102,6 +103,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	authorizationRepo := repository.NewAuthorizationRepository(db)
 	txManager := repository.NewGormTransactionManagerRepository(db)
 	rateLimiter := ratelimit.NewRedisLimiter(redisClient)
+	passwordChecker := securityinfra.NewPwnedPasswordChecker()
 
 	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, txManager, cfg.RefreshExpiration)
 	authUseCase := usecase.NewAuthUseCase(
@@ -114,6 +116,8 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		cfg.JWTIssuer,
 		cfg.JWTAudience,
 		cfg.JWTExpiration,
+		cfg.PasswordValidationLevel,
+		passwordChecker,
 		rateLimiter,
 	)
 	userUseCase := usecase.NewUserUseCase(

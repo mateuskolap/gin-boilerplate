@@ -158,8 +158,19 @@ type Scheduler struct {
 	scheduler *asynq.Scheduler
 }
 
-func NewScheduler(redisClient redis.UniversalClient, periodicTasks []port.PeriodicTask, logger *slog.Logger) (*Scheduler, error) {
-	s := asynq.NewSchedulerFromRedisClient(redisClient, &asynq.SchedulerOpts{
+func NewScheduler(redisOptions *redis.Options, periodicTasks []port.PeriodicTask, logger *slog.Logger) (*Scheduler, error) {
+	s := asynq.NewScheduler(asynq.RedisClientOpt{
+		Network:      redisOptions.Network,
+		Addr:         redisOptions.Addr,
+		Username:     redisOptions.Username,
+		Password:     redisOptions.Password,
+		DB:           redisOptions.DB,
+		DialTimeout:  redisOptions.DialTimeout,
+		ReadTimeout:  redisOptions.ReadTimeout,
+		WriteTimeout: redisOptions.WriteTimeout,
+		PoolSize:     redisOptions.PoolSize,
+		TLSConfig:    redisOptions.TLSConfig,
+	}, &asynq.SchedulerOpts{
 		Location: time.UTC,
 		Logger:   queueLogger{logger: logger},
 		LogLevel: asynq.WarnLevel,

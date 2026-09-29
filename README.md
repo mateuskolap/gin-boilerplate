@@ -147,8 +147,11 @@ O Compose inicia somente PostgreSQL e Redis; ele não inicia API, worker ou sche
 | `TRUSTED_PROXIES` | vazio | Lista de IPs/CIDRs de proxies confiáveis, separada por vírgula. Deixe vazia se não houver proxy confiável. |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` no exemplo | Origens permitidas, separadas por vírgula. O middleware CORS só é habilitado quando há origens configuradas. |
 | `AUTH_TOKEN_TRANSPORT` | `body` | `body` retorna tokens no campo `data` do JSON; `cookie` envia cookies `HttpOnly`. Em modo cookie, origens CORS devem ser explícitas, sem `*`. |
+| `PASSWORD_VALIDATION_LEVEL` | `1` | Nível de validação da senha, aplicado no cadastro e na troca. Aceita `1`, `2` ou `3`; todos exigem pelo menos 8 caracteres. |
 
 Em modo cookie, os cookies usam `SameSite=Lax` e `Secure` em produção. Para chamadas de uma origem diferente, o navegador deve enviar credenciais (`credentials: "include"`). Esse modo é voltado a frontends same-site; uma aplicação realmente cross-site exige rever a política de cookies e proteção CSRF.
+
+No nível `1`, basta o mínimo de 8 caracteres. O nível `2` também exige letra maiúscula, minúscula, número e símbolo. O nível `3` acrescenta a verificação de senhas vazadas pelo [HIBP Pwned Passwords](https://haveibeenpwned.com/API/v3), enviando somente o prefixo de 5 caracteres do hash SHA-1 e comparando a resposta localmente. A consulta tem timeout de 2 segundos; se o serviço falhar ou expirar, a senha é aceita.
 
 ### PostgreSQL
 

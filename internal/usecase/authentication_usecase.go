@@ -9,6 +9,7 @@ import (
 	"gin-boilerplate/internal/infra/security"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 	"uuid"
 
@@ -29,16 +30,18 @@ func mustGenerateDummyPasswordHash() []byte {
 }
 
 type authUseCase struct {
-	userRepo            domain.UserRepository
-	roleRepo            domain.RoleRepository
-	refreshTokenUseCase domain.RefreshTokenUseCase
-	tokenBlacklist      domain.TokenBlackListRepository
-	rateLimiter         port.RateLimiter
-	tx                  port.TransactionManager
-	jwtSecret           string
-	jwtIssuer           string
-	jwtAudience         string
-	jwtExpiration       time.Duration
+	userRepo                domain.UserRepository
+	roleRepo                domain.RoleRepository
+	refreshTokenUseCase     domain.RefreshTokenUseCase
+	tokenBlacklist          domain.TokenBlackListRepository
+	rateLimiter             port.RateLimiter
+	tx                      port.TransactionManager
+	jwtSecret               string
+	jwtIssuer               string
+	jwtAudience             string
+	jwtExpiration           time.Duration
+	passwordValidationLevel int
+	passwordChecker         port.CompromisedPasswordChecker
 }
 
 func NewAuthUseCase(
@@ -49,19 +52,23 @@ func NewAuthUseCase(
 	tx port.TransactionManager,
 	jwtSecret, jwtIssuer, jwtAudience string,
 	jwtExpiration time.Duration,
+	passwordValidationLevel int,
+	passwordChecker port.CompromisedPasswordChecker,
 	rateLimiter port.RateLimiter,
 ) domain.AuthUseCase {
 	return &authUseCase{
-		userRepo:            userRepo,
-		roleRepo:            roleRepo,
-		refreshTokenUseCase: refreshTokenUseCase,
-		tokenBlacklist:      tokenBlacklist,
-		rateLimiter:         rateLimiter,
-		tx:                  tx,
-		jwtSecret:           jwtSecret,
-		jwtIssuer:           jwtIssuer,
-		jwtAudience:         jwtAudience,
-		jwtExpiration:       jwtExpiration,
+		userRepo:                userRepo,
+		roleRepo:                roleRepo,
+		refreshTokenUseCase:     refreshTokenUseCase,
+		tokenBlacklist:          tokenBlacklist,
+		rateLimiter:             rateLimiter,
+		tx:                      tx,
+		jwtSecret:               jwtSecret,
+		jwtIssuer:               jwtIssuer,
+		jwtAudience:             jwtAudience,
+		jwtExpiration:           jwtExpiration,
+		passwordValidationLevel: passwordValidationLevel,
+		passwordChecker:         passwordChecker,
 	}
 }
 
@@ -75,13 +82,12 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 			nil,
 		)
 	}
-	if err := validatePassword(user.Password); err != nil {
+	if err := validatePassword(user.Password, a.passwordValidationLevel); err != nil {
 		return err
 	}
 	if err := a.limitAccount(ctx, "register", user.Email, accountRateLimit); err != nil {
 		return err
 	}
-
 	existingUser, err := a.userRepo.GetByEmail(ctx, user.Email)
 	if err != nil {
 		return shared.NewAppError(
@@ -97,6 +103,9 @@ func (a *authUseCase) Register(ctx context.Context, user *domain.User) error {
 			"This email is already in use",
 			nil,
 		)
+	}
+	if err := a.rejectPwnedPassword(ctx, user.Password); err != nil {
+		return err
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
@@ -305,7 +314,7 @@ func (a *authUseCase) Logout(ctx context.Context, accessToken, refreshToken stri
 }
 
 func (a *authUseCase) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
-	if err := validatePassword(newPassword); err != nil {
+	if err := validatePassword(newPassword, a.passwordValidationLevel); err != nil {
 		return err
 	}
 	if currentPassword == newPassword {
@@ -321,6 +330,9 @@ func (a *authUseCase) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentPassword)); err != nil {
 		return shared.NewAppError(shared.ErrTypeUnauthorized, "Current password is invalid", nil)
+	}
+	if err := a.rejectPwnedPassword(ctx, newPassword); err != nil {
+		return err
 	}
 
 	newPasswordHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
@@ -431,13 +443,42 @@ func (a *authUseCase) ValidateAccessToken(ctx context.Context, tokenString strin
 	}, nil
 }
 
-func validatePassword(password string) error {
-	if len(password) < 8 || len(password) > 72 {
+func validatePassword(password string, level int) error {
+	if utf8.RuneCountInString(password) < 8 || len(password) > 72 {
 		return shared.NewAppError(
 			shared.ErrTypeValidation,
-			"Password must contain between 8 and 72 bytes",
+			"Password must contain at least 8 characters and at most 72 bytes",
+			nil,
+		)
+	}
+	if level < 2 {
+		return nil
+	}
+
+	var upper, lower, digit, symbol bool
+	for _, char := range password {
+		upper = upper || unicode.IsUpper(char)
+		lower = lower || unicode.IsLower(char)
+		digit = digit || unicode.IsDigit(char)
+		symbol = symbol || unicode.IsPunct(char) || unicode.IsSymbol(char)
+	}
+	if !upper || !lower || !digit || !symbol {
+		return shared.NewAppError(
+			shared.ErrTypeValidation,
+			"Password must contain uppercase and lowercase letters, a number, and a symbol",
 			nil,
 		)
 	}
 	return nil
+}
+
+func (a *authUseCase) rejectPwnedPassword(ctx context.Context, password string) error {
+	if a.passwordValidationLevel < 3 {
+		return nil
+	}
+	pwned, err := a.passwordChecker.IsCompromised(ctx, password)
+	if err != nil || !pwned {
+		return nil
+	}
+	return shared.NewAppError(shared.ErrTypeValidation, "Password has appeared in a data breach", nil)
 }

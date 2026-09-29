@@ -15,7 +15,8 @@ func validConfig() Config {
 		DBMaxOpenConnections: 10, DBMaxIdleConnections: 5,
 		DBConnectionLifetime: time.Minute, DBConnectionIdleTime: time.Minute,
 		RedisHost: "localhost", RedisPort: 6379, QueueRedisDB: 1, QueueConcurrency: 1,
-		QueueShutdownTimeout: time.Minute, RefreshTokenRetention: time.Hour,
+		PasswordValidationLevel: 1,
+		QueueShutdownTimeout:    time.Minute, RefreshTokenRetention: time.Hour,
 		JWTSecret: strings.Repeat("s", 32), JWTIssuer: "issuer", JWTAudience: "audience",
 		JWTExpiration: time.Minute, RefreshExpiration: time.Hour, StorageRoot: "./storage",
 		SMTPPort: 587, ReadHeaderTimeout: time.Second, ReadTimeout: time.Second,
@@ -85,6 +86,8 @@ func TestConfigValidateRejectsUnsafeAndOutOfRangeValues(t *testing.T) {
 		{name: "empty issuer", change: func(c *Config) { c.JWTIssuer = " " }, wantErr: "JWT_ISSUER"},
 		{name: "empty audience", change: func(c *Config) { c.JWTAudience = " " }, wantErr: "JWT_AUDIENCE"},
 		{name: "invalid jwt expiry", change: func(c *Config) { c.JWTExpiration = 0 }, wantErr: "JWT_EXPIRATION"},
+		{name: "invalid password validation level low", change: func(c *Config) { c.PasswordValidationLevel = 0 }, wantErr: "PASSWORD_VALIDATION_LEVEL"},
+		{name: "invalid password validation level high", change: func(c *Config) { c.PasswordValidationLevel = 4 }, wantErr: "PASSWORD_VALIDATION_LEVEL"},
 		{name: "invalid refresh expiry", change: func(c *Config) { c.RefreshExpiration = 0 }, wantErr: "REFRESH_EXPIRATION"},
 		{name: "empty storage root", change: func(c *Config) { c.StorageRoot = " " }, wantErr: "STORAGE_ROOT"},
 		{name: "invalid api port", change: func(c *Config) { c.Port = 65536 }, wantErr: "PORT"},
@@ -153,14 +156,15 @@ func TestLoadConfigNormalizesAdminEmailAndProductionSSLMode(t *testing.T) {
 	t.Setenv("DB_SSLMODE", "")
 	t.Setenv("JWT_SECRET", strings.Repeat("s", 32))
 	t.Setenv("AUTH_TOKEN_TRANSPORT", "body")
+	t.Setenv("PASSWORD_VALIDATION_LEVEL", "2")
 	t.Setenv("ADMIN_EMAIL", "  ADMIN@Example.COM  ")
 
 	cfg, err := LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	if cfg.Env != "production" || cfg.DBSSLMode != "require" || cfg.AdminEmail != "admin@example.com" {
-		t.Fatalf("LoadConfig() environment=%q sslmode=%q admin email=%q", cfg.Env, cfg.DBSSLMode, cfg.AdminEmail)
+	if cfg.Env != "production" || cfg.DBSSLMode != "require" || cfg.AdminEmail != "admin@example.com" || cfg.PasswordValidationLevel != 2 {
+		t.Fatalf("LoadConfig() environment=%q sslmode=%q admin email=%q password level=%d", cfg.Env, cfg.DBSSLMode, cfg.AdminEmail, cfg.PasswordValidationLevel)
 	}
 }
 

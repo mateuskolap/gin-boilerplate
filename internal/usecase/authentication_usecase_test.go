@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"uuid"
@@ -187,6 +188,11 @@ func TestChangePasswordRejectsIncorrectOrUnchangedPassword(t *testing.T) {
 	if tx.calls != 0 {
 		t.Fatalf("ChangePassword() opened %d transactions for invalid requests", tx.calls)
 	}
+
+	auth.(*authUseCase).passwordValidationLevel = 2
+	if err := auth.ChangePassword(context.Background(), userID, "current-password", "invalid-password!"); appErrorType(err) != shared.ErrTypeValidation {
+		t.Fatalf("ChangePassword() error = %v, want validation for level 2", err)
+	}
 }
 
 func TestValidateAccessTokenChecksBlacklistAndOwner(t *testing.T) {
@@ -228,12 +234,52 @@ func TestValidateAccessTokenChecksBlacklistAndOwner(t *testing.T) {
 
 func TestValidatePasswordBounds(t *testing.T) {
 	for _, password := range []string{"short", strings.Repeat("x", 73)} {
-		if err := validatePassword(password); appErrorType(err) != shared.ErrTypeValidation {
+		if err := validatePassword(password, 1); appErrorType(err) != shared.ErrTypeValidation {
 			t.Errorf("validatePassword(len=%d) error = %v, want validation", len(password), err)
 		}
 	}
-	if err := validatePassword("12345678"); err != nil {
+	if err := validatePassword("12345678", 1); err != nil {
 		t.Fatalf("validatePassword() rejected minimum length: %v", err)
+	}
+	if err := validatePassword(strings.Repeat("é", 8), 1); err != nil {
+		t.Fatalf("validatePassword() rejected 8 Unicode characters: %v", err)
+	}
+}
+
+func TestValidatePasswordLevels(t *testing.T) {
+	if err := validatePassword("password", 1); err != nil {
+		t.Fatalf("level 1 rejected an 8-character password: %v", err)
+	}
+	if err := validatePassword("password", 2); appErrorType(err) != shared.ErrTypeValidation {
+		t.Fatalf("level 2 accepted a password without required character classes: %v", err)
+	}
+	if err := validatePassword("Passw0rd!", 2); err != nil {
+		t.Fatalf("level 2 rejected a password with all required character classes: %v", err)
+	}
+}
+
+func TestRegisterAppliesConfiguredPasswordLevel(t *testing.T) {
+	auth, _, _, _, _, _ := newTestAuthUseCase()
+	auth.(*authUseCase).passwordValidationLevel = 2
+	user := &domain.User{Name: "Alice", Email: "alice@example.com", Password: "password1!"}
+	if err := auth.Register(context.Background(), user); appErrorType(err) != shared.ErrTypeValidation {
+		t.Fatalf("Register() error = %v, want validation for missing uppercase letter", err)
+	}
+}
+
+func TestRejectPwnedPasswordRejectsMatchesAndFailsOpenOnCheckerError(t *testing.T) {
+	auth, _, _, _, _, _ := newTestAuthUseCase()
+	useCase := auth.(*authUseCase)
+	useCase.passwordValidationLevel = 3
+	checker := useCase.passwordChecker.(*testPasswordChecker)
+	checker.compromised = true
+	if err := useCase.rejectPwnedPassword(context.Background(), "Passw0rd!"); appErrorType(err) != shared.ErrTypeValidation {
+		t.Fatalf("rejectPwnedPassword() error = %v, want validation", err)
+	}
+	checker.compromised = false
+	checker.err = errors.New("checker unavailable")
+	if err := useCase.rejectPwnedPassword(context.Background(), "Passw0rd!"); err != nil {
+		t.Fatalf("rejectPwnedPassword() error = %v, want fail-open", err)
 	}
 }
 

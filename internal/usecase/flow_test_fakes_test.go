@@ -280,7 +280,18 @@ func newTestAuthUseCase() (domain.AuthUseCase, *testUserRepo, *testRoleRepo, *te
 	refresh := &testRefreshUseCase{}
 	blacklist := &testBlacklist{}
 	tx := &testTransaction{}
-	return NewAuthUseCase(userRepo, roleRepo, refresh, blacklist, tx, "test-secret-with-at-least-32-characters", "issuer", "audience", time.Hour, allowAllRateLimiter{}), userRepo, roleRepo, refresh, blacklist, tx
+	return NewAuthUseCase(userRepo, roleRepo, refresh, blacklist, tx, "test-secret-with-at-least-32-characters", "issuer", "audience", time.Hour, 1, &testPasswordChecker{}, allowAllRateLimiter{}), userRepo, roleRepo, refresh, blacklist, tx
+}
+
+type testPasswordChecker struct {
+	compromised bool
+	err         error
+	calls       int
+}
+
+func (c *testPasswordChecker) IsCompromised(context.Context, string) (bool, error) {
+	c.calls++
+	return c.compromised, c.err
 }
 
 type allowAllRateLimiter struct{}

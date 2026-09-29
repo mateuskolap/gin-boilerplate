@@ -37,7 +37,7 @@ func NewWorkerApplication(cfg *config.Config, logger *slog.Logger) (*WorkerAppli
 	}
 
 	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
-	maintenanceUseCase := usecase.NewRefreshTokenMaintenanceUseCase(refreshTokenRepo)
+	refreshTokenMaintenanceUseCase := usecase.NewRefreshTokenMaintenanceUseCase(refreshTokenRepo)
 	worker, err := queueinfra.NewWorker(
 		queueRedis,
 		queueinfra.WorkerConfig{
@@ -45,7 +45,7 @@ func NewWorkerApplication(cfg *config.Config, logger *slog.Logger) (*WorkerAppli
 			ShutdownTimeout: cfg.QueueShutdownTimeout,
 		},
 		logger,
-		jobs.NewPurgeExpiredRefreshTokensHandler(maintenanceUseCase, cfg.RefreshTokenRetention),
+		jobs.NewPurgeExpiredRefreshTokensHandler(refreshTokenMaintenanceUseCase, cfg.RefreshTokenRetention),
 	)
 	if err != nil {
 		_ = queueRedis.Close()
@@ -78,8 +78,7 @@ func (a *WorkerApplication) Close() error {
 }
 
 type SchedulerApplication struct {
-	QueueRedis *redis.Client
-	Scheduler  *queueinfra.Scheduler
+	Scheduler *queueinfra.Scheduler
 }
 
 func NewSchedulerApplication(cfg *config.Config, logger *slog.Logger) (*SchedulerApplication, error) {
@@ -87,12 +86,15 @@ func NewSchedulerApplication(cfg *config.Config, logger *slog.Logger) (*Schedule
 	if err != nil {
 		return nil, err
 	}
-	scheduler, err := queueinfra.NewScheduler(queueRedis, jobs.MaintenanceTasks(), logger)
+	redisOptions := queueRedis.Options()
+	if err := queueRedis.Close(); err != nil {
+		return nil, fmt.Errorf("close queue Redis health-check client: %w", err)
+	}
+	scheduler, err := queueinfra.NewScheduler(redisOptions, jobs.MaintenanceTasks(), logger)
 	if err != nil {
-		_ = queueRedis.Close()
 		return nil, fmt.Errorf("initialize queue scheduler: %w", err)
 	}
-	return &SchedulerApplication{QueueRedis: queueRedis, Scheduler: scheduler}, nil
+	return &SchedulerApplication{Scheduler: scheduler}, nil
 }
 
 func (a *SchedulerApplication) Start() error {
@@ -103,14 +105,11 @@ func (a *SchedulerApplication) Shutdown() error {
 	if a.Scheduler != nil {
 		a.Scheduler.Shutdown()
 	}
-	return a.Close()
+	return nil
 }
 
 func (a *SchedulerApplication) Close() error {
-	if a.QueueRedis != nil {
-		return a.QueueRedis.Close()
-	}
-	return nil
+	return a.Shutdown()
 }
 
 func openDatabase(cfg *config.Config) (*gorm.DB, *sql.DB, error) {

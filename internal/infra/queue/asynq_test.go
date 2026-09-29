@@ -98,7 +98,7 @@ func TestSchedulerValidatesAndRegistersPeriodicTasks(t *testing.T) {
 		Task:    port.QueueTask{Type: "test.cleanup", Payload: []byte(`{}`)},
 		Options: port.DispatchOptions{Timeout: time.Minute, MaxRetries: 2},
 	}
-	scheduler, err := NewScheduler(client, []port.PeriodicTask{valid}, testLogger())
+	scheduler, err := NewScheduler(client.Options(), []port.PeriodicTask{valid}, testLogger())
 	if err != nil {
 		t.Fatalf("NewScheduler() rejected valid task: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestSchedulerValidatesAndRegistersPeriodicTasks(t *testing.T) {
 		{Name: "bad cron", Cron: "not a cron", Task: valid.Task, Options: valid.Options},
 		{Name: "bad task", Cron: "* * * * *", Task: port.QueueTask{Type: "", Payload: []byte(`{}`)}, Options: valid.Options},
 	} {
-		if _, err := NewScheduler(client, []port.PeriodicTask{invalid}, testLogger()); err == nil {
+		if _, err := NewScheduler(client.Options(), []port.PeriodicTask{invalid}, testLogger()); err == nil {
 			t.Errorf("NewScheduler() accepted invalid task: %+v", invalid)
 		}
 	}
