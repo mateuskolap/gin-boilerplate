@@ -145,11 +145,16 @@ O Compose inicia somente PostgreSQL e Redis; ele não inicia API, worker ou sche
 | `HTTP_IDLE_TIMEOUT` | `60s` | Timeout de conexões ociosas. |
 | `HTTP_SHUTDOWN_TIMEOUT` | `10s` | Tempo máximo para encerrar o servidor HTTP. |
 | `TRUSTED_PROXIES` | vazio | Lista de IPs/CIDRs de proxies confiáveis, separada por vírgula. Deixe vazia se não houver proxy confiável. |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` no exemplo | Origens permitidas, separadas por vírgula. O middleware CORS só é habilitado quando há origens configuradas. |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000` no exemplo | Origens permitidas, separadas por vírgula. Obrigatório em modo cookie: informe origens HTTP(S) exatas, com esquema, host e porta quando aplicável, sem caminho ou barra final. A lista também valida `Origin` nas operações de escrita. |
 | `AUTH_TOKEN_TRANSPORT` | `body` | `body` retorna tokens no campo `data` do JSON; `cookie` envia cookies `HttpOnly`. Em modo cookie, origens CORS devem ser explícitas, sem `*`. |
+| `AUTH_COOKIE_SAME_SITE` | `lax` | Política dos cookies: `lax`, `strict` ou `none`. Use `none` para frontends em sites diferentes; essa opção força `Secure` em qualquer ambiente e exige HTTPS. |
 | `PASSWORD_VALIDATION_LEVEL` | `1` | Nível de validação da senha, aplicado no cadastro e na troca. Aceita `1`, `2` ou `3`; todos exigem pelo menos 8 caracteres. |
 
-Em modo cookie, os cookies usam `SameSite=Lax` e `Secure` em produção. Para chamadas de uma origem diferente, o navegador deve enviar credenciais (`credentials: "include"`). Esse modo é voltado a frontends same-site; uma aplicação realmente cross-site exige rever a política de cookies e proteção CSRF.
+Em modo cookie, os cookies usam `HttpOnly`, a política `SameSite` configurada e `Secure` em produção. Com `AUTH_COOKIE_SAME_SITE=none`, `Secure` é aplicado inclusive fora de produção. Para chamadas entre origens diferentes, o frontend deve usar `credentials: "include"` e sua origem deve constar em `CORS_ALLOWED_ORIGINS`.
+
+A proteção CSRF valida o header `Origin` em todas as operações de escrita (`POST`, `PUT`, `PATCH` e `DELETE`) sob `/api/v1` quando o transporte é `cookie`, inclusive cadastro, login e refresh. A correspondência é exata: esquema, host e porta precisam coincidir com uma origem configurada. Headers ausentes, `Origin: null` e origens não permitidas são rejeitados com `403`; não há fallback para `Referer`. O navegador envia `Origin` automaticamente. Clientes como curl e Postman precisam informá-lo explicitamente nesse modo. `GET`, `HEAD` e `OPTIONS` não exigem esse header; mantenha essas rotas sem alterações de estado.
+
+Para usar cookies entre sites diferentes, configure `AUTH_TOKEN_TRANSPORT=cookie`, `AUTH_COOKIE_SAME_SITE=none` e a origem HTTPS do frontend em `CORS_ALLOWED_ORIGINS`, servindo a API por HTTPS. Navegadores podem bloquear cookies de terceiros mesmo com essa configuração; nesse caso, use uma implantação que coloque frontend e API no mesmo site. Em desenvolvimento local com HTTP, mantenha `lax` e use hosts do mesmo site, como `localhost` em portas diferentes.
 
 No nível `1`, basta o mínimo de 8 caracteres. O nível `2` também exige letra maiúscula, minúscula, número e símbolo. O nível `3` acrescenta a verificação de senhas vazadas pelo [HIBP Pwned Passwords](https://haveibeenpwned.com/API/v3), enviando somente o prefixo de 5 caracteres do hash SHA-1 e comparando a resposta localmente. A consulta tem timeout de 2 segundos; se o serviço falhar ou expirar, a senha é aceita.
 
@@ -215,6 +220,8 @@ No nível `1`, basta o mínimo de 8 caracteres. O nível `2` também exige letra
 | `make migrate-down` | Reverte uma migration; `make migrate-down STEPS=2` reverte duas. |
 | `make migrate-version` | Mostra a versão atual das migrations. |
 | `make test` | Executa os testes Go existentes. |
+| `make test-e2e` | Executa o fluxo HTTP e2e de autenticação, com PostgreSQL e Redis de teste configurados. |
+| `make vulncheck` | Verifica vulnerabilidades conhecidas com a ferramenta versionada `govulncheck`. |
 
 Não há comandos Make para build, lint ou reset do banco. O servidor não aplica migrations automaticamente ao iniciar.
 
@@ -314,7 +321,7 @@ Workers mantêm suas próprias conexões com PostgreSQL e o database Redis da fi
 - Rate limiting Redis aplica proteção por IP nas rotas públicas (60/min), limites por e-mail em cadastro e login (5/min), e por usuário na renovação (30/min), operações de sessão (10/min) e troca de senha (5/min).
 - Headers incluem `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy`.
 - Imagens de perfil são limitadas a 4 MiB e o conteúdo é inspecionado como JPEG ou PNG antes de salvar em `STORAGE_ROOT`.
-- Cookies usam `HttpOnly`, `SameSite=Lax` e `Secure` em produção; CORS com credenciais exige origens explícitas.
+- Cookies usam `HttpOnly` e `SameSite` configurável; `Secure` é obrigatório em produção e com `SameSite=None`. Operações de escrita em modo cookie exigem `Origin` permitido pela lista CORS, como proteção CSRF.
 
 ## Testes
 
@@ -326,6 +333,8 @@ go test ./...
 
 O pacote `internal/integration` cobre PostgreSQL, Redis, filas, seeders e o bootstrap da aplicação. `cmd/migration` também tem um teste que aplica as migrations. Sem as variáveis de teste, esses casos são ignorados.
 
+O fluxo `TestAuthenticationE2E`, em `internal/integration/auth_e2e_test.go`, inicia um servidor HTTPS com o bootstrap real e usa PostgreSQL e Redis reais, sem mocks. Ele aplica as migrations SQL em um schema isolado, executa os seeders e cobre cadastro, login, consulta de perfil, rejeição de acesso administrativo sem permissão, rotação dos tokens e logout. A revogação é confirmada ao reenviar os tokens após o logout. O fluxo roda nos modos JSON (`body`) e cookies (`cookie`), usando um cookie jar que recebe e envia os cookies automaticamente. O modo cookie verifica `SameSite=None; Secure`, preflight CORS com credenciais e rejeição de operações autenticadas com `Origin` ausente, `null` ou não permitido.
+
 Para executar a suíte completa localmente, use serviços descartáveis e crie previamente um banco PostgreSQL de teste chamado `test` (ou com nome terminado em `_test` ou `-test`). Os dois bancos Redis precisam ser diferentes:
 
 ```bash
@@ -336,13 +345,17 @@ export TEST_QUEUE_REDIS_DB=15
 go test ./... -count=1
 ```
 
+Com as mesmas variáveis configuradas, execute somente o e2e com `make test-e2e`. Sem `TEST_DATABASE_URL` ou `TEST_REDIS_ADDR`, o fluxo é ignorado. O teste usa uma porta HTTP aleatória, remove seu schema ao terminar e mantém o estado Redis nos databases de teste; use uma instância descartável. O cookie jar verifica o transporte HTTP, mas não simula as restrições de CORS e `SameSite` de um navegador.
+
 As credenciais e portas acima correspondem aos padrões do Compose; ajuste a URL se o seu `.env` usar outros valores. Os testes PostgreSQL criam schemas isolados e os removem ao terminar. Não aponte `TEST_DATABASE_URL` para um banco com dados importantes.
 
 ## Integração contínua
 
-O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em pushes, pull requests e manualmente. Ele inicia PostgreSQL e Redis descartáveis, verifica dependências, executa `go vet`, roda toda a suíte com os testes de integração habilitados e compila API, worker, scheduler e CLI de migrations.
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em pushes, pull requests e manualmente. Ele inicia PostgreSQL e Redis descartáveis, verifica dependências, executa `go vet` e `go tool govulncheck ./...`, roda toda a suíte com os testes de integração e e2e habilitados e compila API, worker, scheduler e CLI de migrations.
 
-Ainda não há uma suíte e2e de fluxos completos da API nem publicação ou deploy automatizados.
+O `govulncheck` está declarado como ferramenta em `go.mod`, com versão fixada nas dependências; não exige instalação global. Para executar localmente, use `make vulncheck`. A consulta usa a base pública de vulnerabilidades Go e requer acesso à rede; vulnerabilidades encontradas nos caminhos analisados fazem a verificação falhar.
+
+Ainda não há publicação ou deploy automatizados.
 
 ## Docker
 
