@@ -36,6 +36,15 @@ import (
 
 func testPostgres(t *testing.T) *gorm.DB {
 	t.Helper()
+	db := testPostgresSchema(t)
+	if err := db.AutoMigrate(&domain.User{}, &domain.Role{}, &domain.Permission{}, &domain.RefreshToken{}, &domain.ActivityLog{}); err != nil {
+		t.Fatalf("migrate isolated schema: %v", err)
+	}
+	return db
+}
+
+func testPostgresSchema(t *testing.T) *gorm.DB {
+	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("set TEST_DATABASE_URL to a disposable PostgreSQL database")
@@ -83,9 +92,6 @@ func testPostgres(t *testing.T) *gorm.DB {
 	db, err = gorm.Open(postgres.Open(schemaURL.String()), &gorm.Config{DisableAutomaticPing: true, Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
 		t.Fatalf("open schema-scoped connection: %v", err)
-	}
-	if err := db.AutoMigrate(&domain.User{}, &domain.Role{}, &domain.Permission{}, &domain.RefreshToken{}, &domain.ActivityLog{}); err != nil {
-		t.Fatalf("migrate isolated schema: %v", err)
 	}
 	return db
 }
@@ -460,7 +466,8 @@ func (h *integrationHandler) HandleTask(_ context.Context, payload json.RawMessa
 	return nil
 }
 
-func TestBootstrapConstructorsAndShutdown(t *testing.T) {
+func testApplicationConfig(t *testing.T) *config.Config {
+	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("set TEST_DATABASE_URL to a disposable PostgreSQL database")
@@ -522,6 +529,11 @@ func TestBootstrapConstructorsAndShutdown(t *testing.T) {
 		JWTSecret: strings.Repeat("s", 32), JWTIssuer: "integration-test", JWTAudience: "integration-test", JWTExpiration: time.Minute, RefreshExpiration: time.Hour,
 		StorageRoot: t.TempDir(),
 	}
+	return cfg
+}
+
+func TestBootstrapConstructorsAndShutdown(t *testing.T) {
+	cfg := testApplicationConfig(t)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	badDatabase := *cfg
 	badDatabase.DBPort = 1
@@ -555,7 +567,7 @@ func TestBootstrapConstructorsAndShutdown(t *testing.T) {
 	client := &http.Client{Timeout: 100 * time.Millisecond}
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		response, requestErr := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health/live", httpPort))
+		response, requestErr := client.Get(fmt.Sprintf("http://127.0.0.1:%d/health/live", cfg.Port))
 		if requestErr == nil {
 			_ = response.Body.Close()
 			if response.StatusCode != http.StatusOK {
