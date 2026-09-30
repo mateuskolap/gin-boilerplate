@@ -30,7 +30,7 @@ func (r *baseRepository[T]) getDB(ctx context.Context) *gorm.DB {
 }
 
 func (r *baseRepository[T]) Create(ctx context.Context, entity *T) error {
-	return r.getDB(ctx).Create(entity).Error
+	return gorm.G[T](r.getDB(ctx)).Create(ctx, entity)
 }
 
 func (r *baseRepository[T]) GetByID(ctx context.Context, id uuid.UUID, preloads ...string) (*T, error) {
@@ -38,15 +38,14 @@ func (r *baseRepository[T]) GetByID(ctx context.Context, id uuid.UUID, preloads 
 }
 
 func (r *baseRepository[T]) FindOneBy(ctx context.Context, query string, args []any, preloads ...string) (*T, error) {
-	var entity T
-
-	dbQuery := r.getDB(ctx)
+	dbQuery := gorm.G[T](r.getDB(ctx)).Where(query, args...)
 
 	for _, preload := range preloads {
-		dbQuery = dbQuery.Preload(preload)
+		dbQuery = dbQuery.Preload(preload, nil)
 	}
 
-	if err := dbQuery.Where(query, args...).First(&entity).Error; err != nil {
+	entity, err := dbQuery.First(ctx)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -65,8 +64,8 @@ func (r *baseRepository[T]) Update(ctx context.Context, entity *T) error {
 }
 
 func (r *baseRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
-	var entity T
-	return r.getDB(ctx).Where("id = ?", id).Delete(&entity).Error
+	_, err := gorm.G[T](r.getDB(ctx)).Where("id = ?", id).Delete(ctx)
+	return err
 }
 
 func (r *baseRepository[T]) List(

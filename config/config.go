@@ -184,7 +184,7 @@ func (c *DatabaseConfig) setDefaultSSLMode() {
 	if c.DBSSLMode == "" {
 		c.DBSSLMode = "disable"
 		if c.Env == "production" {
-			c.DBSSLMode = "require"
+			c.DBSSLMode = "verify-full"
 		}
 	}
 }
@@ -204,6 +204,9 @@ func (c *DatabaseConfig) Validate() error {
 	case "disable", "allow", "prefer", "require", "verify-ca", "verify-full":
 	default:
 		errs = append(errs, fmt.Errorf("DB_SSLMODE is invalid"))
+	}
+	if c.Env == "production" && c.DBSSLMode != "verify-full" {
+		errs = append(errs, fmt.Errorf("DB_SSLMODE must be verify-full in production"))
 	}
 	if c.Env == "production" && c.DBPassword == "postgres" {
 		errs = append(errs, fmt.Errorf("DB_PASSWORD must not use the development default in production"))

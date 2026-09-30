@@ -133,7 +133,7 @@ func TestConfigValidateRejectsUnsafeAndOutOfRangeValues(t *testing.T) {
 }
 
 func TestDatabaseConfigValidationURLAndProductionDefaults(t *testing.T) {
-	cfg := DatabaseConfig{Env: "production", DBHost: "::1", DBPort: 5432, DBUser: "api user", DBPassword: "p@ss/word", DBName: "app", DBSSLMode: "require"}
+	cfg := DatabaseConfig{Env: "production", DBHost: "::1", DBPort: 5432, DBUser: "api user", DBPassword: "p@ss/word", DBName: "app", DBSSLMode: "verify-full"}
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
@@ -142,7 +142,7 @@ func TestDatabaseConfigValidationURLAndProductionDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	password, _ := parsed.User.Password()
-	if parsed.Scheme != "postgres" || parsed.Host != "[::1]:5432" || parsed.User.Username() != "api user" || password != "p@ss/word" || parsed.Path != "/app" || parsed.Query().Get("sslmode") != "require" {
+	if parsed.Scheme != "postgres" || parsed.Host != "[::1]:5432" || parsed.User.Username() != "api user" || password != "p@ss/word" || parsed.Path != "/app" || parsed.Query().Get("sslmode") != "verify-full" {
 		t.Fatalf("URL() = %q", parsed.String())
 	}
 
@@ -153,7 +153,7 @@ func TestDatabaseConfigValidationURLAndProductionDefaults(t *testing.T) {
 		{name: "environment", change: func(c *DatabaseConfig) { c.Env = "staging" }},
 		{name: "missing host", change: func(c *DatabaseConfig) { c.DBHost = " " }},
 		{name: "port", change: func(c *DatabaseConfig) { c.DBPort = 70000 }},
-		{name: "ssl mode", change: func(c *DatabaseConfig) { c.DBSSLMode = "invalid" }},
+		{name: "ssl mode", change: func(c *DatabaseConfig) { c.DBSSLMode = "require" }},
 		{name: "development password in production", change: func(c *DatabaseConfig) { c.DBPassword = "postgres" }},
 	}
 	for _, tc := range invalid {
@@ -181,7 +181,7 @@ func TestLoadConfigNormalizesAdminEmailAndProductionSSLMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig() error = %v", err)
 	}
-	if cfg.Env != "production" || cfg.DBSSLMode != "require" || cfg.AdminEmail != "admin@example.com" || cfg.PasswordValidationLevel != 2 {
+	if cfg.Env != "production" || cfg.DBSSLMode != "verify-full" || cfg.AdminEmail != "admin@example.com" || cfg.PasswordValidationLevel != 2 {
 		t.Fatalf("LoadConfig() environment=%q sslmode=%q admin email=%q password level=%d", cfg.Env, cfg.DBSSLMode, cfg.AdminEmail, cfg.PasswordValidationLevel)
 	}
 }
@@ -195,7 +195,7 @@ func TestLoadDatabaseConfigUsesProductionSSLDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDatabaseConfig() error = %v", err)
 	}
-	if cfg.DBSSLMode != "require" {
-		t.Fatalf("LoadDatabaseConfig() SSL mode = %q, want require", cfg.DBSSLMode)
+	if cfg.DBSSLMode != "verify-full" {
+		t.Fatalf("LoadDatabaseConfig() SSL mode = %q, want verify-full", cfg.DBSSLMode)
 	}
 }

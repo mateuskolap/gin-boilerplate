@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -54,11 +55,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		return nil, err
 	}
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       cfg.RedisDB,
-	})
+	redisClient := redis.NewClient(newRedisOptions(cfg, cfg.RedisDB))
 
 	redisContext, cancelRedis := context.WithTimeout(context.Background(), 5*time.Second)
 	if err := redisClient.Ping(redisContext).Err(); err != nil {
@@ -69,11 +66,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	}
 	cancelRedis()
 
-	queueRedisClient := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       cfg.QueueRedisDB,
-	})
+	queueRedisClient := redis.NewClient(newRedisOptions(cfg, cfg.QueueRedisDB))
 	queueRedisContext, cancelQueueRedis := context.WithTimeout(context.Background(), 5*time.Second)
 	if err := queueRedisClient.Ping(queueRedisContext).Err(); err != nil {
 		cancelQueueRedis()
@@ -187,6 +180,18 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		Server:           server,
 		localStore:       localStore,
 	}, nil
+}
+
+func newRedisOptions(cfg *config.Config, db int) *redis.Options {
+	options := &redis.Options{
+		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       db,
+	}
+	if cfg.Env == "production" {
+		options.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, ServerName: cfg.RedisHost}
+	}
+	return options
 }
 
 func (a *Application) Run() error {

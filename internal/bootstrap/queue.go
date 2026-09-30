@@ -139,11 +139,7 @@ func openDatabase(cfg *config.Config) (*gorm.DB, *sql.DB, error) {
 }
 
 func openQueueRedis(cfg *config.Config) (*redis.Client, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", cfg.RedisHost, cfg.RedisPort),
-		Password: cfg.RedisPassword,
-		DB:       cfg.QueueRedisDB,
-	})
+	client := redis.NewClient(newRedisOptions(cfg, cfg.QueueRedisDB))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := client.Ping(ctx).Err(); err != nil {

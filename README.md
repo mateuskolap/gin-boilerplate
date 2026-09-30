@@ -137,7 +137,7 @@ O Compose inicia somente PostgreSQL e Redis; ele não inicia API, worker ou sche
 
 | Variável | Valor no exemplo / padrão | Descrição |
 | --- | --- | --- |
-| `ENVIRONMENT` | `development` | `development`, `production` ou `test`; produção ativa logs JSON no console, modo Gin release e cookies `Secure`. |
+| `ENVIRONMENT` | `development` | `development`, `production` ou `test`; produção ativa logs JSON no console, modo Gin release, cookies `Secure` e TLS verificado para Redis. |
 | `PORT` | `8080` | Porta HTTP da API. |
 | `HTTP_READ_HEADER_TIMEOUT` | `5s` | Limite para receber os headers. |
 | `HTTP_READ_TIMEOUT` | `10s` | Timeout de leitura HTTP. |
@@ -167,7 +167,7 @@ No nível `1`, basta o mínimo de 8 caracteres. O nível `2` também exige letra
 | `DB_USER` | `postgres` | Usuário do banco. |
 | `DB_PASSWORD` | `postgres` | Senha local; não use o valor padrão em produção. |
 | `DB_NAME` | `boilerplate` | Nome do banco. |
-| `DB_SSLMODE` | `disable` no exemplo | Modo SSL do driver PostgreSQL. Se não definido, o código escolhe `disable` fora de produção e `require` em produção. |
+| `DB_SSLMODE` | `disable` no exemplo | Modo SSL do driver PostgreSQL. Se não definido, o código escolhe `disable` fora de produção e `verify-full` em produção. Produção rejeita outros modos e valida a cadeia do certificado e o nome em `DB_HOST`; instale a CA do banco no armazenamento de certificados do sistema. |
 | `DB_MAX_OPEN_CONNECTIONS` | `25` | Máximo de conexões abertas. |
 | `DB_MAX_IDLE_CONNECTIONS` | `5` | Máximo de conexões ociosas; não pode exceder o máximo aberto. |
 | `DB_CONNECTION_LIFETIME` | `30m` | Vida máxima de uma conexão. |
@@ -178,7 +178,7 @@ No nível `1`, basta o mínimo de 8 caracteres. O nível `2` também exige letra
 
 | Variável | Valor no exemplo / padrão | Descrição |
 | --- | --- | --- |
-| `REDIS_HOST` | `localhost` | Host do Redis. |
+| `REDIS_HOST` | `localhost` | Host do Redis. Em produção, a conexão usa TLS 1.2 ou superior e valida o certificado para este host. |
 | `REDIS_PORT` | `6379` | Porta do Redis e porta publicada pelo Compose. |
 | `REDIS_PASSWORD` | vazio | Senha, se configurada no Redis. |
 | `REDIS_DB` | `0` | Database Redis de cache, blacklist de tokens e rate limiting. |
