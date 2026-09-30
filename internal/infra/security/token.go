@@ -31,15 +31,13 @@ func HashSHA256(value string) string {
 func GenerateAccessToken(userID uuid.UUID, secret, issuer, audience string, expiration time.Duration) (string, error) {
 	now := time.Now().UTC()
 	claims := CustomClaims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    issuer,
-			Subject:   userID.String(),
-			Audience:  jwt.ClaimStrings{audience},
-			ID:        uuid.New().String(),
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(expiration)),
-			NotBefore: jwt.NewNumericDate(now),
-		},
+		Issuer:    issuer,
+		Subject:   userID.String(),
+		Audience:  jwt.ClaimStrings{audience},
+		ID:        uuid.New().String(),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(expiration)),
+		NotBefore: jwt.NewNumericDate(now),
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"gin-boilerplate/internal/delivery/http/authcookie"
-	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/shared"
+	userdomain "gin-boilerplate/internal/users/domain"
 	"strings"
 
 	"uuid"
@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func AuthenticationMiddleware(authUseCase domain.AuthUseCase, useCookies bool) gin.HandlerFunc {
+func AuthenticationMiddleware(authUseCase userdomain.AuthUseCase, useCookies bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var tokenString string
 		if useCookies {

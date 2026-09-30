@@ -11,19 +11,35 @@ import (
 	"time"
 
 	"gin-boilerplate/config"
+	activityloghttp "gin-boilerplate/internal/activity_logs/adapters/http"
+	activitylogpostgres "gin-boilerplate/internal/activity_logs/adapters/postgres"
+	activitylogapp "gin-boilerplate/internal/activity_logs/application"
 	deliveryHttp "gin-boilerplate/internal/delivery/http"
 	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/infra/health"
 	imageinfra "gin-boilerplate/internal/infra/image"
+	postgresinfra "gin-boilerplate/internal/infra/postgres"
 	queueinfra "gin-boilerplate/internal/infra/queue"
 	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
 	securityinfra "gin-boilerplate/internal/infra/security"
 	"gin-boilerplate/internal/infra/seeder"
 	"gin-boilerplate/internal/infra/storage"
-	"gin-boilerplate/internal/usecase"
+	permissionhttp "gin-boilerplate/internal/permissions/adapters/http"
+	permissionpostgres "gin-boilerplate/internal/permissions/adapters/postgres"
+	permissionapp "gin-boilerplate/internal/permissions/application"
+	refreshhttp "gin-boilerplate/internal/refresh_tokens/adapters/http"
+	refreshpostgres "gin-boilerplate/internal/refresh_tokens/adapters/postgres"
+	refreshapp "gin-boilerplate/internal/refresh_tokens/application"
+	rolehttp "gin-boilerplate/internal/roles/adapters/http"
+	rolepostgres "gin-boilerplate/internal/roles/adapters/postgres"
+	roleapp "gin-boilerplate/internal/roles/application"
+	usercache "gin-boilerplate/internal/users/adapters/cache"
+	userhttp "gin-boilerplate/internal/users/adapters/http"
+	userpostgres "gin-boilerplate/internal/users/adapters/postgres"
+	userapp "gin-boilerplate/internal/users/application"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -87,19 +103,19 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	imageInspector := &imageinfra.Inspector{}
 
 	cacheRepo := repository.NewRedisCache(redisClient)
-	tokenBlacklistRepo := repository.NewTokenBlackListRepository(cacheRepo)
-	activityLogRepo := repository.NewActivityLogRepository(db)
-	userRepo := repository.NewUserRepository(db, activityLogRepo)
-	roleRepo := repository.NewRoleRepository(db, activityLogRepo)
-	permissionRepo := repository.NewPermissionRepository(db)
-	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
-	authorizationRepo := repository.NewAuthorizationRepository(db)
-	txManager := repository.NewGormTransactionManagerRepository(db)
+	tokenBlacklistRepo := usercache.NewTokenBlackListRepository(cacheRepo)
+	activityLogRepo := activitylogpostgres.NewActivityLogRepository(db)
+	userRepo := userpostgres.NewUserRepository(db, activityLogRepo)
+	roleRepo := rolepostgres.NewRoleRepository(db, activityLogRepo)
+	permissionRepo := permissionpostgres.NewPermissionRepository(db)
+	refreshTokenRepo := refreshpostgres.NewRefreshTokenRepository(db)
+	authorizationRepo := permissionpostgres.NewAuthorizationRepository(db)
+	txManager := postgresinfra.NewGormTransactionManagerRepository(db)
 	rateLimiter := ratelimit.NewRedisLimiter(redisClient)
 	passwordChecker := securityinfra.NewPwnedPasswordChecker()
 
-	refreshTokenUseCase := usecase.NewRefreshTokenUseCase(refreshTokenRepo, txManager, cfg.RefreshExpiration)
-	authUseCase := usecase.NewAuthUseCase(
+	refreshTokenUseCase := refreshapp.NewRefreshTokenUseCase(refreshTokenRepo, txManager, cfg.RefreshExpiration)
+	authUseCase := userapp.NewAuthUseCase(
 		userRepo,
 		roleRepo,
 		refreshTokenUseCase,
@@ -113,7 +129,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		passwordChecker,
 		rateLimiter,
 	)
-	userUseCase := usecase.NewUserUseCase(
+	userUseCase := userapp.NewUserUseCase(
 		userRepo,
 		refreshTokenUseCase,
 		localStore,
@@ -123,10 +139,10 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		cfg.JWTExpiration,
 		activityLogRepo,
 	)
-	roleUseCase := usecase.NewRoleUseCase(roleRepo, txManager, activityLogRepo)
-	permissionUseCase := usecase.NewPermissionUseCase(permissionRepo)
-	activityLogUseCase := usecase.NewActivityLogUseCase(activityLogRepo)
-	permissionCheckerUseCase := usecase.NewPermissionCheckerUseCase(authorizationRepo)
+	roleUseCase := roleapp.NewRoleUseCase(roleRepo, txManager, activityLogRepo)
+	permissionUseCase := permissionapp.NewPermissionUseCase(permissionRepo)
+	activityLogUseCase := activitylogapp.NewActivityLogUseCase(activityLogRepo)
+	permissionCheckerUseCase := permissionapp.NewPermissionCheckerUseCase(authorizationRepo)
 
 	cookieSameSite := http.SameSiteLaxMode
 	switch cfg.AuthCookieSameSite {
@@ -136,12 +152,12 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		cookieSameSite = http.SameSiteNoneMode
 	}
 	router, err := deliveryHttp.SetupRouter(deliveryHttp.RouterConfig{
-		AuthHandler:         v1.NewAuthHandler(authUseCase, cfg.AuthTokenTransport == "cookie", cfg.Env == "production", cfg.JWTExpiration, cfg.RefreshExpiration, cookieSameSite),
-		UserHandler:         v1.NewUserHandler(userUseCase),
-		RoleHandler:         v1.NewRoleHandler(roleUseCase),
-		PermissionHandler:   v1.NewPermissionHandler(permissionUseCase),
-		ActivityLogHandler:  v1.NewActivityLogHandler(activityLogUseCase),
-		RefreshTokenHandler: v1.NewRefreshTokenHandler(refreshTokenUseCase, cfg.AuthTokenTransport == "cookie"),
+		AuthHandler:         userhttp.NewAuthHandler(authUseCase, cfg.AuthTokenTransport == "cookie", cfg.Env == "production", cfg.JWTExpiration, cfg.RefreshExpiration, cookieSameSite),
+		UserHandler:         userhttp.NewUserHandler(userUseCase),
+		RoleHandler:         rolehttp.NewRoleHandler(roleUseCase),
+		PermissionHandler:   permissionhttp.NewPermissionHandler(permissionUseCase),
+		ActivityLogHandler:  activityloghttp.NewActivityLogHandler(activityLogUseCase),
+		RefreshTokenHandler: refreshhttp.NewRefreshTokenHandler(refreshTokenUseCase, cfg.AuthTokenTransport == "cookie"),
 		HealthHandler:       v1.NewHealthHandler(health.NewChecker(sqlDB, redisClient)),
 		AuthUseCase:         authUseCase,
 		PermissionChecker:   permissionCheckerUseCase,

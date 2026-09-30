@@ -14,35 +14,36 @@ import (
 	"uuid"
 
 	"gin-boilerplate/internal/delivery/http/authcookie"
-	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
+	permissiondomain "gin-boilerplate/internal/permissions/domain"
+	userdomain "gin-boilerplate/internal/users/domain"
 
 	"github.com/gin-gonic/gin"
 )
 
 type middlewareAuthUseCase struct {
-	domain.AuthUseCase
-	claims *domain.TokenClaims
+	userdomain.AuthUseCase
+	claims *userdomain.TokenClaims
 	err    error
 	token  string
 }
 
-func (f *middlewareAuthUseCase) ValidateAccessToken(_ context.Context, token string) (*domain.TokenClaims, error) {
+func (f *middlewareAuthUseCase) ValidateAccessToken(_ context.Context, token string) (*userdomain.TokenClaims, error) {
 	f.token = token
 	return f.claims, f.err
 }
 
 type middlewarePermissionChecker struct {
-	domain.PermissionCheckerUseCase
+	permissiondomain.PermissionCheckerUseCase
 	allowed bool
 	err     error
 	userID  uuid.UUID
-	name    domain.PermissionName
+	name    permissiondomain.PermissionName
 	calls   int
 }
 
-func (f *middlewarePermissionChecker) HasPermission(_ context.Context, userID uuid.UUID, permission domain.PermissionName) (bool, error) {
+func (f *middlewarePermissionChecker) HasPermission(_ context.Context, userID uuid.UUID, permission permissiondomain.PermissionName) (bool, error) {
 	f.calls++
 	f.userID, f.name = userID, permission
 	return f.allowed, f.err
@@ -90,7 +91,7 @@ func TestAuthenticationMiddlewareReadsBearerAndCookieTokens(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			fake := &middlewareAuthUseCase{claims: &domain.TokenClaims{Subject: userID.String(), TokenID: "jti"}}
+			fake := &middlewareAuthUseCase{claims: &userdomain.TokenClaims{Subject: userID.String(), TokenID: "jti"}}
 			nextCalled := false
 			next := func(c *gin.Context) {
 				gotUser, _ := c.Get("user_id")
@@ -125,7 +126,7 @@ func TestAuthenticationMiddlewareRejectsMissingAndInvalidTokens(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		header  string
-		claims  *domain.TokenClaims
+		claims  *userdomain.TokenClaims
 		err     error
 		wantErr string
 	}{
@@ -177,7 +178,7 @@ func TestRequirePermissionChecksAuthenticatedUser(t *testing.T) {
 			if tc.setup != nil {
 				chain = append(chain, tc.setup)
 			}
-			chain = append(chain, RequirePermission(domain.PermissionViewUser, checker), func(c *gin.Context) {
+			chain = append(chain, RequirePermission(permissiondomain.PermissionViewUser, checker), func(c *gin.Context) {
 				called = true
 				c.Status(http.StatusNoContent)
 			})
@@ -185,7 +186,7 @@ func TestRequirePermissionChecksAuthenticatedUser(t *testing.T) {
 			if recorder.Code != tc.wantStatus || called != (tc.wantStatus == http.StatusNoContent) {
 				t.Fatalf("status=%d next called=%v body=%s", recorder.Code, called, recorder.Body.String())
 			}
-			if tc.setup != nil && (checker.userID != userID || checker.name != domain.PermissionViewUser || checker.calls != 1) {
+			if tc.setup != nil && (checker.userID != userID || checker.name != permissiondomain.PermissionViewUser || checker.calls != 1) {
 				t.Fatalf("permission checker received wrong arguments: %+v", checker)
 			}
 		})
@@ -198,7 +199,7 @@ func TestRequirePermissionOrOwnerSkipsCheckForOwnerAndChecksOthers(t *testing.T)
 	ownerSetup := func(c *gin.Context) { c.Set("user_id", ownerID.String()) }
 	owner := serveMiddleware(t, http.MethodGet, "/users/:id/image", "/users/"+ownerID.String()+"/image", nil,
 		ownerSetup,
-		RequirePermissionOrOwner(domain.PermissionViewUser, checker, OwnerFromUserIDParam("id")),
+		RequirePermissionOrOwner(permissiondomain.PermissionViewUser, checker, OwnerFromUserIDParam("id")),
 		func(c *gin.Context) { c.Status(http.StatusNoContent) },
 	)
 	if owner.Code != http.StatusNoContent || checker.calls != 0 {
@@ -208,7 +209,7 @@ func TestRequirePermissionOrOwnerSkipsCheckForOwnerAndChecksOthers(t *testing.T)
 	checker.allowed = true
 	other := serveMiddleware(t, http.MethodGet, "/users/:id/image", "/users/"+otherID.String()+"/image", nil,
 		ownerSetup,
-		RequirePermissionOrOwner(domain.PermissionViewUser, checker, OwnerFromUserIDParam("id")),
+		RequirePermissionOrOwner(permissiondomain.PermissionViewUser, checker, OwnerFromUserIDParam("id")),
 		func(c *gin.Context) { c.Status(http.StatusNoContent) },
 	)
 	if other.Code != http.StatusNoContent || checker.calls != 1 || checker.userID != ownerID {
@@ -218,7 +219,7 @@ func TestRequirePermissionOrOwnerSkipsCheckForOwnerAndChecksOthers(t *testing.T)
 	checker.allowed = false
 	denied := serveMiddleware(t, http.MethodGet, "/users/:id/image", "/users/"+otherID.String()+"/image", nil,
 		ownerSetup,
-		RequirePermissionOrOwner(domain.PermissionViewUser, checker, OwnerFromUserIDParam("id")),
+		RequirePermissionOrOwner(permissiondomain.PermissionViewUser, checker, OwnerFromUserIDParam("id")),
 		func(c *gin.Context) { c.Status(http.StatusNoContent) },
 	)
 	if denied.Code != http.StatusForbidden {

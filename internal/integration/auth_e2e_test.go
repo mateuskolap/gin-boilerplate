@@ -16,7 +16,7 @@ import (
 
 	"gin-boilerplate/internal/bootstrap"
 	"gin-boilerplate/internal/delivery/http/authcookie"
-	"gin-boilerplate/internal/delivery/http/dto"
+	"gin-boilerplate/internal/users/adapters/http/dto"
 
 	"uuid"
 )

@@ -9,40 +9,48 @@ import (
 	"time"
 	"uuid"
 
+	activityloghttp "gin-boilerplate/internal/activity_logs/adapters/http"
+	activitylogdomain "gin-boilerplate/internal/activity_logs/domain"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
-	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
+	permissionhttp "gin-boilerplate/internal/permissions/adapters/http"
+	permissiondomain "gin-boilerplate/internal/permissions/domain"
+	refreshhttp "gin-boilerplate/internal/refresh_tokens/adapters/http"
+	refreshtokendomain "gin-boilerplate/internal/refresh_tokens/domain"
+	rolehttp "gin-boilerplate/internal/roles/adapters/http"
+	userhttp "gin-boilerplate/internal/users/adapters/http"
+	userdomain "gin-boilerplate/internal/users/domain"
 
 	"github.com/gin-gonic/gin"
 )
 
 type routerAuthUseCase struct {
-	domain.AuthUseCase
-	claims *domain.TokenClaims
+	userdomain.AuthUseCase
+	claims *userdomain.TokenClaims
 	err    error
 }
 
-func (f *routerAuthUseCase) ValidateAccessToken(context.Context, string) (*domain.TokenClaims, error) {
+func (f *routerAuthUseCase) ValidateAccessToken(context.Context, string) (*userdomain.TokenClaims, error) {
 	return f.claims, f.err
 }
 
 type routerRefreshUseCase struct {
-	domain.RefreshTokenUseCase
+	refreshtokendomain.RefreshTokenUseCase
 	userID uuid.UUID
 	token  string
 	err    error
 }
 
 type routerActivityLogUseCase struct {
-	domain.ActivityLogUseCase
+	activitylogdomain.ActivityLogUseCase
 	params  shared.PaginationParams
 	filters []shared.Filter
 }
 
-func (f *routerActivityLogUseCase) List(_ context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[domain.ActivityLog], error) {
+func (f *routerActivityLogUseCase) List(_ context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[activitylogdomain.ActivityLog], error) {
 	f.params, f.filters = params, filters
-	return &shared.PaginatedResult[domain.ActivityLog]{Page: params.Page, Limit: params.Limit}, nil
+	return &shared.PaginatedResult[activitylogdomain.ActivityLog]{Page: params.Page, Limit: params.Limit}, nil
 }
 
 func (f *routerRefreshUseCase) RevokeOtherSessions(_ context.Context, userID uuid.UUID, token string) error {
@@ -51,25 +59,25 @@ func (f *routerRefreshUseCase) RevokeOtherSessions(_ context.Context, userID uui
 }
 
 type routerUserUseCase struct {
-	domain.UserUseCase
-	user   *domain.User
+	userdomain.UserUseCase
+	user   *userdomain.User
 	err    error
 	userID uuid.UUID
 }
 
-func (f *routerUserUseCase) Find(_ context.Context, id uuid.UUID) (*domain.User, error) {
+func (f *routerUserUseCase) Find(_ context.Context, id uuid.UUID) (*userdomain.User, error) {
 	f.userID = id
 	return f.user, f.err
 }
 
 type routerPermissionChecker struct {
-	domain.PermissionCheckerUseCase
+	permissiondomain.PermissionCheckerUseCase
 	allowed bool
 	userID  uuid.UUID
-	name    domain.PermissionName
+	name    permissiondomain.PermissionName
 }
 
-func (f *routerPermissionChecker) HasPermission(_ context.Context, userID uuid.UUID, permission domain.PermissionName) (bool, error) {
+func (f *routerPermissionChecker) HasPermission(_ context.Context, userID uuid.UUID, permission permissiondomain.PermissionName) (bool, error) {
 	f.userID, f.name = userID, permission
 	return f.allowed, nil
 }
@@ -87,14 +95,14 @@ func (routerHealthChecker) Readiness(context.Context) error { return nil }
 func routerForTest(t *testing.T, auth *routerAuthUseCase, refresh *routerRefreshUseCase, users *routerUserUseCase, permissions *routerPermissionChecker) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
-	authHandler := v1.NewAuthHandler(auth, false, false, time.Minute, time.Hour, nethttp.SameSiteLaxMode)
+	authHandler := userhttp.NewAuthHandler(auth, false, false, time.Minute, time.Hour, nethttp.SameSiteLaxMode)
 	returnRouter, err := SetupRouter(RouterConfig{
 		AuthHandler:         authHandler,
-		UserHandler:         v1.NewUserHandler(users),
-		RoleHandler:         v1.NewRoleHandler(nil),
-		PermissionHandler:   v1.NewPermissionHandler(nil),
-		ActivityLogHandler:  v1.NewActivityLogHandler(&routerActivityLogUseCase{}),
-		RefreshTokenHandler: v1.NewRefreshTokenHandler(refresh, false),
+		UserHandler:         userhttp.NewUserHandler(users),
+		RoleHandler:         rolehttp.NewRoleHandler(nil),
+		PermissionHandler:   permissionhttp.NewPermissionHandler(nil),
+		ActivityLogHandler:  activityloghttp.NewActivityLogHandler(&routerActivityLogUseCase{}),
+		RefreshTokenHandler: refreshhttp.NewRefreshTokenHandler(refresh, false),
 		HealthHandler:       v1.NewHealthHandler(routerHealthChecker{}),
 		AuthUseCase:         auth,
 		PermissionChecker:   permissions,
@@ -122,9 +130,9 @@ func serveRouter(router *gin.Engine, method, target, body, token string) *httpte
 
 func TestSetupRouterProtectsRoutesAndWiresDELETEBody(t *testing.T) {
 	userID := uuid.New()
-	auth := &routerAuthUseCase{claims: &domain.TokenClaims{Subject: userID.String(), TokenID: "test-jti"}}
+	auth := &routerAuthUseCase{claims: &userdomain.TokenClaims{Subject: userID.String(), TokenID: "test-jti"}}
 	refresh := &routerRefreshUseCase{}
-	users := &routerUserUseCase{user: &domain.User{ID: uuid.New(), Name: "Alice"}}
+	users := &routerUserUseCase{user: &userdomain.User{ID: uuid.New(), Name: "Alice"}}
 	permissions := &routerPermissionChecker{}
 	router := routerForTest(t, auth, refresh, users, permissions)
 
@@ -150,13 +158,13 @@ func TestSetupRouterProtectsRoutesAndWiresDELETEBody(t *testing.T) {
 
 func TestSetupRouterAppliesPermissionGuard(t *testing.T) {
 	userID, targetID := uuid.New(), uuid.New()
-	auth := &routerAuthUseCase{claims: &domain.TokenClaims{Subject: userID.String()}}
-	users := &routerUserUseCase{user: &domain.User{ID: targetID, Name: "Target"}}
+	auth := &routerAuthUseCase{claims: &userdomain.TokenClaims{Subject: userID.String()}}
+	users := &routerUserUseCase{user: &userdomain.User{ID: targetID, Name: "Target"}}
 	permissions := &routerPermissionChecker{}
 	router := routerForTest(t, auth, &routerRefreshUseCase{}, users, permissions)
 
 	denied := serveRouter(router, nethttp.MethodGet, "/api/v1/users/"+targetID.String(), "", "token")
-	if denied.Code != nethttp.StatusForbidden || users.userID != uuid.Nil() || permissions.name != domain.PermissionViewUser || permissions.userID != userID {
+	if denied.Code != nethttp.StatusForbidden || users.userID != uuid.Nil() || permissions.name != permissiondomain.PermissionViewUser || permissions.userID != userID {
 		t.Fatalf("permission denied route status=%d user lookup=%v checker=%+v", denied.Code, users.userID, permissions)
 	}
 
@@ -169,12 +177,12 @@ func TestSetupRouterAppliesPermissionGuard(t *testing.T) {
 
 func TestSetupRouterProtectsActivityLogs(t *testing.T) {
 	userID := uuid.New()
-	auth := &routerAuthUseCase{claims: &domain.TokenClaims{Subject: userID.String()}}
+	auth := &routerAuthUseCase{claims: &userdomain.TokenClaims{Subject: userID.String()}}
 	permissions := &routerPermissionChecker{}
 	router := routerForTest(t, auth, &routerRefreshUseCase{}, &routerUserUseCase{}, permissions)
 
 	denied := serveRouter(router, nethttp.MethodGet, "/api/v1/activity-logs", "", "token")
-	if denied.Code != nethttp.StatusForbidden || permissions.name != domain.PermissionViewActivityLog || permissions.userID != userID {
+	if denied.Code != nethttp.StatusForbidden || permissions.name != permissiondomain.PermissionViewActivityLog || permissions.userID != userID {
 		t.Fatalf("activity logs denial status=%d checker=%+v", denied.Code, permissions)
 	}
 

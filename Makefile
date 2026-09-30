@@ -32,10 +32,10 @@ queue-scheduler:
 	go run ./cmd/scheduler
 
 test:
-	go test ./... -cover
+	sh scripts/test-with-services.sh go test ./... -count=1 -cover
 
 test-e2e:
-	go test ./internal/integration -run '^TestAuthenticationE2E$$' -count=1 -v
+	sh scripts/test-with-services.sh go test ./internal/integration -run '^TestAuthenticationE2E$$' -count=1 -v
 
 vulncheck:
 	go tool govulncheck ./...

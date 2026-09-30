@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"errors"
-	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/shared"
+	permissiondomain "gin-boilerplate/internal/permissions/domain"
 	"uuid"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +13,7 @@ import (
 // It may inspect route parameters or load the resource through a use case.
 type OwnershipCheck func(c *gin.Context, userID uuid.UUID) (bool, error)
 
-func RequirePermission(permission domain.PermissionName, permissionChecker domain.PermissionCheckerUseCase) gin.HandlerFunc {
+func RequirePermission(permission permissiondomain.PermissionName, permissionChecker permissiondomain.PermissionCheckerUseCase) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, ok := authenticatedUserID(c)
 		if !ok || !assertUserHasPermission(c, userID, permission, permissionChecker) {
@@ -25,7 +25,7 @@ func RequirePermission(permission domain.PermissionName, permissionChecker domai
 }
 
 // RequirePermissionOrOwner allows the resource owner or a user with the permission.
-func RequirePermissionOrOwner(permission domain.PermissionName, permissionChecker domain.PermissionCheckerUseCase, checkOwnership OwnershipCheck) gin.HandlerFunc {
+func RequirePermissionOrOwner(permission permissiondomain.PermissionName, permissionChecker permissiondomain.PermissionCheckerUseCase, checkOwnership OwnershipCheck) gin.HandlerFunc {
 	if checkOwnership == nil {
 		panic("ownership check is required")
 	}
@@ -102,7 +102,7 @@ func authenticatedUserID(c *gin.Context) (uuid.UUID, bool) {
 	return userID, true
 }
 
-func assertUserHasPermission(c *gin.Context, userID uuid.UUID, permission domain.PermissionName, permissionChecker domain.PermissionCheckerUseCase) bool {
+func assertUserHasPermission(c *gin.Context, userID uuid.UUID, permission permissiondomain.PermissionName, permissionChecker permissiondomain.PermissionCheckerUseCase) bool {
 	allowed, err := permissionChecker.HasPermission(c.Request.Context(), userID, permission)
 	if err != nil {
 		_ = c.Error(shared.NewAppError(

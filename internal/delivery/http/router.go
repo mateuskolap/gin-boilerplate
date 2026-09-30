@@ -3,10 +3,16 @@ package http
 import (
 	"fmt"
 	_ "gin-boilerplate/docs"
+	activityloghttp "gin-boilerplate/internal/activity_logs/adapters/http"
 	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
-	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/port"
+	permissionhttp "gin-boilerplate/internal/permissions/adapters/http"
+	permissiondomain "gin-boilerplate/internal/permissions/domain"
+	refreshhttp "gin-boilerplate/internal/refresh_tokens/adapters/http"
+	rolehttp "gin-boilerplate/internal/roles/adapters/http"
+	userhttp "gin-boilerplate/internal/users/adapters/http"
+	userdomain "gin-boilerplate/internal/users/domain"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -16,15 +22,15 @@ import (
 )
 
 type RouterConfig struct {
-	AuthHandler         *v1.AuthHandler
-	UserHandler         *v1.UserHandler
-	RoleHandler         *v1.RoleHandler
-	PermissionHandler   *v1.PermissionHandler
-	ActivityLogHandler  *v1.ActivityLogHandler
-	RefreshTokenHandler *v1.RefreshTokenHandler
+	AuthHandler         *userhttp.AuthHandler
+	UserHandler         *userhttp.UserHandler
+	RoleHandler         *rolehttp.RoleHandler
+	PermissionHandler   *permissionhttp.PermissionHandler
+	ActivityLogHandler  *activityloghttp.ActivityLogHandler
+	RefreshTokenHandler *refreshhttp.RefreshTokenHandler
 	HealthHandler       *v1.HealthHandler
-	AuthUseCase         domain.AuthUseCase
-	PermissionChecker   domain.PermissionCheckerUseCase
+	AuthUseCase         userdomain.AuthUseCase
+	PermissionChecker   permissiondomain.PermissionCheckerUseCase
 	RateLimiter         port.RateLimiter
 	TrustedProxies      []string
 	CORSAllowedOrigins  []string
@@ -65,7 +71,7 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	}
 
-	requirePermission := func(permission domain.PermissionName) gin.HandlerFunc {
+	requirePermission := func(permission permissiondomain.PermissionName) gin.HandlerFunc {
 		return middleware.RequirePermission(permission, cfg.PermissionChecker)
 	}
 	rateLimit := func(limit int, window time.Duration) gin.HandlerFunc {
@@ -103,35 +109,35 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 				users.PUT("/profile/image", cfg.UserHandler.UpdateImage)
 				users.DELETE("/profile/image", cfg.UserHandler.RemoveImage)
 				users.GET("/:id/image", middleware.RequirePermissionOrOwner(
-					domain.PermissionViewUser,
+					permissiondomain.PermissionViewUser,
 					cfg.PermissionChecker,
 					middleware.OwnerFromUserIDParam("id"),
 				), cfg.UserHandler.GetImage)
-				users.PUT("/:id", requirePermission(domain.PermissionUpdateUser), cfg.UserHandler.UpdateUser)
-				users.GET("", requirePermission(domain.PermissionViewUser), cfg.UserHandler.ListUsers)
-				users.GET("/:id", requirePermission(domain.PermissionViewUser), cfg.UserHandler.FindUser)
-				users.DELETE("/:id", requirePermission(domain.PermissionDeleteUser), cfg.UserHandler.DeleteUser)
-				users.POST("/:id/roles", requirePermission(domain.PermissionAddUserRole), cfg.UserHandler.AddRoles)
-				users.DELETE("/:id/roles", requirePermission(domain.PermissionRemoveUserRole), cfg.UserHandler.RemoveRoles)
+				users.PUT("/:id", requirePermission(permissiondomain.PermissionUpdateUser), cfg.UserHandler.UpdateUser)
+				users.GET("", requirePermission(permissiondomain.PermissionViewUser), cfg.UserHandler.ListUsers)
+				users.GET("/:id", requirePermission(permissiondomain.PermissionViewUser), cfg.UserHandler.FindUser)
+				users.DELETE("/:id", requirePermission(permissiondomain.PermissionDeleteUser), cfg.UserHandler.DeleteUser)
+				users.POST("/:id/roles", requirePermission(permissiondomain.PermissionAddUserRole), cfg.UserHandler.AddRoles)
+				users.DELETE("/:id/roles", requirePermission(permissiondomain.PermissionRemoveUserRole), cfg.UserHandler.RemoveRoles)
 			}
 
 			roles := protected.Group("/roles")
 			{
-				roles.GET("", requirePermission(domain.PermissionViewRole), cfg.RoleHandler.ListRoles)
-				roles.POST("", requirePermission(domain.PermissionCreateRole), cfg.RoleHandler.CreateRole)
-				roles.GET("/:id", requirePermission(domain.PermissionViewRole), cfg.RoleHandler.FindRole)
-				roles.PUT("/:id", requirePermission(domain.PermissionUpdateRole), cfg.RoleHandler.UpdateRole)
-				roles.DELETE("/:id", requirePermission(domain.PermissionDeleteRole), cfg.RoleHandler.DeleteRole)
-				roles.POST("/:id/permissions", requirePermission(domain.PermissionAddRolePermission), cfg.RoleHandler.AddPermissions)
-				roles.DELETE("/:id/permissions", requirePermission(domain.PermissionRemoveRolePermission), cfg.RoleHandler.RemovePermissions)
+				roles.GET("", requirePermission(permissiondomain.PermissionViewRole), cfg.RoleHandler.ListRoles)
+				roles.POST("", requirePermission(permissiondomain.PermissionCreateRole), cfg.RoleHandler.CreateRole)
+				roles.GET("/:id", requirePermission(permissiondomain.PermissionViewRole), cfg.RoleHandler.FindRole)
+				roles.PUT("/:id", requirePermission(permissiondomain.PermissionUpdateRole), cfg.RoleHandler.UpdateRole)
+				roles.DELETE("/:id", requirePermission(permissiondomain.PermissionDeleteRole), cfg.RoleHandler.DeleteRole)
+				roles.POST("/:id/permissions", requirePermission(permissiondomain.PermissionAddRolePermission), cfg.RoleHandler.AddPermissions)
+				roles.DELETE("/:id/permissions", requirePermission(permissiondomain.PermissionRemoveRolePermission), cfg.RoleHandler.RemovePermissions)
 			}
 
 			permissions := protected.Group("/permissions")
 			{
-				permissions.GET("", requirePermission(domain.PermissionViewPermission), cfg.PermissionHandler.ListPermissions)
+				permissions.GET("", requirePermission(permissiondomain.PermissionViewPermission), cfg.PermissionHandler.ListPermissions)
 			}
 
-			protected.GET("/activity-logs", requirePermission(domain.PermissionViewActivityLog), cfg.ActivityLogHandler.ListActivityLogs)
+			protected.GET("/activity-logs", requirePermission(permissiondomain.PermissionViewActivityLog), cfg.ActivityLogHandler.ListActivityLogs)
 		}
 	}
 

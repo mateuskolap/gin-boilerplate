@@ -219,8 +219,8 @@ No nível `1`, basta o mínimo de 8 caracteres. O nível `2` também exige letra
 | `make migrate-up` | Aplica migrations pendentes. |
 | `make migrate-down` | Reverte uma migration; `make migrate-down STEPS=2` reverte duas. |
 | `make migrate-version` | Mostra a versão atual das migrations. |
-| `make test` | Executa os testes Go existentes. |
-| `make test-e2e` | Executa o fluxo HTTP e2e de autenticação, com PostgreSQL e Redis de teste configurados. |
+| `make test` | Sobe PostgreSQL e Redis descartáveis, executa toda a suíte sem cache e remove os serviços. |
+| `make test-e2e` | Sobe os serviços descartáveis e executa somente o fluxo HTTP E2E de autenticação. |
 | `make vulncheck` | Verifica vulnerabilidades conhecidas com a ferramenta versionada `govulncheck`. |
 
 Não há comandos Make para build, lint ou reset do banco. O servidor não aplica migrations automaticamente ao iniciar.
@@ -325,29 +325,19 @@ Workers mantêm suas próprias conexões com PostgreSQL e o database Redis da fi
 
 ## Testes
 
-Os testes unitários não precisam de serviços externos:
+`make test` e `make test-e2e` usam Docker Compose para criar PostgreSQL e Redis isolados, em portas aleatórias, e removem containers, rede e volumes ao final. Não iniciam nem alteram os serviços/volumes do Compose de desenvolvimento. É necessário ter Docker Engine ativo e `docker compose` disponível.
+
+Para rodar apenas testes sem os serviços externos:
 
 ```bash
 go test ./...
 ```
 
-O pacote `internal/integration` cobre PostgreSQL, Redis, filas, seeders e o bootstrap da aplicação. `cmd/migration` também tem um teste que aplica as migrations. Sem as variáveis de teste, esses casos são ignorados.
+Sem as variáveis de teste, os casos de integração são ignorados. `make test` configura essas variáveis automaticamente e executa também PostgreSQL, Redis, filas, seeders, migrations e E2E.
 
 O fluxo `TestAuthenticationE2E`, em `internal/integration/auth_e2e_test.go`, inicia um servidor HTTPS com o bootstrap real e usa PostgreSQL e Redis reais, sem mocks. Ele aplica as migrations SQL em um schema isolado, executa os seeders e cobre cadastro, login, consulta de perfil, rejeição de acesso administrativo sem permissão, rotação dos tokens e logout. A revogação é confirmada ao reenviar os tokens após o logout. O fluxo roda nos modos JSON (`body`) e cookies (`cookie`), usando um cookie jar que recebe e envia os cookies automaticamente. O modo cookie verifica `SameSite=None; Secure`, preflight CORS com credenciais e rejeição de operações autenticadas com `Origin` ausente, `null` ou não permitido.
 
-Para executar a suíte completa localmente, use serviços descartáveis e crie previamente um banco PostgreSQL de teste chamado `test` (ou com nome terminado em `_test` ou `-test`). Os dois bancos Redis precisam ser diferentes:
-
-```bash
-export TEST_DATABASE_URL='postgres://postgres:postgres@localhost:5438/test?sslmode=disable'
-export TEST_REDIS_ADDR='localhost:6379'
-export TEST_REDIS_DB=14
-export TEST_QUEUE_REDIS_DB=15
-go test ./... -count=1
-```
-
-Com as mesmas variáveis configuradas, execute somente o e2e com `make test-e2e`. Sem `TEST_DATABASE_URL` ou `TEST_REDIS_ADDR`, o fluxo é ignorado. O teste usa uma porta HTTP aleatória, remove seu schema ao terminar e mantém o estado Redis nos databases de teste; use uma instância descartável. O cookie jar verifica o transporte HTTP, mas não simula as restrições de CORS e `SameSite` de um navegador.
-
-As credenciais e portas acima correspondem aos padrões do Compose; ajuste a URL se o seu `.env` usar outros valores. Os testes PostgreSQL criam schemas isolados e os removem ao terminar. Não aponte `TEST_DATABASE_URL` para um banco com dados importantes.
+O teste de autenticação usa uma porta HTTP aleatória e um schema PostgreSQL isolado, removido ao terminar. O cookie jar verifica o transporte HTTP, mas não simula as restrições de CORS e `SameSite` de um navegador.
 
 ## Integração contínua
 

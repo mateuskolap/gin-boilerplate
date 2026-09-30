@@ -10,9 +10,9 @@ import (
 
 	"gin-boilerplate/config"
 	queueinfra "gin-boilerplate/internal/infra/queue"
-	"gin-boilerplate/internal/infra/repository"
-	"gin-boilerplate/internal/usecase"
-	"gin-boilerplate/internal/usecase/jobs"
+	refreshpostgres "gin-boilerplate/internal/refresh_tokens/adapters/postgres"
+	refreshapp "gin-boilerplate/internal/refresh_tokens/application"
+	refreshjobs "gin-boilerplate/internal/refresh_tokens/application/jobs"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -36,8 +36,8 @@ func NewWorkerApplication(cfg *config.Config, logger *slog.Logger) (*WorkerAppli
 		return nil, err
 	}
 
-	refreshTokenRepo := repository.NewRefreshTokenRepository(db)
-	refreshTokenMaintenanceUseCase := usecase.NewRefreshTokenMaintenanceUseCase(refreshTokenRepo)
+	refreshTokenRepo := refreshpostgres.NewRefreshTokenRepository(db)
+	refreshTokenMaintenanceUseCase := refreshapp.NewRefreshTokenMaintenanceUseCase(refreshTokenRepo)
 	worker, err := queueinfra.NewWorker(
 		queueRedis,
 		queueinfra.WorkerConfig{
@@ -45,7 +45,7 @@ func NewWorkerApplication(cfg *config.Config, logger *slog.Logger) (*WorkerAppli
 			ShutdownTimeout: cfg.QueueShutdownTimeout,
 		},
 		logger,
-		jobs.NewPurgeExpiredRefreshTokensHandler(refreshTokenMaintenanceUseCase, cfg.RefreshTokenRetention),
+		refreshjobs.NewPurgeExpiredRefreshTokensHandler(refreshTokenMaintenanceUseCase, cfg.RefreshTokenRetention),
 	)
 	if err != nil {
 		_ = queueRedis.Close()
@@ -90,7 +90,7 @@ func NewSchedulerApplication(cfg *config.Config, logger *slog.Logger) (*Schedule
 	if err := queueRedis.Close(); err != nil {
 		return nil, fmt.Errorf("close queue Redis health-check client: %w", err)
 	}
-	scheduler, err := queueinfra.NewScheduler(redisOptions, jobs.MaintenanceTasks(), logger)
+	scheduler, err := queueinfra.NewScheduler(redisOptions, refreshjobs.MaintenanceTasks(), logger)
 	if err != nil {
 		return nil, fmt.Errorf("initialize queue scheduler: %w", err)
 	}

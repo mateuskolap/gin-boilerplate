@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"gin-boilerplate/config"
+	permissionpostgres "gin-boilerplate/internal/permissions/adapters/postgres"
+	rolepostgres "gin-boilerplate/internal/roles/adapters/postgres"
+	userpostgres "gin-boilerplate/internal/users/adapters/postgres"
 
 	"gorm.io/gorm"
 )
@@ -26,9 +29,9 @@ func NewDatabaseSeeder(
 		db:  db,
 		cfg: cfg,
 		seeders: []Seeder{
-			NewPermissionSeeder(),
-			NewRoleSeeder(),
-			NewUserSeeder(cfg),
+			permissionpostgres.NewPermissionSeeder(),
+			rolepostgres.NewRoleSeeder(),
+			userpostgres.NewUserSeeder(cfg),
 		},
 	}
 }

@@ -17,13 +17,22 @@ import (
 	"time"
 
 	"gin-boilerplate/config"
+	activitylogpostgres "gin-boilerplate/internal/activity_logs/adapters/postgres"
 	"gin-boilerplate/internal/bootstrap"
-	"gin-boilerplate/internal/domain"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
+	postgresinfra "gin-boilerplate/internal/infra/postgres"
 	"gin-boilerplate/internal/infra/queue"
 	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
+	permissionpostgres "gin-boilerplate/internal/permissions/adapters/postgres"
+	permissiondomain "gin-boilerplate/internal/permissions/domain"
+	refreshpostgres "gin-boilerplate/internal/refresh_tokens/adapters/postgres"
+	refreshtokendomain "gin-boilerplate/internal/refresh_tokens/domain"
+	rolepostgres "gin-boilerplate/internal/roles/adapters/postgres"
+	roledomain "gin-boilerplate/internal/roles/domain"
+	userpostgres "gin-boilerplate/internal/users/adapters/postgres"
+	userdomain "gin-boilerplate/internal/users/domain"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -37,7 +46,7 @@ import (
 func testPostgres(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testPostgresSchema(t)
-	if err := db.AutoMigrate(&domain.User{}, &domain.Role{}, &domain.Permission{}, &domain.RefreshToken{}, &domain.ActivityLog{}); err != nil {
+	if err := db.AutoMigrate(&userpostgres.UserModel{}, &rolepostgres.RoleModel{}, &permissionpostgres.PermissionModel{}, &refreshpostgres.RefreshTokenModel{}, &activitylogpostgres.ActivityLogModel{}); err != nil {
 		t.Fatalf("migrate isolated schema: %v", err)
 	}
 	return db
@@ -145,67 +154,71 @@ func isTestDatabaseName(path string) bool {
 func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 	db := testPostgres(t)
 	ctx := context.Background()
-	activityLogs := repository.NewActivityLogRepository(db)
-	users := repository.NewUserRepository(db, activityLogs)
-	roles := repository.NewRoleRepository(db, activityLogs)
-	permissions := repository.NewPermissionRepository(db)
-	authorization := repository.NewAuthorizationRepository(db)
+	activityLogs := activitylogpostgres.NewActivityLogRepository(db)
+	users := userpostgres.NewUserRepository(db, activityLogs)
+	roles := rolepostgres.NewRoleRepository(db, activityLogs)
+	authorization := permissionpostgres.NewAuthorizationRepository(db)
 
-	alice := &domain.User{Name: "Alice", Email: "alice@example.test", Password: "hash"}
-	bob := &domain.User{Name: "Bob", Email: "bob@example.test", Password: "hash"}
-	for _, user := range []*domain.User{alice, bob} {
+	alice := &userdomain.User{Name: "Alice", Email: "alice@example.test", Password: "hash"}
+	bob := &userdomain.User{Name: "Bob", Email: "bob@example.test", Password: "hash"}
+	for _, user := range []*userdomain.User{alice, bob} {
 		if err := users.Create(ctx, user); err != nil {
 			t.Fatalf("create user: %v", err)
 		}
 	}
 
-	role := &domain.Role{Name: "operator"}
-	permission := &domain.Permission{Name: "integration.permission"}
+	role := &roledomain.Role{Name: "operator"}
+	permission := &permissiondomain.Permission{Name: "integration.permission"}
 	if err := roles.Create(ctx, role); err != nil {
 		t.Fatalf("create role: %v", err)
 	}
-	if err := permissions.Create(ctx, permission); err != nil {
+	permissionModel := permissionpostgres.PermissionModel{Name: permission.Name}
+	if err := db.WithContext(ctx).Create(&permissionModel).Error; err != nil {
 		t.Fatalf("create permission: %v", err)
 	}
-	if err := users.AddRoles(ctx, *alice, []uuid.UUID{role.ID}); err != nil {
+	permission.ID = permissionModel.ID
+	if found, err := permissionpostgres.NewPermissionRepository(db).List(ctx, shared.PaginationParams{Page: 1, Limit: 10}, nil); err != nil || len(found.Items) != 1 {
+		t.Fatalf("list permissions after create: %#v, %v", found, err)
+	}
+	if err := users.AddRoles(ctx, alice.ID, []uuid.UUID{role.ID}); err != nil {
 		t.Fatalf("assign user role: %v", err)
 	}
-	if err := roles.AddPermissions(ctx, *role, []uuid.UUID{permission.ID}); err != nil {
+	if err := roles.AddPermissions(ctx, role.ID, []uuid.UUID{permission.ID}); err != nil {
 		t.Fatalf("assign role permission: %v", err)
 	}
-	if err := users.AddRoles(ctx, *alice, nil); err != nil {
+	if err := users.AddRoles(ctx, alice.ID, nil); err != nil {
 		t.Fatalf("assign empty role list: %v", err)
 	}
-	if err := roles.AddPermissions(ctx, *role, nil); err != nil {
+	if err := roles.AddPermissions(ctx, role.ID, nil); err != nil {
 		t.Fatalf("assign empty permission list: %v", err)
 	}
-	if allowed, err := authorization.UserHasPermission(ctx, alice.ID, domain.PermissionName(permission.Name)); err != nil || !allowed {
+	if allowed, err := authorization.UserHasPermission(ctx, alice.ID, permissiondomain.PermissionName(permission.Name)); err != nil || !allowed {
 		t.Fatalf("UserHasPermission() = %v, %v; want true, nil", allowed, err)
 	}
-	if allowed, err := authorization.UserHasPermission(ctx, bob.ID, domain.PermissionName(permission.Name)); err != nil || allowed {
+	if allowed, err := authorization.UserHasPermission(ctx, bob.ID, permissiondomain.PermissionName(permission.Name)); err != nil || allowed {
 		t.Fatalf("permission for unrelated user = %v, %v; want false, nil", allowed, err)
 	}
 
-	loaded, err := roles.GetByName(ctx, role.Name, "Permissions")
+	loaded, err := roles.GetByIDWithPermissions(ctx, role.ID)
 	if err != nil || loaded == nil || len(loaded.Permissions) != 1 {
 		t.Fatalf("GetByName with permissions = %#v, %v", loaded, err)
 	}
-	if err := roles.RemovePermissions(ctx, *role, []uuid.UUID{permission.ID}); err != nil {
+	if err := roles.RemovePermissions(ctx, role.ID, []uuid.UUID{permission.ID}); err != nil {
 		t.Fatalf("remove role permission: %v", err)
 	}
-	if allowed, err := authorization.UserHasPermission(ctx, alice.ID, domain.PermissionName(permission.Name)); err != nil || allowed {
+	if allowed, err := authorization.UserHasPermission(ctx, alice.ID, permissiondomain.PermissionName(permission.Name)); err != nil || allowed {
 		t.Fatalf("permission after removal = %v, %v; want false, nil", allowed, err)
 	}
-	if err := roles.AddPermissions(ctx, *role, []uuid.UUID{permission.ID}); err != nil {
+	if err := roles.AddPermissions(ctx, role.ID, []uuid.UUID{permission.ID}); err != nil {
 		t.Fatalf("restore role permission: %v", err)
 	}
-	if err := users.RemoveRoles(ctx, *alice, []uuid.UUID{role.ID}); err != nil {
+	if err := users.RemoveRoles(ctx, alice.ID, []uuid.UUID{role.ID}); err != nil {
 		t.Fatalf("remove user role: %v", err)
 	}
-	if allowed, err := authorization.UserHasPermission(ctx, alice.ID, domain.PermissionName(permission.Name)); err != nil || allowed {
+	if allowed, err := authorization.UserHasPermission(ctx, alice.ID, permissiondomain.PermissionName(permission.Name)); err != nil || allowed {
 		t.Fatalf("permission after role removal = %v, %v; want false, nil", allowed, err)
 	}
-	if err := users.AddRoles(ctx, *alice, []uuid.UUID{role.ID}); err != nil {
+	if err := users.AddRoles(ctx, alice.ID, []uuid.UUID{role.ID}); err != nil {
 		t.Fatalf("restore user role: %v", err)
 	}
 
@@ -213,14 +226,14 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 	if err != nil || found == nil || found.ID != alice.ID {
 		t.Fatalf("GetByEmail() = %#v, %v", found, err)
 	}
-	if _, err := users.GetByEmail(ctx, alice.Email, "MissingRelation"); err == nil {
-		t.Fatal("GetByEmail() accepted an unknown preload")
+	if withRoles, err := users.GetByEmailWithRoles(ctx, alice.Email); err != nil || withRoles == nil || len(withRoles.Roles) != 1 {
+		t.Fatalf("GetByEmailWithRoles() = %#v, %v", withRoles, err)
 	}
 	alice.Name = "Alice Updated"
 	if err := users.Update(ctx, alice); err != nil {
 		t.Fatalf("update user: %v", err)
 	}
-	page, err := users.List(ctx, shared.PaginationParams{Page: 1, Limit: 1, Sort: []shared.SortParam{{Field: "email", Direction: shared.SortDesc}}}, []shared.Filter{{Field: "email", Operator: shared.OperatorILike, Value: "%alice%"}}, "Roles")
+	page, err := users.List(ctx, shared.PaginationParams{Page: 1, Limit: 1, Sort: []shared.SortParam{{Field: "email", Direction: shared.SortDesc}}}, []shared.Filter{{Field: "email", Operator: shared.OperatorILike, Value: "%alice%"}})
 	if err != nil || page.Total != 1 || len(page.Items) != 1 || page.Items[0].Name != "Alice Updated" {
 		t.Fatalf("filtered user list = %#v, %v", page, err)
 	}
@@ -231,8 +244,8 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 		t.Fatalf("GetByID after soft delete = %#v, %v; want nil, nil", deleted, err)
 	}
 
-	transactions := repository.NewGormTransactionManagerRepository(db)
-	rollbackUser := &domain.User{Name: "Rolled Back", Email: "rollback@example.test", Password: "hash"}
+	transactions := postgresinfra.NewGormTransactionManagerRepository(db)
+	rollbackUser := &userdomain.User{Name: "Rolled Back", Email: "rollback@example.test", Password: "hash"}
 	rollbackErr := errors.New("abort transaction")
 	if err := transactions.Do(ctx, func(txCtx context.Context) error {
 		if err := users.Create(txCtx, rollbackUser); err != nil {
@@ -245,7 +258,7 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 	if rolledBack, err := users.GetByEmail(ctx, rollbackUser.Email); err != nil || rolledBack != nil {
 		t.Fatalf("rolled back user = %#v, %v; want nil, nil", rolledBack, err)
 	}
-	committedUser := &domain.User{Name: "Committed", Email: "committed@example.test", Password: "hash"}
+	committedUser := &userdomain.User{Name: "Committed", Email: "committed@example.test", Password: "hash"}
 	if err := transactions.Do(ctx, func(txCtx context.Context) error { return users.Create(txCtx, committedUser) }); err != nil {
 		t.Fatalf("commit transaction: %v", err)
 	}
@@ -257,10 +270,10 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 func TestRefreshTokenRepositoryStateTransitionsAgainstPostgres(t *testing.T) {
 	db := testPostgres(t)
 	ctx := context.Background()
-	users := repository.NewUserRepository(db, repository.NewActivityLogRepository(db))
-	tokens := repository.NewRefreshTokenRepository(db)
-	owner := &domain.User{Name: "Owner", Email: "owner@example.test", Password: "hash"}
-	other := &domain.User{Name: "Other", Email: "other@example.test", Password: "hash"}
+	users := userpostgres.NewUserRepository(db, activitylogpostgres.NewActivityLogRepository(db))
+	tokens := refreshpostgres.NewRefreshTokenRepository(db)
+	owner := &userdomain.User{Name: "Owner", Email: "owner@example.test", Password: "hash"}
+	other := &userdomain.User{Name: "Other", Email: "other@example.test", Password: "hash"}
 	if err := users.Create(ctx, owner); err != nil {
 		t.Fatal(err)
 	}
@@ -268,11 +281,11 @@ func TestRefreshTokenRepositoryStateTransitionsAgainstPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now().UTC()
-	keep := &domain.RefreshToken{UserID: owner.ID, TokenHash: "keep", ExpiresAt: now.Add(time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
-	rotate := &domain.RefreshToken{UserID: owner.ID, TokenHash: "rotate", ExpiresAt: now.Add(time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
-	expired := &domain.RefreshToken{UserID: owner.ID, TokenHash: "expired", ExpiresAt: now.Add(-time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
-	foreign := &domain.RefreshToken{UserID: other.ID, TokenHash: "foreign", ExpiresAt: now.Add(time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
-	for _, token := range []*domain.RefreshToken{keep, rotate, expired, foreign} {
+	keep := &refreshtokendomain.RefreshToken{UserID: owner.ID, TokenHash: "keep", ExpiresAt: now.Add(time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
+	rotate := &refreshtokendomain.RefreshToken{UserID: owner.ID, TokenHash: "rotate", ExpiresAt: now.Add(time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
+	expired := &refreshtokendomain.RefreshToken{UserID: owner.ID, TokenHash: "expired", ExpiresAt: now.Add(-time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
+	foreign := &refreshtokendomain.RefreshToken{UserID: other.ID, TokenHash: "foreign", ExpiresAt: now.Add(time.Hour), IpAddress: "127.0.0.1", UserAgent: "test"}
+	for _, token := range []*refreshtokendomain.RefreshToken{keep, rotate, expired, foreign} {
 		if err := tokens.Create(ctx, token); err != nil {
 			t.Fatalf("create token %q: %v", token.TokenHash, err)
 		}
@@ -303,7 +316,7 @@ func TestRefreshTokenRepositoryStateTransitionsAgainstPostgres(t *testing.T) {
 	if revoked, err := tokens.Revoke(ctx, rotate.ID, owner.ID, &replacementID); err != nil || !revoked {
 		t.Fatalf("revoke active token = %v, %v; want true, nil", revoked, err)
 	}
-	revokedToken, err := tokens.GetByID(ctx, rotate.ID)
+	revokedToken, err := tokens.FindByTokenHash(ctx, rotate.TokenHash)
 	if err != nil || revokedToken == nil || revokedToken.RevokedAt == nil || revokedToken.ReplacedBy == nil || *revokedToken.ReplacedBy != replacementID {
 		t.Fatalf("revoked token state = %#v, %v", revokedToken, err)
 	}
@@ -314,14 +327,14 @@ func TestRefreshTokenRepositoryStateTransitionsAgainstPostgres(t *testing.T) {
 	if err := tokens.RevokeAllExcept(ctx, owner.ID, keep.ID); err != nil {
 		t.Fatalf("RevokeAllExcept(): %v", err)
 	}
-	keepAfter, err := tokens.GetByID(ctx, keep.ID)
+	keepAfter, err := tokens.FindByTokenHash(ctx, keep.TokenHash)
 	if err != nil || keepAfter == nil || keepAfter.RevokedAt != nil {
 		t.Fatalf("excepted token state = %#v, %v", keepAfter, err)
 	}
 	if err := tokens.RevokeAllByUserID(ctx, owner.ID); err != nil {
 		t.Fatalf("RevokeAllByUserID(): %v", err)
 	}
-	keepAfter, err = tokens.GetByID(ctx, keep.ID)
+	keepAfter, err = tokens.FindByTokenHash(ctx, keep.TokenHash)
 	if err != nil || keepAfter == nil || keepAfter.RevokedAt == nil {
 		t.Fatalf("all-revoked token state = %#v, %v", keepAfter, err)
 	}
@@ -342,7 +355,7 @@ func TestRefreshTokenRepositoryStateTransitionsAgainstPostgres(t *testing.T) {
 func TestDatabaseSeederIsRepeatableAndTransactional(t *testing.T) {
 	db := testPostgres(t)
 	cfg := &config.Config{AdminName: "Integration Admin", AdminEmail: "admin@example.test", AdminPassword: "integration-password"}
-	if err := db.Create(&domain.Permission{Name: "obsolete.integration.permission"}).Error; err != nil {
+	if err := db.Create(&permissionpostgres.PermissionModel{Name: "obsolete.integration.permission"}).Error; err != nil {
 		t.Fatal(err)
 	}
 	seed := &bootstrap.Application{Config: cfg, DB: db}
@@ -353,23 +366,23 @@ func TestDatabaseSeederIsRepeatableAndTransactional(t *testing.T) {
 	}
 
 	var permissionCount int64
-	if err := db.Model(&domain.Permission{}).Count(&permissionCount).Error; err != nil || permissionCount != int64(len(domain.AllPermissions)) {
-		t.Fatalf("permission count = %d, %v; want %d", permissionCount, err, len(domain.AllPermissions))
+	if err := db.Model(&permissionpostgres.PermissionModel{}).Count(&permissionCount).Error; err != nil || permissionCount != int64(len(permissiondomain.AllPermissions)) {
+		t.Fatalf("permission count = %d, %v; want %d", permissionCount, err, len(permissiondomain.AllPermissions))
 	}
 	var obsoleteCount int64
-	if err := db.Model(&domain.Permission{}).Where("name = ?", "obsolete.integration.permission").Count(&obsoleteCount).Error; err != nil || obsoleteCount != 0 {
+	if err := db.Model(&permissionpostgres.PermissionModel{}).Where("name = ?", "obsolete.integration.permission").Count(&obsoleteCount).Error; err != nil || obsoleteCount != 0 {
 		t.Fatalf("obsolete permission count = %d, %v; want zero", obsoleteCount, err)
 	}
-	admin, err := repository.NewUserRepository(db, repository.NewActivityLogRepository(db)).GetByEmail(context.Background(), cfg.AdminEmail, "Roles")
-	if err != nil || admin == nil || len(admin.Roles) != 1 || admin.Roles[0].Name != domain.RoleAdmin {
+	admin, err := userpostgres.NewUserRepository(db, activitylogpostgres.NewActivityLogRepository(db)).GetByEmailWithRoles(context.Background(), cfg.AdminEmail)
+	if err != nil || admin == nil || len(admin.Roles) != 1 || admin.Roles[0].Name != roledomain.RoleAdmin {
 		t.Fatalf("seeded admin = %#v, %v", admin, err)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(cfg.AdminPassword)); err != nil {
 		t.Fatalf("seeded admin password is not hashed correctly: %v", err)
 	}
-	var adminRole domain.Role
-	if err := db.Preload("Permissions").Where("name = ?", domain.RoleAdmin).First(&adminRole).Error; err != nil || len(adminRole.Permissions) != len(domain.AllPermissions) {
-		t.Fatalf("admin role permissions = %d, %v; want %d", len(adminRole.Permissions), err, len(domain.AllPermissions))
+	var adminRole rolepostgres.RoleModel
+	if err := db.Preload("Permissions").Where("name = ?", roledomain.RoleAdmin).First(&adminRole).Error; err != nil || len(adminRole.Permissions) != len(permissiondomain.AllPermissions) {
+		t.Fatalf("admin role permissions = %d, %v; want %d", len(adminRole.Permissions), err, len(permissiondomain.AllPermissions))
 	}
 
 	rollbackDB := testPostgres(t)
@@ -377,7 +390,7 @@ func TestDatabaseSeederIsRepeatableAndTransactional(t *testing.T) {
 	if err := (&bootstrap.Application{Config: invalid, DB: rollbackDB}).Seed(context.Background()); err == nil {
 		t.Fatal("Application.Seed() succeeded despite an invalid admin password")
 	}
-	for _, model := range []any{&domain.Permission{}, &domain.Role{}, &domain.User{}} {
+	for _, model := range []any{&permissionpostgres.PermissionModel{}, &rolepostgres.RoleModel{}, &userpostgres.UserModel{}} {
 		var count int64
 		if err := rollbackDB.Model(model).Count(&count).Error; err != nil || count != 0 {
 			t.Errorf("failed seeding left rows in %T: count=%d err=%v", model, count, err)

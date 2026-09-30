@@ -1,6 +1,13 @@
 package shared
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrConflict is returned by persistence adapters when a uniqueness constraint
+// rejects a valid domain operation.
+var ErrConflict = errors.New("conflicting record")
 
 type ErrorType string
 
