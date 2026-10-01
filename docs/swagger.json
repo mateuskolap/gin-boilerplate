@@ -96,7 +96,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedActivityLogResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_ActivityLogResponse"
                                         }
                                     }
                                 }
@@ -511,7 +511,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedRefreshTokenResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_RefreshTokenResponse"
                                         }
                                     }
                                 }
@@ -722,7 +722,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedPermissionResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_PermissionResponse"
                                         }
                                     }
                                 }
@@ -812,7 +812,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedRoleResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_RoleResponse"
                                         }
                                     }
                                 }
@@ -1360,7 +1360,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedUserResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_UserResponse"
                                         }
                                     }
                                 }
@@ -2172,7 +2172,7 @@
                 }
             }
         },
-        "dto.PaginatedActivityLogResponse": {
+        "dto.PaginatedResponse-dto_ActivityLogResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2195,7 +2195,7 @@
                 }
             }
         },
-        "dto.PaginatedPermissionResponse": {
+        "dto.PaginatedResponse-dto_PermissionResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2218,7 +2218,7 @@
                 }
             }
         },
-        "dto.PaginatedRefreshTokenResponse": {
+        "dto.PaginatedResponse-dto_RefreshTokenResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2241,7 +2241,7 @@
                 }
             }
         },
-        "dto.PaginatedRoleResponse": {
+        "dto.PaginatedResponse-dto_RoleResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2264,7 +2264,7 @@
                 }
             }
         },
-        "dto.PaginatedUserResponse": {
+        "dto.PaginatedResponse-dto_UserResponse": {
             "type": "object",
             "properties": {
                 "items": {

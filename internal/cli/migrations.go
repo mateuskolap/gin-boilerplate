@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -21,59 +20,6 @@ import (
 )
 
 const migrationsDirectory = "db/migrations"
-
-func main() {
-	if err := run(os.Args[1:], time.Now().UTC()); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-}
-
-func run(args []string, now time.Time) error {
-	if len(args) == 0 {
-		return usageError()
-	}
-
-	switch args[0] {
-	case "create":
-		if len(args) != 2 {
-			return usageError()
-		}
-		name, err := normalizeName(args[1])
-		if err != nil {
-			return err
-		}
-		return createMigration(migrationsDirectory, now.UTC(), name)
-	case "up":
-		if len(args) != 1 {
-			return usageError()
-		}
-		return runMigrations("up", 0)
-	case "down":
-		steps := 1
-		if len(args) == 2 {
-			parsed, err := strconv.Atoi(args[1])
-			if err != nil || parsed < 1 {
-				return errors.New("down step count must be a positive integer")
-			}
-			steps = parsed
-		} else if len(args) != 1 {
-			return usageError()
-		}
-		return runMigrations("down", steps)
-	case "version":
-		if len(args) != 1 {
-			return usageError()
-		}
-		return runMigrations("version", 0)
-	default:
-		return usageError()
-	}
-}
-
-func usageError() error {
-	return errors.New("usage: go run ./cmd/migration <create <name>|up|down [steps]|version>")
-}
 
 func runMigrations(action string, steps int) (resultErr error) {
 	databaseConfig, err := config.LoadDatabaseConfig()
@@ -160,7 +106,7 @@ func runMigrations(action string, steps int) (resultErr error) {
 		}
 		fmt.Println(version)
 	default:
-		return usageError()
+		return fmt.Errorf("unknown migration action %q", action)
 	}
 
 	return nil

@@ -39,7 +39,7 @@ func NewActivityLogHandler(activityLogUseCase activitylogdomain.ActivityLogUseCa
 // @Param        actor_id      query     string  false  "Filter by actor UUID" format(uuid)
 // @Param        created_from  query     string  false  "Filter from RFC3339 timestamp"
 // @Param        created_to    query     string  false  "Filter until RFC3339 timestamp"
-// @Success      200  {object}  response.ApiResponse{data=dto.PaginatedActivityLogResponse} "Activity logs retrieved successfully"
+// @Success      200  {object}  response.ApiResponse{data=dto.PaginatedResponse[activitylogdto.ActivityLogResponse]} "Activity logs retrieved successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403  {object}  response.ApiResponse "Forbidden - Requires view_activity_log permission"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"

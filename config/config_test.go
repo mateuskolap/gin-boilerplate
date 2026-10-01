@@ -199,3 +199,23 @@ func TestLoadDatabaseConfigUsesProductionSSLDefaults(t *testing.T) {
 		t.Fatalf("LoadDatabaseConfig() SSL mode = %q, want verify-full", cfg.DBSSLMode)
 	}
 }
+
+func TestLoadSeederConfigRequiresOnlyDatabaseAndAdminSettings(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("ENVIRONMENT", "test")
+	t.Setenv("JWT_SECRET", "")
+	t.Setenv("REDIS_PORT", "not-a-number")
+	t.Setenv("ADMIN_PASSWORD", "integration-password")
+	t.Setenv("ADMIN_EMAIL", " ADMIN@Example.TEST ")
+	cfg, err := LoadSeederConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.AdminEmail != "admin@example.test" || cfg.DBMaxOpenConnections != 1 {
+		t.Fatalf("unexpected seed settings: email=%q connections=%d", cfg.AdminEmail, cfg.DBMaxOpenConnections)
+	}
+	t.Setenv("ADMIN_PASSWORD", "short")
+	if _, err := LoadSeederConfig(); err == nil {
+		t.Fatal("seeder accepted a weak administrator password")
+	}
+}

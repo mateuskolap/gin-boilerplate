@@ -73,7 +73,7 @@ definitions:
         example: a1b2c3d4e5f6...
         type: string
     type: object
-  dto.PaginatedActivityLogResponse:
+  dto.PaginatedResponse-dto_ActivityLogResponse:
     properties:
       items:
         items:
@@ -88,7 +88,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  dto.PaginatedPermissionResponse:
+  dto.PaginatedResponse-dto_PermissionResponse:
     properties:
       items:
         items:
@@ -103,7 +103,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  dto.PaginatedRefreshTokenResponse:
+  dto.PaginatedResponse-dto_RefreshTokenResponse:
     properties:
       items:
         items:
@@ -118,7 +118,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  dto.PaginatedRoleResponse:
+  dto.PaginatedResponse-dto_RoleResponse:
     properties:
       items:
         items:
@@ -133,7 +133,7 @@ definitions:
       total_pages:
         type: integer
     type: object
-  dto.PaginatedUserResponse:
+  dto.PaginatedResponse-dto_UserResponse:
     properties:
       items:
         items:
@@ -402,7 +402,7 @@ paths:
             - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.PaginatedActivityLogResponse'
+                  $ref: '#/definitions/dto.PaginatedResponse-dto_ActivityLogResponse'
               type: object
         "401":
           description: Unauthorized - Missing or invalid token
@@ -667,7 +667,7 @@ paths:
             - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.PaginatedRefreshTokenResponse'
+                  $ref: '#/definitions/dto.PaginatedResponse-dto_RefreshTokenResponse'
               type: object
         "401":
           description: Unauthorized - Missing or invalid token
@@ -803,7 +803,7 @@ paths:
             - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.PaginatedPermissionResponse'
+                  $ref: '#/definitions/dto.PaginatedResponse-dto_PermissionResponse'
               type: object
         "401":
           description: Unauthorized - Missing or invalid token
@@ -860,7 +860,7 @@ paths:
             - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.PaginatedRoleResponse'
+                  $ref: '#/definitions/dto.PaginatedResponse-dto_RoleResponse'
               type: object
         "401":
           description: Unauthorized - Missing or invalid token
@@ -1209,7 +1209,7 @@ paths:
             - $ref: '#/definitions/response.ApiResponse'
             - properties:
                 data:
-                  $ref: '#/definitions/dto.PaginatedUserResponse'
+                  $ref: '#/definitions/dto.PaginatedResponse-dto_UserResponse'
               type: object
         "401":
           description: Unauthorized - Missing or invalid token

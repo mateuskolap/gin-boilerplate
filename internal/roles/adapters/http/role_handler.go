@@ -29,7 +29,7 @@ func NewRoleHandler(roleUseCase roledomain.RoleUseCase) *RoleHandler {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "Role UUID" format(uuid)
-// @Success      200  {object}  response.ApiResponse{data=dto.RoleResponse} "Role retrieved successfully"
+// @Success      200  {object}  response.ApiResponse{data=roledto.RoleResponse} "Role retrieved successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403  {object}  response.ApiResponse "Forbidden - Requires view_role permission"
 // @Failure      404  {object}  response.ApiResponse "Not Found - Role not found"
@@ -62,7 +62,7 @@ func (h *RoleHandler) FindRole(c *gin.Context) {
 // @Param        limit  query     int     false  "Items per page (default: 10, max: 100)" minimum(1) maximum(100)
 // @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
 // @Param        name   query     string  false  "Filter by role name (partial match)"
-// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedRoleResponse} "Roles retrieved successfully"
+// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedResponse[roledto.RoleResponse]} "Roles retrieved successfully"
 // @Failure      401    {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403    {object}  response.ApiResponse "Forbidden - Requires view_role permission"
 // @Failure      422    {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"
@@ -101,8 +101,8 @@ func (h *RoleHandler) ListRoles(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.CreateRoleRequest true "Role creation details"
-// @Success      201  {object}  response.ApiResponse{data=dto.RoleResponse} "Role created successfully"
+// @Param        request body roledto.CreateRoleRequest true "Role creation details"
+// @Success      201  {object}  response.ApiResponse{data=roledto.RoleResponse} "Role created successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403  {object}  response.ApiResponse "Forbidden - Requires create_role permission"
 // @Failure      409  {object}  response.ApiResponse "Conflict - Role already exists"
@@ -136,8 +136,8 @@ func (h *RoleHandler) CreateRole(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                 true  "Role UUID" format(uuid)
-// @Param        request  body      dto.UpdateRoleRequest  true  "Role update details"
-// @Success      200      {object}  response.ApiResponse{data=dto.RoleResponse} "Role updated successfully"
+// @Param        request  body      roledto.UpdateRoleRequest  true  "Role update details"
+// @Success      200      {object}  response.ApiResponse{data=roledto.RoleResponse} "Role updated successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires update_role permission"
 // @Failure      404      {object}  response.ApiResponse "Not Found - Role not found"
@@ -207,7 +207,7 @@ func (h *RoleHandler) DeleteRole(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                        true  "Role UUID" format(uuid)
-// @Param        request  body      dto.UpdatePermissionsRequest  true  "Permission UUIDs to assign"
+// @Param        request  body      roledto.UpdatePermissionsRequest  true  "Permission UUIDs to assign"
 // @Success      201      {object}  response.ApiResponse "Permissions added to role successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires add_role_permission permission"
@@ -244,7 +244,7 @@ func (h *RoleHandler) AddPermissions(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                        true  "Role UUID" format(uuid)
-// @Param        request  body      dto.UpdatePermissionsRequest  true  "Permission UUIDs to remove"
+// @Param        request  body      roledto.UpdatePermissionsRequest  true  "Permission UUIDs to remove"
 // @Success      204      {object}  nil "Permissions removed from role successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires remove_role_permission permission"

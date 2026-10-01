@@ -9,6 +9,17 @@ permissions:
   contents: read
 
 jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: .\app.cmd help
+      - run: go test ./internal/cli ./config -count=1
+
   verify:
     runs-on: ubuntu-latest
     services:
@@ -47,6 +58,6 @@ jobs:
           cache: true
       - run: go mod verify
       - run: go vet ./...
-      - run: go tool govulncheck ./...
-      - run: go test ./... -count=1
-      - run: go build ./cmd/api ./cmd/worker ./cmd/scheduler ./cmd/migration
+      - run: ./app vulncheck
+      - run: ./app test --external-services
+      - run: go build -o tmp/app ./cmd/app

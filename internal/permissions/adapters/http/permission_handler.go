@@ -32,7 +32,7 @@ func NewPermissionHandler(permissionUseCase permissiondomain.PermissionUseCase) 
 // @Param        limit  query     int     false  "Items per page (default: 10, max: 100)" minimum(1) maximum(100)
 // @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
 // @Param        name   query     string  false  "Filter by permission name (partial match)"
-// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedPermissionResponse} "Permissions retrieved successfully"
+// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedResponse[permissiondto.PermissionResponse]} "Permissions retrieved successfully"
 // @Failure      401    {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403    {object}  response.ApiResponse "Forbidden - Requires view_permission permission"
 // @Failure      422    {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"

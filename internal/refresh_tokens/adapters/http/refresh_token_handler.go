@@ -36,7 +36,7 @@ func NewRefreshTokenHandler(refreshTokenUseCase refreshtokendomain.RefreshTokenU
 // @Param        sort        query     string  false  "Sorting criteria (e.g. created_at:desc or -created_at)"
 // @Param        user_agent  query     string  false  "Filter by user agent (partial match)"
 // @Param        ip_address  query     string  false  "Filter by IP address (partial match)"
-// @Success      200         {object}  response.ApiResponse{data=dto.PaginatedRefreshTokenResponse} "Sessions retrieved successfully"
+// @Success      200         {object}  response.ApiResponse{data=dto.PaginatedResponse[refreshtokendto.RefreshTokenResponse]} "Sessions retrieved successfully"
 // @Failure      401         {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      422         {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"
 // @Failure      429         {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
@@ -124,7 +124,7 @@ func (h *RefreshTokenHandler) RevokeSession(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.RevokeOtherSessionsRequest false "Current refresh token in body mode; omitted in cookie mode"
+// @Param        request body refreshtokendto.RevokeOtherSessionsRequest false "Current refresh token in body mode; omitted in cookie mode"
 // @Success      204  {object}  nil "Other sessions ended"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid current refresh token"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid request payload"

@@ -32,7 +32,7 @@ func NewUserHandler(userUseCase userdomain.UserUseCase) *UserHandler {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      string  true  "User UUID" format(uuid)
-// @Success      200  {object}  response.ApiResponse{data=dto.UserWithRoleResponse} "User retrieved successfully"
+// @Success      200  {object}  response.ApiResponse{data=userdto.UserWithRoleResponse} "User retrieved successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403  {object}  response.ApiResponse "Forbidden - Requires view_user permission"
 // @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
@@ -66,7 +66,7 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 // @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
 // @Param        name   query     string  false  "Filter by user name (partial match)"
 // @Param        email  query     string  false  "Filter by user email (partial match)"
-// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedUserResponse} "Users retrieved successfully"
+// @Success      200    {object}  response.ApiResponse{data=dto.PaginatedResponse[userdto.UserResponse]} "Users retrieved successfully"
 // @Failure      401    {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403    {object}  response.ApiResponse "Forbidden - Requires view_user permission"
 // @Failure      422    {object}  response.ApiResponse "Unprocessable Entity - Invalid filter or sorting parameter"
@@ -112,7 +112,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
-// @Success      200  {object}  response.ApiResponse{data=dto.UserResponse} "User profile retrieved successfully"
+// @Success      200  {object}  response.ApiResponse{data=userdto.UserResponse} "User profile retrieved successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
@@ -140,8 +140,8 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.UpdateProfileRequest true "User profile update details"
-// @Success      200  {object}  response.ApiResponse{data=dto.UserResponse} "Profile updated successfully"
+// @Param        request body userdto.UpdateProfileRequest true "User profile update details"
+// @Success      200  {object}  response.ApiResponse{data=userdto.UserResponse} "Profile updated successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      404  {object}  response.ApiResponse "Not Found - User not found"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid request payload"
@@ -181,8 +181,8 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                    true  "User UUID" format(uuid)
-// @Param        request  body      dto.UpdateProfileRequest  true  "User update details"
-// @Success      200      {object}  response.ApiResponse{data=dto.UserResponse} "User updated successfully"
+// @Param        request  body      userdto.UpdateProfileRequest  true  "User update details"
+// @Success      200      {object}  response.ApiResponse{data=userdto.UserResponse} "User updated successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires update_user permission"
 // @Failure      404      {object}  response.ApiResponse "Not Found - User not found"
@@ -252,7 +252,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                      true  "User UUID" format(uuid)
-// @Param        request  body      dto.UpdateUserRolesRequest  true  "Role UUIDs to assign"
+// @Param        request  body      userdto.UpdateUserRolesRequest  true  "Role UUIDs to assign"
 // @Success      200      {object}  response.ApiResponse "Roles added to user successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires add_user_role permission"
@@ -289,7 +289,7 @@ func (h *UserHandler) AddRoles(c *gin.Context) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                      true  "User UUID" format(uuid)
-// @Param        request  body      dto.UpdateUserRolesRequest  true  "Role UUIDs to remove"
+// @Param        request  body      userdto.UpdateUserRolesRequest  true  "Role UUIDs to remove"
 // @Success      204      {object}  nil "Roles removed from user successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires remove_user_role permission"

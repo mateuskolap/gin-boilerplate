@@ -98,6 +98,31 @@ func LoadConfig() (*Config, error) {
 	return &cfg, nil
 }
 
+// LoadSeederConfig loads only database and administrator settings, without API requirements.
+func LoadSeederConfig() (*Config, error) {
+	database, err := LoadDatabaseConfig()
+	if err != nil {
+		return nil, err
+	}
+	settings, err := env.ParseAs[struct {
+		Name     string `env:"ADMIN_NAME" envDefault:"Admin"`
+		Email    string `env:"ADMIN_EMAIL" envDefault:"admin@example.com"`
+		Password string `env:"ADMIN_PASSWORD"`
+	}]()
+	if err != nil {
+		return nil, fmt.Errorf("parse administrator configuration: %w", err)
+	}
+	cfg := &Config{
+		DatabaseConfig: *database,
+		AdminName:      settings.Name, AdminEmail: strings.ToLower(strings.TrimSpace(settings.Email)), AdminPassword: settings.Password,
+		DBMaxOpenConnections: 1, DBMaxIdleConnections: 1,
+	}
+	if err := cfg.ValidateSeeder(); err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
 func (c *Config) Validate() error {
 	var errs []error
 

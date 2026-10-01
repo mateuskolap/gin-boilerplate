@@ -8,8 +8,8 @@ Foi pensado para serviços backend que podem começar como um monólito modular.
 
 - **O que é:** uma API REST inicial com recursos comuns já implementados.
 - **Por que existe:** para iniciar novos serviços sem copiar manualmente autenticação, persistência, migrations, autorização e infraestrutura recorrente.
-- **Como executar:** configure `.env`, suba PostgreSQL e Redis com Docker Compose e rode `make run-migrate`.
-- **Como evoluir:** implemente regras em `internal/usecase`, mantenha contratos no domínio e conecte adaptadores na infraestrutura e no bootstrap.
+- **Como executar:** configure `.env`, suba PostgreSQL e Redis com Docker Compose e rode `./app dev --services --swagger --migrate --seed`.
+- **Como evoluir:** implemente regras em `internal/<feature>/application`, mantenha contratos no domínio e conecte adaptadores na infraestrutura e no bootstrap.
 
 ## Funcionalidades
 
@@ -48,22 +48,23 @@ As versões das dependências Go estão declaradas em [`go.mod`](go.mod). Não �
 O projeto é um **monólito modular com inspiração em Clean Architecture e arquitetura hexagonal**. Não é uma implementação estrita de DDD.
 
 ```text
-cmd/
-  api/                 Inicialização do servidor HTTP
-  migration/           CLI para criar e executar migrations
-  worker/              Processo que consome tarefas da fila
-  scheduler/           Processo que registra e agenda tarefas recorrentes
-config/                Leitura e validação das variáveis de ambiente
+app                    Launcher local
+app.cmd                Launcher para Windows
+cmd/app/               Único ponto de entrada Go
+config/                Configuração por comando
 db/migrations/         Migrations SQL versionadas
 internal/
-  bootstrap/           Composition root: cria dependências e aplicações
-  delivery/http/       Rotas, handlers, DTOs, middleware e respostas HTTP
-  domain/              Entidades, contratos e tipos independentes de infraestrutura
-    port/              Portas para filas, storage, e-mail, cache e outros adaptadores
-    shared/            Erros, paginação, filtros e tipos compartilhados
-  infra/               Adaptadores GORM, Redis, Asynq, storage, SMTP e segurança
-  usecase/             Regras de negócio e coordenação de operações
-    jobs/              Handlers de tarefas e definições de cron
+  cli/                 Catálogo, handlers e supervisão dos comandos
+  bootstrap/           Composition root das aplicações
+  users/               Domínio, aplicação e adapters de usuários
+  roles/               Domínio, aplicação e adapters de papéis
+  permissions/         Domínio, aplicação e adapters de permissões
+  refresh_tokens/      Domínio, aplicação e adapters de sessões
+  activity_logs/       Domínio, aplicação e adapters de auditoria
+  application/         Casos de uso compartilhados
+  domain/              Portas e tipos compartilhados independentes de infraestrutura
+  delivery/http/       Router, middleware e respostas compartilhadas
+  infra/               Infraestrutura compartilhada
 docs/                  Especificação Swagger gerada
 ```
 
@@ -83,19 +84,19 @@ Handlers convertem HTTP em chamadas de caso de uso; não devem concentrar regras
 
 ### Regras para novas features
 
-1. Defina ou reutilize as entidades e contratos necessários em `internal/domain`.
-2. Implemente a regra em `internal/usecase`; evite colocar regra de negócio no handler ou no repositório.
-3. Adicione o adaptador de banco ou serviço externo em `internal/infra` e injete-o em `internal/bootstrap`.
-4. Para HTTP, crie DTOs e handlers em `internal/delivery/http`; registre a rota em `router.go` e aplique autenticação/permissão adequada.
-5. Se alterar o schema, crie os pares SQL `up`/`down` com `make migrate-create NAME=...` e escreva ambos.
-6. Atualize as anotações Swagger e gere os arquivos com `make swagger`.
+1. Defina ou reutilize as entidades e contratos necessários em `internal/<feature>/domain`.
+2. Implemente a regra em `internal/<feature>/application`; evite colocar regra de negócio no handler ou no repositório.
+3. Adicione o adaptador de banco ou serviço externo em `internal/<feature>/adapters` e injete-o em `internal/bootstrap`.
+4. Para HTTP, crie DTOs e handlers em `internal/<feature>/adapters/http`; registre a rota em `router.go` e aplique autenticação/permissão adequada.
+5. Se alterar o schema, crie os pares SQL `up`/`down` com `./app make:migration nome` e escreva ambos.
+6. Atualize as anotações Swagger e gere os arquivos com `./app docs:generate`.
 7. Rode `go test ./...` e confira os casos que ainda precisam de testes específicos.
 
 Handlers usam `bindJSON` para limitar e validar payloads. O validator rejeita campos JSON desconhecidos. Use `shared.AppError` para erros de aplicação, DTOs para o contrato HTTP e os métodos existentes de paginação/filtro nas rotas de listagem.
 
 ## Pré-requisitos
 
-- Go **1.27.0+** e `make`.
+- Go **1.27.0+**. Linux/macOS usam `./app`; Windows usa `.\app.cmd` em PowerShell ou `app.cmd` em CMD.
 - Docker Engine com o comando `docker compose`, ou instâncias locais compatíveis de PostgreSQL 18 e Redis 8.10.
 - `openssl` é opcional e serve para gerar um segredo JWT.
 
@@ -114,20 +115,23 @@ openssl rand -hex 32
 Suba os serviços locais e inicie a aplicação com migrations e seeders:
 
 ```bash
-docker compose up -d postgres redis
-make run-migrate
+./app dev --services --swagger --migrate --seed
 ```
 
-`make run-migrate` aplica as migrations e chama `make run`. Esse comando gera o Swagger, inicia worker e scheduler em processos separados e inicia a API com `--seed`. Portanto, `ADMIN_PASSWORD` é obrigatório nesse caminho. O seeder cria as permissões, os papéis `Admin` e `User` e o usuário administrador configurado.
+No PowerShell, use `app.cmd`:
 
-Para iniciar sem aplicar migrations, use `make run` depois de preparar o banco. Para rodar apenas a API sem seeders, use `go run ./cmd/api`; `go run ./cmd/api --seed-only` executa apenas os seeders. Os comandos da API, worker e scheduler precisam da configuração e dos serviços disponíveis.
+```powershell
+.\app.cmd dev --services --swagger --migrate --seed
+```
+
+`ADMIN_PASSWORD` é obrigatório ao executar seeders. Para iniciar os processos depois de preparar o banco, use `./app dev`. Para rodar somente a API, use `./app serve`; para executar seeders separadamente, use `./app db:seed`.
 
 - API: <http://localhost:8080>
 - Swagger UI: <http://localhost:8080/swagger/index.html> (desabilitado em `ENVIRONMENT=production`)
 - Liveness: `GET /health/live`
 - Readiness: `GET /health/ready` (verifica PostgreSQL e Redis)
 
-O Compose inicia somente PostgreSQL e Redis; ele não inicia API, worker ou scheduler. Os dados do banco e do Redis ficam em volumes nomeados.
+`docker compose up -d --wait postgres redis` inicia somente PostgreSQL e Redis. Para parar os serviços sem apagar os volumes, use `docker compose down`.
 
 ## Variáveis de ambiente
 
@@ -208,34 +212,41 @@ No nível `1`, basta o mínimo de 8 caracteres. O nível `2` também exige letra
 
 ## Comandos disponíveis
 
+Em Windows, substitua `./app` por `.\app.cmd` nos exemplos. O launcher compila `tmp\app.exe` usando o cache do Go; os comandos e argumentos são os mesmos. Para os serviços locais e testes descartáveis, use Docker Desktop com containers Linux.
+
 | Comando | Ação |
 | --- | --- |
-| `make run` | Gera Swagger, inicia worker e scheduler em background e roda a API com seeders. |
-| `make run-migrate` | Aplica migrations e executa `make run`. |
-| `make queue-worker` | Inicia apenas o consumidor de tarefas. |
-| `make queue-scheduler` | Inicia apenas o scheduler. |
-| `make swagger` | Regenera `docs/` a partir das anotações Go. |
-| `make migrate-create NAME=nome` | Cria arquivos `up` e `down` vazios para uma nova migration. |
-| `make migrate-up` | Aplica migrations pendentes. |
-| `make migrate-down` | Reverte uma migration; `make migrate-down STEPS=2` reverte duas. |
-| `make migrate-version` | Mostra a versão atual das migrations. |
-| `make test` | Sobe PostgreSQL e Redis descartáveis, executa toda a suíte sem cache e remove os serviços. |
-| `make test-e2e` | Sobe os serviços descartáveis e executa somente o fluxo HTTP E2E de autenticação. |
-| `make vulncheck` | Verifica vulnerabilidades conhecidas com a ferramenta versionada `govulncheck`. |
+| `./app help` | Lista os comandos; `./app help dev` mostra a ajuda de um comando. |
+| `./app serve` | Inicia apenas a API. |
+| `./app queue:work` | Inicia o consumidor de tarefas. |
+| `./app schedule:work` | Inicia o scheduler contínuo. |
+| `./app dev` | Supervisiona API, worker e scheduler; flags `--services --swagger --migrate --seed` preparam o ambiente. |
+| `./app docs:generate` | Regenera o Swagger a partir dos handlers por feature. |
+| `./app make:domain Order` | Cria entidade/contratos, aplicação CRUD básica, model e repositório PostgreSQL em arquivos separados. |
+| `./app make:migration nome` | Cria o par SQL `up` e `down`. |
+| `./app migrate` | Aplica migrations pendentes. |
+| `./app migrate:rollback [steps]` | Reverte uma migration por padrão; `./app migrate:rollback 2` reverte duas. |
+| `./app migrate:version` | Mostra a versão e informa quando o banco está dirty. |
+| `./app db:seed` | Executa os seeders com PostgreSQL e `ADMIN_*`, sem depender de Redis ou JWT. |
+| `./app test` | Executa toda a suíte com serviços descartáveis e limpeza automática. |
+| `./app test:e2e` | Executa o fluxo HTTP E2E com serviços descartáveis. |
+| `./app vulncheck` | Executa a ferramenta versionada `govulncheck`. |
 
-Não há comandos Make para build, lint ou reset do banco. O servidor não aplica migrations automaticamente ao iniciar.
+Os launchers compilam `cmd/app` usando o cache do Go e executam o binário em `tmp/`, preservando códigos de saída. A lógica e o catálogo ficam em `internal/cli`. Os comandos de ferramentas exigem Go ou Docker; os subcomandos de execução funcionam no binário de produção. A supervisão pede encerramento pelo canal padrão e, se necessário, mata o processo direto após o prazo.
+
+As flags de `dev` são independentes e desativadas por padrão. A preparação segue serviços → Swagger → migrations → seeders → compilação; só depois inicia os três processos. Ctrl+C encerra os processos, mas mantém os serviços de desenvolvimento disponíveis. Se um processo falhar, os demais são encerrados. O servidor não aplica migrations nem seeders automaticamente.
 
 ## Banco de dados e seeders
 
 As migrations ficam em `db/migrations/` como pares `*_*.up.sql` e `*_*.down.sql`. Crie uma migration e edite os dois arquivos antes de aplicá-la:
 
 ```bash
-make migrate-create NAME=orders
+./app make:migration orders
 # editar db/migrations/<timestamp>_orders.up.sql e .down.sql
-make migrate-up
+./app migrate
 ```
 
-`make migrate-down` reverte uma migration por padrão. Use com cuidado em bancos com dados que precisam ser preservados.
+`./app migrate:rollback` reverte uma migration por padrão. Use com cuidado em bancos com dados que precisam ser preservados.
 
 Os seeders rodam dentro de uma transação. Criam as permissões definidas em `domain.AllPermissions`, os papéis `Admin` e `User`, associam todas as permissões ao papel `Admin` e criam ou promovem o usuário administrador configurado. O papel `User` não recebe permissões administrativas por padrão.
 
@@ -299,7 +310,7 @@ Operações que respondem `204 No Content` não retornam corpo. As demais respos
 
 ## Filas e tarefas agendadas
 
-As tarefas usam a porta `domain/port.QueueDispatcher` e o adaptador Asynq em `internal/infra/queue`. O scheduler agenda tarefas no Redis e o worker registrado em `cmd/worker` as consome. O scheduler usa UTC.
+As tarefas usam a porta `domain/port.QueueDispatcher` e o adaptador Asynq em `internal/infra/queue`. O scheduler agenda tarefas no Redis e o worker registrado em `app queue:work` as consome. O scheduler usa UTC.
 
 A tarefa atual é `maintenance.refresh_tokens.purge`, agendada diariamente às 03:00 UTC. Ela apaga refresh tokens expirados há mais tempo que `REFRESH_TOKEN_RETENTION`; falhas têm até três retries. O dispatcher genérico está disponível, embora nenhum fluxo HTTP/use case atual despache uma tarefa sob demanda.
 
@@ -309,7 +320,7 @@ Para adicionar uma tarefa:
 2. Registre o handler nos argumentos de `queueinfra.NewWorker` em `internal/bootstrap/queue.go`.
 3. Para uma execução recorrente, adicione um `port.PeriodicTask` em `MaintenanceTasks()` com expressão cron, fila e opções.
 4. Para despacho sob demanda, injete `port.QueueDispatcher` no use case que precisa enfileirar e conecte a dependência em `internal/bootstrap/app.go`.
-5. Inicie worker e scheduler; `make run` já inicia os dois junto com a API.
+5. Inicie worker e scheduler; `./app dev` inicia os dois junto com a API.
 
 Workers mantêm suas próprias conexões com PostgreSQL e o database Redis da fila. O scheduler só agenda; ele não executa o trabalho da tarefa.
 
@@ -325,15 +336,15 @@ Workers mantêm suas próprias conexões com PostgreSQL e o database Redis da fi
 
 ## Testes
 
-`make test` e `make test-e2e` usam Docker Compose para criar PostgreSQL e Redis isolados, em portas aleatórias, e removem containers, rede e volumes ao final. Não iniciam nem alteram os serviços/volumes do Compose de desenvolvimento. É necessário ter Docker Engine ativo e `docker compose` disponível.
+`./app test` e `./app test:e2e` usam Docker Compose para criar PostgreSQL e Redis isolados, em portas aleatórias, e removem containers, rede e volumes ao final. Não iniciam nem alteram os serviços/volumes do Compose de desenvolvimento. É necessário ter Docker Engine ativo e `docker compose` disponível.
 
-Para rodar apenas testes sem os serviços externos:
+Para rodar apenas testes que não exigem serviços externos:
 
 ```bash
 go test ./...
 ```
 
-Sem as variáveis de teste, os casos de integração são ignorados. `make test` configura essas variáveis automaticamente e executa também PostgreSQL, Redis, filas, seeders, migrations e E2E.
+Com `go test ./...` sem as variáveis de teste, os casos de integração são ignorados. Para serviços já disponíveis, configure `TEST_DATABASE_URL`, `TEST_REDIS_ADDR`, `TEST_REDIS_DB` e `TEST_QUEUE_REDIS_DB` e use `./app test --external-services` ou `./app test:e2e --external-services`; o CLI exige todas essas variáveis. `./app test` configura essas variáveis automaticamente e executa também PostgreSQL, Redis, filas, seeders, migrations e E2E.
 
 O fluxo `TestAuthenticationE2E`, em `internal/integration/auth_e2e_test.go`, inicia um servidor HTTPS com o bootstrap real e usa PostgreSQL e Redis reais, sem mocks. Ele aplica as migrations SQL em um schema isolado, executa os seeders e cobre cadastro, login, consulta de perfil, rejeição de acesso administrativo sem permissão, rotação dos tokens e logout. A revogação é confirmada ao reenviar os tokens após o logout. O fluxo roda nos modos JSON (`body`) e cookies (`cookie`), usando um cookie jar que recebe e envia os cookies automaticamente. O modo cookie verifica `SameSite=None; Secure`, preflight CORS com credenciais e rejeição de operações autenticadas com `Origin` ausente, `null` ou não permitido.
 
@@ -341,23 +352,23 @@ O teste de autenticação usa uma porta HTTP aleatória e um schema PostgreSQL i
 
 ## Integração contínua
 
-O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em pushes, pull requests e manualmente. Ele inicia PostgreSQL e Redis descartáveis, verifica dependências, executa `go vet` e `go tool govulncheck ./...`, roda toda a suíte com os testes de integração e e2e habilitados e compila API, worker, scheduler e CLI de migrations.
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em pushes, pull requests e manualmente. Ele inicia PostgreSQL e Redis descartáveis, verifica dependências, executa `go vet` e `./app vulncheck`, roda `./app test --external-services` com os testes de integração e E2E habilitados e compila o único executável `cmd/app`.
 
-O `govulncheck` está declarado como ferramenta em `go.mod`, com versão fixada nas dependências; não exige instalação global. Para executar localmente, use `make vulncheck`. A consulta usa a base pública de vulnerabilidades Go e requer acesso à rede; vulnerabilidades encontradas nos caminhos analisados fazem a verificação falhar.
+O `govulncheck` está declarado como ferramenta em `go.mod`, com versão fixada nas dependências; não exige instalação global. Para executar localmente, use `./app vulncheck`. A consulta usa a base pública de vulnerabilidades Go e requer acesso à rede; vulnerabilidades encontradas nos caminhos analisados fazem a verificação falhar.
 
 Ainda não há publicação ou deploy automatizados.
 
 ## Docker
 
-`docker-compose.yaml` fornece PostgreSQL 18 e Redis 8.10 com volumes locais e health checks. A aplicação roda no host com `make run` ou `go run`; Compose não define serviços para API, worker ou scheduler.
+`docker-compose.yaml` fornece PostgreSQL 18 e Redis 8.10 com volumes locais e health checks. A aplicação roda no host com `./app dev` ou `./app serve`; Compose não define serviços para API, worker ou scheduler.
 
-O `Dockerfile` multi-stage compila uma imagem `scratch` não root com os binários `/api`, `/worker` e `/scheduler`; a entrada padrão executa `/api`. A configuração de produção e a orquestração desses processos precisam ser fornecidas pelo ambiente de deploy.
+O `Dockerfile` multi-stage compila uma imagem `scratch` não root com o binário `/usr/local/bin/app` e as migrations SQL; a entrada padrão executa `app serve`. Use `queue:work`, `schedule:work`, `migrate` ou `db:seed` como argumento da imagem para selecionar outro comando. A configuração de produção e a orquestração desses processos precisam ser fornecidas pelo ambiente de deploy.
 
 ## Usar como base para um novo serviço
 
 1. Crie um repositório a partir deste projeto e altere o módulo em `go.mod` e os imports `gin-boilerplate`.
 2. Defina nome, issuer, audience, segredo JWT e origens CORS no ambiente.
-3. Revise `config/config.go`, `.env.example` e os metadados OpenAPI em `cmd/api/main.go`.
+3. Revise `config/config.go`, `.env.example` e os metadados OpenAPI em `cmd/app/main.go`.
 4. Ajuste migrations e seeders para o domínio do serviço; remova funcionalidades que não serão usadas.
 5. Escolha `body` ou `cookie` para o transporte de tokens e configure o cliente correspondente.
 6. Defina processo de deploy, observabilidade e CI/CD conforme o ambiente alvo.

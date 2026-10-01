@@ -41,8 +41,8 @@ func NewAuthHandler(authUseCase userdomain.AuthUseCase, useCookies, secureCookie
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.RegisterRequest true "User registration details"
-// @Success      201  {object}  response.ApiResponse{data=dto.UserResponse} "User registered successfully"
+// @Param        request body userdto.RegisterRequest true "User registration details"
+// @Success      201  {object}  response.ApiResponse{data=userdto.UserResponse} "User registered successfully"
 // @Failure      409  {object}  response.ApiResponse "Conflict - Email already in use"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
 // @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
@@ -75,8 +75,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.LoginRequest true "Login credentials"
-// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Login successful; token data is omitted in cookie mode"
+// @Param        request body userdto.LoginRequest true "Login credentials"
+// @Success      200  {object}  response.ApiResponse{data=userdto.LoginResponse} "Login successful; token data is omitted in cookie mode"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid email or password"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
 // @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
@@ -110,8 +110,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
-// @Param        request body dto.RefreshRequest false "Refresh token payload in body mode; omitted in cookie mode"
-// @Success      200  {object}  response.ApiResponse{data=dto.LoginResponse} "Token data is omitted in cookie mode"
+// @Param        request body userdto.RefreshRequest false "Refresh token payload in body mode; omitted in cookie mode"
+// @Success      200  {object}  response.ApiResponse{data=userdto.LoginResponse} "Token data is omitted in cookie mode"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Invalid, expired or revoked refresh token"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid payload validation"
 // @Failure      429  {object}  response.ApiResponse "Too Many Requests - Rate limit exceeded"
@@ -149,7 +149,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.LogoutRequest false "Refresh token in body mode; cookie mode reads it from the HttpOnly cookie"
+// @Param        request body userdto.LogoutRequest false "Refresh token in body mode; cookie mode reads it from the HttpOnly cookie"
 // @Success      200  {object}  response.ApiResponse "Logged out successfully"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      500  {object}  response.ApiResponse "Internal server error"
@@ -190,7 +190,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        request body dto.ChangePasswordRequest true "Current and new password"
+// @Param        request body userdto.ChangePasswordRequest true "Current and new password"
 // @Success      204  {object}  nil "Password changed; authenticate again with the new password"
 // @Failure      401  {object}  response.ApiResponse "Unauthorized - Current password is invalid"
 // @Failure      422  {object}  response.ApiResponse "Unprocessable Entity - Invalid password payload"

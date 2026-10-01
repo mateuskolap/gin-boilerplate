@@ -1,6 +1,7 @@
-package main
+package cli
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"os"
@@ -34,17 +35,15 @@ func TestNormalizeMigrationName(t *testing.T) {
 }
 
 func TestMigrationCLIRejectsInvalidCommandsBeforeDatabaseAccess(t *testing.T) {
-	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 	for _, args := range [][]string{
-		nil,
 		{"unknown"},
-		{"up", "extra"},
-		{"down", "0"},
-		{"down", "not-a-number"},
-		{"create"},
-		{"create", "bad/name"},
+		{"migrate", "extra"},
+		{"migrate:rollback", "0"},
+		{"migrate:rollback", "not-a-number"},
+		{"make:migration"},
+		{"make:migration", "bad/name"},
 	} {
-		if err := run(args, now); err == nil {
+		if err := Run(context.Background(), args); err == nil || ExitCode(err) != 2 {
 			t.Errorf("run(%q) returned nil", args)
 		}
 	}
@@ -164,5 +163,12 @@ func TestRunMigrationsAgainstDisposableDatabase(t *testing.T) {
 	}
 	if err := runMigrations("version", 0); err != nil {
 		t.Fatalf("read migration version: %v", err)
+	}
+	t.Setenv("JWT_SECRET", "")
+	t.Setenv("REDIS_HOST", "invalid.example")
+	t.Setenv("ADMIN_PASSWORD", "integration-admin-password")
+	t.Setenv("ADMIN_EMAIL", "cli-admin@example.test")
+	if err := Run(context.Background(), []string{"db:seed"}); err != nil {
+		t.Fatalf("seed should require neither JWT nor Redis: %v", err)
 	}
 }

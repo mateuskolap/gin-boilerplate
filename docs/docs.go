@@ -102,7 +102,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedActivityLogResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_ActivityLogResponse"
                                         }
                                     }
                                 }
@@ -517,7 +517,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedRefreshTokenResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_RefreshTokenResponse"
                                         }
                                     }
                                 }
@@ -728,7 +728,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedPermissionResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_PermissionResponse"
                                         }
                                     }
                                 }
@@ -818,7 +818,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedRoleResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_RoleResponse"
                                         }
                                     }
                                 }
@@ -1366,7 +1366,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/dto.PaginatedUserResponse"
+                                            "$ref": "#/definitions/dto.PaginatedResponse-dto_UserResponse"
                                         }
                                     }
                                 }
@@ -2178,7 +2178,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PaginatedActivityLogResponse": {
+        "dto.PaginatedResponse-dto_ActivityLogResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2201,7 +2201,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PaginatedPermissionResponse": {
+        "dto.PaginatedResponse-dto_PermissionResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2224,7 +2224,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PaginatedRefreshTokenResponse": {
+        "dto.PaginatedResponse-dto_RefreshTokenResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2247,7 +2247,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PaginatedRoleResponse": {
+        "dto.PaginatedResponse-dto_RoleResponse": {
             "type": "object",
             "properties": {
                 "items": {
@@ -2270,7 +2270,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dto.PaginatedUserResponse": {
+        "dto.PaginatedResponse-dto_UserResponse": {
             "type": "object",
             "properties": {
                 "items": {
