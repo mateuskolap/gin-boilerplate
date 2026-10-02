@@ -21,10 +21,42 @@ func TestHelpAndArgumentValidationDoNotInitializeServices(t *testing.T) {
 			t.Fatalf("help %v: %v", args, err)
 		}
 	}
-	for _, args := range [][]string{{"unknown"}, {"serve", "--seed"}, {"dev", "--unknown"}, {"test", "extra"}, {"make:domain", "bad/name"}} {
+	invalidArgs := [][]string{
+		{"unknown"},
+		{"serve", "--seed"},
+		{"dev", "--unknown"},
+		{"test", "extra"},
+		{"make:domain", "bad/name"},
+		{"make:domain", "Project", "--unknown"},
+		{"make:domain", "Project", "Other"},
+	}
+	for _, args := range invalidArgs {
 		if err := Run(context.Background(), args); err == nil || ExitCode(err) != 2 {
 			t.Fatalf("%v should fail with argument exit code 2, got %v", args, err)
 		}
+	}
+}
+
+func TestMakeDomainCLIParsesSoftDeleteFlagAfterDomain(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	if err := os.Mkdir("internal", 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Run(context.Background(), []string{"make:domain", "Invoice", "--soft-delete"}); err != nil {
+		t.Fatalf("make:domain with soft-delete: %v", err)
+	}
+	migrations, err := filepath.Glob(filepath.Join(root, migrationsDirectory, "*_create_invoices.up.sql"))
+	if err != nil || len(migrations) != 1 {
+		t.Fatalf("generated migration paths=%v error=%v", migrations, err)
+	}
+	upSQL, err := os.ReadFile(migrations[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(upSQL), "deleted_at TIMESTAMPTZ") {
+		t.Fatalf("soft-delete migration does not include deleted_at: %s", upSQL)
 	}
 }
 

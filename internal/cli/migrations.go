@@ -21,6 +21,10 @@ import (
 
 const migrationsDirectory = "db/migrations"
 
+type migrationSQL struct {
+	up, down string
+}
+
 func runMigrations(action string, steps int) (resultErr error) {
 	databaseConfig, err := config.LoadDatabaseConfig()
 	if err != nil {
@@ -137,7 +141,15 @@ func normalizeName(value string) (string, error) {
 	return normalized.String(), nil
 }
 
-func createMigration(directory string, now time.Time, name string) (resultErr error) {
+func createMigration(directory string, now time.Time, name string) error {
+	const placeholder = "-- Write migration SQL here.\n"
+	return createMigrationWithContent(directory, now, name, migrationSQL{
+		up:   placeholder,
+		down: placeholder,
+	})
+}
+
+func createMigrationWithContent(directory string, now time.Time, name string, sql migrationSQL) (resultErr error) {
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return fmt.Errorf("create migrations directory: %w", err)
 	}
@@ -167,12 +179,12 @@ func createMigration(directory string, now time.Time, name string) (resultErr er
 		}
 	}()
 
-	upCreated, resultErr = createMigrationFile(upPath)
+	upCreated, resultErr = writeMigrationFile(upPath, sql.up)
 	if resultErr != nil {
 		return resultErr
 	}
 
-	downCreated, resultErr = createMigrationFile(downPath)
+	downCreated, resultErr = writeMigrationFile(downPath, sql.down)
 	if resultErr != nil {
 		return resultErr
 	}
@@ -181,6 +193,10 @@ func createMigration(directory string, now time.Time, name string) (resultErr er
 }
 
 func createMigrationFile(path string) (created bool, resultErr error) {
+	return writeMigrationFile(path, "-- Write migration SQL here.\n")
+}
+
+func writeMigrationFile(path, content string) (created bool, resultErr error) {
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return false, fmt.Errorf("create migration file %q: %w", path, err)
@@ -192,7 +208,7 @@ func createMigrationFile(path string) (created bool, resultErr error) {
 		}
 	}()
 
-	if _, err := io.WriteString(file, "-- Write migration SQL here.\n"); err != nil {
+	if _, err := io.WriteString(file, content); err != nil {
 		return true, fmt.Errorf("write migration file %q: %w", path, err)
 	}
 	return true, nil

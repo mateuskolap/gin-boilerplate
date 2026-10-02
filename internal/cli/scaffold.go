@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type generatedFile struct {
@@ -14,15 +15,48 @@ type generatedFile struct {
 }
 
 func makeDomain(root, name string) (string, error) {
+	return makeDomainWithSoftDelete(root, name, false)
+}
+
+func makeDomainWithSoftDelete(root, name string, softDelete bool) (string, error) {
 	entity, stem, fileStem, feature, err := domainNames(name)
 	if err != nil {
 		return "", err
+	}
+
+	domainBaseModel := "shared.BaseModel"
+	modelImports := fmt.Sprintf(
+		"postgresinfra \"gin-boilerplate/internal/infra/postgres\"\n\t%sdomain \"gin-boilerplate/internal/%s/domain\"",
+		stem,
+		feature,
+	)
+	modelFields := "postgresinfra.BaseModel"
+	modelFromDomainBody := ""
+	domainFromModelBody := ""
+	if softDelete {
+		domainBaseModel = "shared.BaseSoftDeleteModel"
+		modelImports += "\n\t\"gorm.io/gorm\""
+		modelFields = "postgresinfra.BaseModel\n\tDeletedAt gorm.DeletedAt `gorm:\"index\"`"
+		modelFromDomainBody = `
+	if entity.DeletedAt != nil {
+		model.DeletedAt = gorm.DeletedAt{Time: *entity.DeletedAt, Valid: true}
+	}`
+		domainFromModelBody = `
+	if model.DeletedAt.Valid {
+		deletedAt := model.DeletedAt.Time
+		entity.DeletedAt = &deletedAt
+	}`
 	}
 
 	replacer := strings.NewReplacer(
 		"{{Entity}}", entity,
 		"{{Stem}}", stem,
 		"{{Feature}}", feature,
+		"{{DomainBaseModel}}", domainBaseModel,
+		"{{ModelImports}}", modelImports,
+		"{{ModelFields}}", modelFields,
+		"{{ModelFromDomainBody}}", modelFromDomainBody,
+		"{{DomainFromModelBody}}", domainFromModelBody,
 	)
 	files := []generatedFile{
 		{filepath.Join("domain", fileStem+".go"), []byte(domainSource)},
@@ -64,8 +98,34 @@ func makeDomain(root, name string) (string, error) {
 			return "", fmt.Errorf("write %s: %w", path, err)
 		}
 	}
+	sql := domainMigrationSQL(feature, softDelete)
+	if err := createMigrationWithContent(
+		filepath.Join(root, migrationsDirectory),
+		time.Now().UTC(),
+		"create_"+feature,
+		sql,
+	); err != nil {
+		return "", fmt.Errorf("create domain migration: %w", err)
+	}
 	complete = true
 	return feature, nil
+}
+
+func domainMigrationSQL(feature string, softDelete bool) migrationSQL {
+	columns := []string{
+		"id UUID PRIMARY KEY DEFAULT uuidv7()",
+		"created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+		"updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP",
+	}
+	if softDelete {
+		columns = append(columns, "deleted_at TIMESTAMPTZ")
+	}
+
+	upSQL := fmt.Sprintf("CREATE TABLE %s (\n    %s\n);\n", feature, strings.Join(columns, ",\n    "))
+	if softDelete {
+		upSQL += fmt.Sprintf("\nCREATE INDEX idx_%s_deleted_at ON %s (deleted_at);\n", feature, feature)
+	}
+	return migrationSQL{up: upSQL, down: fmt.Sprintf("DROP TABLE %s;\n", feature)}
 }
 
 func domainNames(name string) (entity, stem, fileStem, feature string, err error) {
@@ -136,7 +196,7 @@ import (
 )
 
 type {{Entity}} struct {
-	shared.BaseModel
+	{{DomainBaseModel}}
 }
 
 type {{Entity}}Repository interface {
@@ -197,26 +257,29 @@ func (u *{{Stem}}UseCase) Update(ctx context.Context, entity *{{Stem}}domain.{{E
 const modelSource = `package postgres
 
 import (
-	postgresinfra "gin-boilerplate/internal/infra/postgres"
-	{{Stem}}domain "gin-boilerplate/internal/{{Feature}}/domain"
+	{{ModelImports}}
 )
 
 type {{Entity}}Model struct {
-	postgresinfra.BaseModel
+	{{ModelFields}}
 }
 
 func ({{Entity}}Model) TableName() string { return "{{Feature}}" }
 
 func {{Stem}}ModelFromDomain(entity *{{Stem}}domain.{{Entity}}) *{{Entity}}Model {
-	return &{{Entity}}Model{
+	model := &{{Entity}}Model{
 		BaseModel: postgresinfra.BaseModelFromDomain(entity.BaseModel),
 	}
+	{{ModelFromDomainBody}}
+	return model
 }
 
 func {{Stem}}DomainFromModel(model *{{Entity}}Model) *{{Stem}}domain.{{Entity}} {
-	return &{{Stem}}domain.{{Entity}}{
+	entity := &{{Stem}}domain.{{Entity}}{
 		BaseModel: model.BaseModel.ToDomain(),
 	}
+	{{DomainFromModelBody}}
+	return entity
 }
 `
 

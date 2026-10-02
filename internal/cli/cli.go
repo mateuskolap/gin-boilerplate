@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,7 +30,14 @@ var commands = []command{
 	{"migrate:rollback", "migrate:rollback [steps]", "Roll back migrations (default: one step)", 0, 1, rollback},
 	{"migrate:version", "migrate:version", "Show the current migration version", 0, 0, func(context.Context, []string) error { return runMigrations("version", 0) }},
 	{"db:seed", "db:seed", "Run transactional database seeders", 0, 0, seed},
-	{"make:domain", "make:domain Domain", "Generate a feature's domain, application and PostgreSQL adapter", 1, 1, generateDomain},
+	{
+		"make:domain",
+		"make:domain [--soft-delete] Domain",
+		"Generate domain, application, PostgreSQL adapter and migration; --soft-delete adds deleted_at",
+		1,
+		-1,
+		generateDomain,
+	},
 	{"make:migration", "make:migration name", "Create paired up/down SQL migration files", 1, 1, generateMigration},
 	{"docs:generate", "docs:generate", "Regenerate Swagger documentation", 0, 0, generateDocs},
 	{"test", "test [--external-services]", "Run all tests with disposable PostgreSQL and Redis", -1, -1, testAll},
@@ -78,7 +86,9 @@ func Run(ctx context.Context, args []string) error {
 			return nil
 		}
 		values := args[1:]
-		if command.minArgs >= 0 && (len(values) < command.minArgs || len(values) > command.maxArgs) {
+		tooFewArgs := command.minArgs >= 0 && len(values) < command.minArgs
+		tooManyArgs := command.minArgs >= 0 && command.maxArgs >= 0 && len(values) > command.maxArgs
+		if tooFewArgs || tooManyArgs {
 			return invalidArguments("usage: app %s", command.usage)
 		}
 		return command.run(ctx, values)
@@ -109,12 +119,30 @@ func rollback(_ context.Context, args []string) error {
 }
 
 func generateDomain(_ context.Context, args []string) error {
-	if _, _, _, _, err := domainNames(args[0]); err != nil {
+	flags := flag.NewFlagSet("make:domain", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	softDelete := flags.Bool("soft-delete", false, "Add soft-delete support")
+	flagArgs := make([]string, 0, len(args))
+	domainArgs := make([]string, 0, 1)
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "-") {
+			flagArgs = append(flagArgs, arg)
+			continue
+		}
+		domainArgs = append(domainArgs, arg)
+	}
+	if err := parseFlags(flags, flagArgs); err != nil {
+		return err
+	}
+	if len(domainArgs) != 1 {
+		return invalidArguments("usage: app make:domain [--soft-delete] Domain")
+	}
+	if _, _, _, _, err := domainNames(domainArgs[0]); err != nil {
 		return argumentError{err}
 	}
-	folder, err := makeDomain(".", args[0])
+	folder, err := makeDomainWithSoftDelete(".", domainArgs[0], *softDelete)
 	if err == nil {
-		fmt.Printf("Created internal/%s\n", folder)
+		fmt.Printf("Created internal/%s and its migration\n", folder)
 	}
 	return err
 }

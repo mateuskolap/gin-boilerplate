@@ -70,6 +70,80 @@ func TestMakeDomainCreatesFormattedGoFiles(t *testing.T) {
 		!strings.Contains(string(model), "BaseModel: model.BaseModel.ToDomain()") {
 		t.Fatalf("generated model should use the shared base model conversion: %s", model)
 	}
+	if strings.Contains(string(model), "DeletedAt") {
+		t.Fatalf("generated model should omit soft-delete support by default: %s", model)
+	}
+
+	migrations, err := filepath.Glob(filepath.Join(root, migrationsDirectory, "*_create_"+feature+".up.sql"))
+	if err != nil || len(migrations) != 1 {
+		t.Fatalf("generated up migration paths=%v error=%v", migrations, err)
+	}
+	upSQL, err := os.ReadFile(migrations[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(upSQL), "CREATE TABLE activity_logs") || strings.Contains(string(upSQL), "deleted_at") {
+		t.Fatalf("default migration SQL = %s", upSQL)
+	}
+}
+
+func TestMakeDomainWithSoftDeleteGeneratesColumnAndMappings(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "internal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	feature, err := makeDomainWithSoftDelete(root, "Invoice", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := filepath.Join(root, "internal", feature)
+	domain, err := os.ReadFile(filepath.Join(base, "domain", "invoice.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	model, err := os.ReadFile(filepath.Join(base, "adapters", "postgres", "invoice_model.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range [][]byte{domain, model} {
+		if _, err := parser.ParseFile(token.NewFileSet(), "generated.go", source, parser.AllErrors); err != nil {
+			t.Fatalf("generated invalid soft-delete Go file: %v", err)
+		}
+	}
+	if !strings.Contains(string(domain), "shared.BaseSoftDeleteModel") {
+		t.Fatalf("generated domain does not embed soft-delete base model: %s", domain)
+	}
+	for _, fragment := range []string{
+		"DeletedAt gorm.DeletedAt `gorm:\"index\"`",
+		"model.DeletedAt = gorm.DeletedAt{Time: *entity.DeletedAt, Valid: true}",
+		"entity.DeletedAt = &deletedAt",
+	} {
+		if !strings.Contains(string(model), fragment) {
+			t.Fatalf("generated model missing %q: %s", fragment, model)
+		}
+	}
+
+	migrations, err := filepath.Glob(filepath.Join(root, migrationsDirectory, "*_create_"+feature+".up.sql"))
+	if err != nil || len(migrations) != 1 {
+		t.Fatalf("generated up migration paths=%v error=%v", migrations, err)
+	}
+	upSQL, err := os.ReadFile(migrations[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fragment := range []string{"deleted_at TIMESTAMPTZ", "idx_invoices_deleted_at ON invoices (deleted_at)"} {
+		if !strings.Contains(string(upSQL), fragment) {
+			t.Fatalf("generated migration missing %q: %s", fragment, upSQL)
+		}
+	}
+	downSQL, err := os.ReadFile(strings.TrimSuffix(migrations[0], ".up.sql") + ".down.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(downSQL) != "DROP TABLE invoices;\n" {
+		t.Fatalf("down migration = %q", downSQL)
+	}
 }
 
 func TestMakeDomainRejectsInvalidAndExistingDomains(t *testing.T) {
