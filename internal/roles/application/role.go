@@ -40,7 +40,7 @@ func NewRoleUseCase(
 			roleRepo,
 			allowedRoleFilterFields,
 		),
-		BaseDeleteUseCase: sharedapp.NewBaseDeleteUseCase[roledomain.Role](roleRepo),
+		BaseDeleteUseCase: sharedapp.NewBaseDeleteUseCase(roleRepo),
 		roleRepo:          roleRepo,
 		tx:                tx,
 		activityLogRepo:   activityLogRepo,

@@ -24,19 +24,19 @@ type RefreshTokenModel struct {
 func (RefreshTokenModel) TableName() string { return "refresh_tokens" }
 
 func refreshTokenModelFromDomain(token *refreshtokendomain.RefreshToken) *RefreshTokenModel {
-	return &RefreshTokenModel{
-		ID: token.ID, CreatedAt: token.CreatedAt, UpdatedAt: token.UpdatedAt,
+	model := &RefreshTokenModel{
 		UserID: token.UserID, TokenHash: token.TokenHash, ExpiresAt: token.ExpiresAt,
 		RevokedAt: token.RevokedAt, ReplacedBy: token.ReplacedBy, IPAddress: token.IpAddress, UserAgent: token.UserAgent,
 	}
+	model.BaseModel = postgres.BaseModelFromDomain(token.BaseModel)
+	return model
 }
 
-func refreshTokenDomainFromModel(model any) *refreshtokendomain.RefreshToken {
-	m := model.(*RefreshTokenModel)
+func refreshTokenDomainFromModel(m *RefreshTokenModel) *refreshtokendomain.RefreshToken {
 	token := &refreshtokendomain.RefreshToken{
 		UserID: m.UserID, TokenHash: m.TokenHash, ExpiresAt: m.ExpiresAt,
 		RevokedAt: m.RevokedAt, ReplacedBy: m.ReplacedBy, IpAddress: m.IPAddress, UserAgent: m.UserAgent,
 	}
-	token.ID, token.CreatedAt, token.UpdatedAt = m.ID, m.CreatedAt, m.UpdatedAt
+	token.BaseModel = m.BaseModel.ToDomain()
 	return token
 }

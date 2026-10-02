@@ -16,27 +16,31 @@ type RoleModel struct {
 func (RoleModel) TableName() string { return "roles" }
 
 func roleModelFromDomain(role *roledomain.Role) *RoleModel {
-	model := &RoleModel{ID: role.ID, CreatedAt: role.CreatedAt, UpdatedAt: role.UpdatedAt, Name: role.Name}
+	model := &RoleModel{
+		BaseModel: postgres.BaseModelFromDomain(role.BaseModel),
+		Name:      role.Name,
+	}
 	for _, permission := range role.Permissions {
-		model.Permissions = append(model.Permissions, permissionpostgres.PermissionModel{
-			ID: permission.ID, CreatedAt: permission.CreatedAt, UpdatedAt: permission.UpdatedAt,
-			Name: permission.Name,
-		})
+		permissionModel := permissionpostgres.PermissionModel{
+			BaseModel: postgres.BaseModelFromDomain(permission.BaseModel),
+			Name:      permission.Name,
+		}
+		model.Permissions = append(model.Permissions, permissionModel)
 	}
 	return model
 }
 
-func roleDomainFromModel(model any) *roledomain.Role {
-	m := model.(*RoleModel)
+func roleDomainFromModel(m *RoleModel) *roledomain.Role {
 	role := &roledomain.Role{
-		ID: m.ID, CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt,
-		Name: m.Name,
+		BaseModel: m.BaseModel.ToDomain(),
+		Name:      m.Name,
 	}
 	for _, permission := range m.Permissions {
-		role.Permissions = append(role.Permissions, permissiondomain.Permission{
-			ID: permission.ID, CreatedAt: permission.CreatedAt, UpdatedAt: permission.UpdatedAt,
-			Name: permission.Name,
-		})
+		domainPermission := permissiondomain.Permission{
+			BaseModel: permission.BaseModel.ToDomain(),
+			Name:      permission.Name,
+		}
+		role.Permissions = append(role.Permissions, domainPermission)
 	}
 	return role
 }

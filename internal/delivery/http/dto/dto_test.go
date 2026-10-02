@@ -75,7 +75,7 @@ func TestPaginatedResponseMapsItemsAndNil(t *testing.T) {
 	if len(got.Items) != 1 || got.Items[0].Name != "Alice" || got.Total != 1 || got.Page != 2 || got.Limit != 5 || got.TotalPages != 1 {
 		t.Fatalf("commonDTO.ToPaginatedResponse() = %+v", got)
 	}
-	if empty := commonDTO.ToPaginatedResponse[userdomain.User, userdto.UserResponse](nil, userdto.ToUserResponse); empty.Items != nil || empty.Total != 0 {
+	if empty := commonDTO.ToPaginatedResponse(nil, userdto.ToUserResponse); empty.Items != nil || empty.Total != 0 {
 		t.Fatalf("commonDTO.ToPaginatedResponse(nil) = %+v", empty)
 	}
 }

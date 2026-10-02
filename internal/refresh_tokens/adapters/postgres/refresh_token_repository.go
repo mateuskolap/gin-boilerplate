@@ -12,14 +12,16 @@ import (
 )
 
 type refreshTokenRepository struct {
-	*postgresinfra.BaseRepository[refreshtokendomain.RefreshToken]
+	*postgresinfra.BaseRepository[refreshtokendomain.RefreshToken, *RefreshTokenModel]
 }
 
 func NewRefreshTokenRepository(db *gorm.DB) refreshtokendomain.RefreshTokenRepository {
 	return &refreshTokenRepository{
 		BaseRepository: postgresinfra.NewBaseRepository(db,
-			func() any { return &RefreshTokenModel{} },
-			func(token *refreshtokendomain.RefreshToken) any { return refreshTokenModelFromDomain(token) },
+			func() *RefreshTokenModel { return &RefreshTokenModel{} },
+			func(token *refreshtokendomain.RefreshToken) *RefreshTokenModel {
+				return refreshTokenModelFromDomain(token)
+			},
 			refreshTokenDomainFromModel,
 		),
 	}

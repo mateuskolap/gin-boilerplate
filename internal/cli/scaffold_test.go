@@ -66,8 +66,9 @@ func TestMakeDomainCreatesFormattedGoFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(model), "ID: entity.ID") || strings.Contains(string(model), "BaseModel:") {
-		t.Fatalf("generated model should initialize promoted fields directly: %s", model)
+	if !strings.Contains(string(model), "BaseModel: postgresinfra.BaseModelFromDomain(entity.BaseModel)") ||
+		!strings.Contains(string(model), "BaseModel: model.BaseModel.ToDomain()") {
+		t.Fatalf("generated model should use the shared base model conversion: %s", model)
 	}
 }
 

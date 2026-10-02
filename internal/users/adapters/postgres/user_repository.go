@@ -20,8 +20,8 @@ func NewUserRepository(db *gorm.DB, activityLogRepo activitylogdomain.ActivityLo
 		ActivityLoggingRepository: postgresinfra.NewActivityLoggingRepository(
 			db,
 			postgresinfra.NewBaseRepository(db,
-				func() any { return &UserModel{} },
-				func(user *userdomain.User) any { return userModelFromDomain(user) },
+				func() *UserModel { return &UserModel{} },
+				func(user *userdomain.User) *UserModel { return userModelFromDomain(user) },
 				userDomainFromModel,
 			),
 			activityLogRepo,

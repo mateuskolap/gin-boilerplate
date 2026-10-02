@@ -21,8 +21,8 @@ func NewRoleRepository(db *gorm.DB, activityLogRepo activitylogdomain.ActivityLo
 		ActivityLoggingRepository: postgresinfra.NewActivityLoggingRepository(
 			db,
 			postgresinfra.NewBaseRepository(db,
-				func() any { return &RoleModel{} },
-				func(role *roledomain.Role) any { return roleModelFromDomain(role) },
+				func() *RoleModel { return &RoleModel{} },
+				func(role *roledomain.Role) *RoleModel { return roleModelFromDomain(role) },
 				roleDomainFromModel,
 			),
 			activityLogRepo,

@@ -74,7 +74,7 @@ func TestIdentifierPathValidation(t *testing.T) {
 
 func TestBaseRepositoryUsesTransactionFromContext(t *testing.T) {
 	db, txDB := dryRunDB(t), dryRunDB(t)
-	repo := &BaseRepository[int]{db: db}
+	repo := &BaseRepository[int, *testUserModel]{db: db}
 	ctx := context.WithValue(context.Background(), txKey{}, txDB)
 	if got := repo.DB(ctx); got != txDB {
 		t.Fatal("repository did not use the transaction stored in context")

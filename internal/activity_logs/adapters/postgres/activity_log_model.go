@@ -28,8 +28,7 @@ func activityLogModelFromDomain(activity *domain.ActivityLog) *ActivityLogModel 
 	}
 }
 
-func activityLogDomainFromModel(model any) *domain.ActivityLog {
-	m := model.(*ActivityLogModel)
+func activityLogDomainFromModel(m *ActivityLogModel) *domain.ActivityLog {
 	return &domain.ActivityLog{
 		ID: m.ID, Event: domain.ActivityEvent(m.Event), ActorID: m.ActorID,
 		SubjectType: domain.ActivitySubjectType(m.SubjectType), SubjectID: m.SubjectID,

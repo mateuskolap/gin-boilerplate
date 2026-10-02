@@ -23,36 +23,37 @@ func (UserModel) TableName() string { return "users" }
 
 func userModelFromDomain(user *userdomain.User) *UserModel {
 	model := &UserModel{
-		ID: user.ID, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt,
-		Name: user.Name, Email: user.Email, Password: user.Password, AvatarKey: user.AvatarKey,
+		BaseModel: postgres.BaseModelFromDomain(user.BaseSoftDeleteModel.BaseModel),
+		Name:      user.Name, Email: user.Email, Password: user.Password, AvatarKey: user.AvatarKey,
 	}
 	if user.DeletedAt != nil {
 		model.DeletedAt = gorm.DeletedAt{Time: *user.DeletedAt, Valid: true}
 	}
 	for _, role := range user.Roles {
-		model.Roles = append(model.Roles, rolespostgres.RoleModel{
-			ID: role.ID, CreatedAt: role.CreatedAt, UpdatedAt: role.UpdatedAt,
-			Name: role.Name,
-		})
+		roleModel := rolespostgres.RoleModel{
+			BaseModel: postgres.BaseModelFromDomain(role.BaseModel),
+			Name:      role.Name,
+		}
+		model.Roles = append(model.Roles, roleModel)
 	}
 	return model
 }
 
-func userDomainFromModel(model any) *userdomain.User {
-	m := model.(*UserModel)
+func userDomainFromModel(m *UserModel) *userdomain.User {
 	user := &userdomain.User{
-		Name: m.Name, Email: m.Email, Password: m.Password, AvatarKey: m.AvatarKey,
+		BaseModel: m.BaseModel.ToDomain(),
+		Name:      m.Name, Email: m.Email, Password: m.Password, AvatarKey: m.AvatarKey,
 	}
-	user.ID, user.CreatedAt, user.UpdatedAt = m.ID, m.CreatedAt, m.UpdatedAt
 	if m.DeletedAt.Valid {
 		deletedAt := m.DeletedAt.Time
 		user.DeletedAt = &deletedAt
 	}
 	for _, role := range m.Roles {
-		user.Roles = append(user.Roles, roledomain.Role{
-			ID: role.ID, CreatedAt: role.CreatedAt, UpdatedAt: role.UpdatedAt,
-			Name: role.Name,
-		})
+		domainRole := roledomain.Role{
+			BaseModel: role.BaseModel.ToDomain(),
+			Name:      role.Name,
+		}
+		user.Roles = append(user.Roles, domainRole)
 	}
 	return user
 }

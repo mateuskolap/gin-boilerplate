@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"gin-boilerplate/internal/domain/shared"
 	"math"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -18,22 +17,27 @@ import (
 
 var identifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-type BaseRepository[T any] struct {
+type BaseRepository[Entity any, Model any] struct {
 	db        *gorm.DB
-	newModel  func() any
-	toModel   func(*T) any
-	fromModel func(any) *T
+	newModel  func() Model
+	toModel   func(*Entity) Model
+	fromModel func(Model) *Entity
 }
 
-func NewBaseRepository[T any](db *gorm.DB, newModel func() any, toModel func(*T) any, fromModel func(any) *T) *BaseRepository[T] {
-	return &BaseRepository[T]{db: db, newModel: newModel, toModel: toModel, fromModel: fromModel}
+func NewBaseRepository[Entity any, Model any](
+	db *gorm.DB,
+	newModel func() Model,
+	toModel func(*Entity) Model,
+	fromModel func(Model) *Entity,
+) *BaseRepository[Entity, Model] {
+	return &BaseRepository[Entity, Model]{db: db, newModel: newModel, toModel: toModel, fromModel: fromModel}
 }
 
-func (r *BaseRepository[T]) DB(ctx context.Context) *gorm.DB {
+func (r *BaseRepository[Entity, Model]) DB(ctx context.Context) *gorm.DB {
 	return GetTxFromContext(ctx, r.db)
 }
 
-func (r *BaseRepository[T]) Create(ctx context.Context, entity *T) error {
+func (r *BaseRepository[Entity, Model]) Create(ctx context.Context, entity *Entity) error {
 	model := r.toModel(entity)
 	if err := translateError(r.DB(ctx).WithContext(ctx).Create(model).Error); err != nil {
 		return err
@@ -42,11 +46,11 @@ func (r *BaseRepository[T]) Create(ctx context.Context, entity *T) error {
 	return nil
 }
 
-func (r *BaseRepository[T]) GetByID(ctx context.Context, id uuid.UUID) (*T, error) {
+func (r *BaseRepository[Entity, Model]) GetByID(ctx context.Context, id uuid.UUID) (*Entity, error) {
 	return r.FindOneBy(ctx, "id = ?", []any{id})
 }
 
-func (r *BaseRepository[T]) FindOneBy(ctx context.Context, query string, args []any, preloads ...string) (*T, error) {
+func (r *BaseRepository[Entity, Model]) FindOneBy(ctx context.Context, query string, args []any, preloads ...string) (*Entity, error) {
 	model := r.newModel()
 	dbQuery := r.DB(ctx).WithContext(ctx).Model(model).Where(query, args...)
 
@@ -64,7 +68,7 @@ func (r *BaseRepository[T]) FindOneBy(ctx context.Context, query string, args []
 	return r.fromModel(model), nil
 }
 
-func (r *BaseRepository[T]) Update(ctx context.Context, entity *T) error {
+func (r *BaseRepository[Entity, Model]) Update(ctx context.Context, entity *Entity) error {
 	model := r.toModel(entity)
 	if err := translateError(r.DB(ctx).WithContext(ctx).
 		Model(model).
@@ -84,16 +88,16 @@ func translateError(err error) error {
 	return err
 }
 
-func (r *BaseRepository[T]) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *BaseRepository[Entity, Model]) Delete(ctx context.Context, id uuid.UUID) error {
 	model := r.newModel()
 	return translateError(r.DB(ctx).WithContext(ctx).Where("id = ?", id).Delete(model).Error)
 }
 
-func (r *BaseRepository[T]) List(
+func (r *BaseRepository[Entity, Model]) List(
 	ctx context.Context,
 	params shared.PaginationParams,
 	filters []shared.Filter,
-) (*shared.PaginatedResult[T], error) {
+) (*shared.PaginatedResult[Entity], error) {
 	params.Sanitize()
 
 	query := r.DB(ctx).WithContext(ctx).Model(r.newModel())
@@ -120,20 +124,18 @@ func (r *BaseRepository[T]) List(
 		query = query.Order(clause.OrderByColumn{Column: clause.Column{Name: "id"}})
 	}
 
-	modelType := reflect.TypeOf(r.newModel())
-	modelSlice := reflect.New(reflect.SliceOf(modelType))
-	if err := query.Offset(params.Offset()).Limit(params.Limit).Find(modelSlice.Interface()).Error; err != nil {
+	models := make([]Model, 0)
+	if err := query.Offset(params.Offset()).Limit(params.Limit).Find(&models).Error; err != nil {
 		return nil, translateError(err)
 	}
-	models := modelSlice.Elem()
-	entities := make([]*T, models.Len())
-	for i := 0; i < models.Len(); i++ {
-		entities[i] = r.fromModel(models.Index(i).Interface())
+	entities := make([]*Entity, len(models))
+	for i, model := range models {
+		entities[i] = r.fromModel(model)
 	}
 
 	totalPages := int(math.Ceil(float64(total) / float64(params.Limit)))
 
-	return &shared.PaginatedResult[T]{
+	return &shared.PaginatedResult[Entity]{
 		Items:      entities,
 		Total:      total,
 		Page:       params.Page,

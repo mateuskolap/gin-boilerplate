@@ -9,8 +9,10 @@ import (
 
 func NewPermissionRepository(db *gorm.DB) permissiondomain.PermissionRepository {
 	return postgresinfra.NewBaseRepository(db,
-		func() any { return &PermissionModel{} },
-		func(permission *permissiondomain.Permission) any { return permissionModelFromDomain(permission) },
+		func() *PermissionModel { return &PermissionModel{} },
+		func(permission *permissiondomain.Permission) *PermissionModel {
+			return permissionModelFromDomain(permission)
+		},
 		permissionDomainFromModel,
 	)
 }

@@ -21,7 +21,7 @@ func NewBaseDeleteUseCase[T any](
 ) shared.BaseDeleteUseCase {
 	return &baseDeleteUseCase[T]{
 		repo: repo,
-		findUseCase: NewBaseFindUseCase[T](
+		findUseCase: NewBaseFindUseCase(
 			repo,
 		),
 	}

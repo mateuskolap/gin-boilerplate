@@ -179,8 +179,8 @@ type {{Stem}}UseCase struct {
 func New{{Entity}}UseCase(repository {{Stem}}domain.{{Entity}}Repository) {{Stem}}domain.{{Entity}}UseCase {
 	return &{{Stem}}UseCase{
 		BaseListUseCase: sharedapp.NewBaseListUseCase(repository, allowed{{Entity}}FilterFields),
-		BaseFindUseCase: sharedapp.NewBaseFindUseCase[{{Stem}}domain.{{Entity}}](repository),
-		BaseDeleteUseCase: sharedapp.NewBaseDeleteUseCase[{{Stem}}domain.{{Entity}}](repository),
+		BaseFindUseCase: sharedapp.NewBaseFindUseCase(repository),
+		BaseDeleteUseCase: sharedapp.NewBaseDeleteUseCase(repository),
 		repository: repository,
 	}
 }
@@ -209,14 +209,13 @@ func ({{Entity}}Model) TableName() string { return "{{Feature}}" }
 
 func {{Stem}}ModelFromDomain(entity *{{Stem}}domain.{{Entity}}) *{{Entity}}Model {
 	return &{{Entity}}Model{
-		ID: entity.ID, CreatedAt: entity.CreatedAt, UpdatedAt: entity.UpdatedAt,
+		BaseModel: postgresinfra.BaseModelFromDomain(entity.BaseModel),
 	}
 }
 
-func {{Stem}}DomainFromModel(model any) *{{Stem}}domain.{{Entity}} {
-	entity := model.(*{{Entity}}Model)
+func {{Stem}}DomainFromModel(model *{{Entity}}Model) *{{Stem}}domain.{{Entity}} {
 	return &{{Stem}}domain.{{Entity}}{
-		ID: entity.ID, CreatedAt: entity.CreatedAt, UpdatedAt: entity.UpdatedAt,
+		BaseModel: model.BaseModel.ToDomain(),
 	}
 }
 `
@@ -230,16 +229,16 @@ import (
 )
 
 type {{Stem}}Repository struct {
-	*postgresinfra.BaseRepository[{{Stem}}domain.{{Entity}}]
+	*postgresinfra.BaseRepository[{{Stem}}domain.{{Entity}}, *{{Entity}}Model]
 }
 
 var _ {{Stem}}domain.{{Entity}}Repository = (*{{Stem}}Repository)(nil)
 
 func New{{Entity}}Repository(db *gorm.DB) {{Stem}}domain.{{Entity}}Repository {
 	return &{{Stem}}Repository{
-		BaseRepository: postgresinfra.NewBaseRepository[{{Stem}}domain.{{Entity}}](db,
-			func() any { return &{{Entity}}Model{} },
-			func(entity *{{Stem}}domain.{{Entity}}) any { return {{Stem}}ModelFromDomain(entity) },
+		BaseRepository: postgresinfra.NewBaseRepository(db,
+			func() *{{Entity}}Model { return &{{Entity}}Model{} },
+			func(entity *{{Stem}}domain.{{Entity}}) *{{Entity}}Model { return {{Stem}}ModelFromDomain(entity) },
 			{{Stem}}DomainFromModel,
 		),
 	}
