@@ -23,20 +23,20 @@ type RefreshTokenModel struct {
 
 func (RefreshTokenModel) TableName() string { return "refresh_tokens" }
 
-func refreshTokenModelFromDomain(token *refreshtokendomain.RefreshToken) *RefreshTokenModel {
+func refreshTokenModelFromDomain(entity *refreshtokendomain.RefreshToken) *RefreshTokenModel {
 	model := &RefreshTokenModel{
-		UserID: token.UserID, TokenHash: token.TokenHash, ExpiresAt: token.ExpiresAt,
-		RevokedAt: token.RevokedAt, ReplacedBy: token.ReplacedBy, IPAddress: token.IpAddress, UserAgent: token.UserAgent,
+		UserID: entity.UserID, TokenHash: entity.TokenHash, ExpiresAt: entity.ExpiresAt,
+		RevokedAt: entity.RevokedAt, ReplacedBy: entity.ReplacedBy, IPAddress: entity.IpAddress, UserAgent: entity.UserAgent,
 	}
-	model.BaseModel = postgres.BaseModelFromDomain(token.BaseModel)
+	model.BaseModel = postgres.BaseModelFromDomain(entity.BaseModel)
 	return model
 }
 
-func refreshTokenDomainFromModel(m *RefreshTokenModel) *refreshtokendomain.RefreshToken {
-	token := &refreshtokendomain.RefreshToken{
-		UserID: m.UserID, TokenHash: m.TokenHash, ExpiresAt: m.ExpiresAt,
-		RevokedAt: m.RevokedAt, ReplacedBy: m.ReplacedBy, IpAddress: m.IPAddress, UserAgent: m.UserAgent,
+func refreshTokenDomainFromModel(model *RefreshTokenModel) *refreshtokendomain.RefreshToken {
+	entity := &refreshtokendomain.RefreshToken{
+		UserID: model.UserID, TokenHash: model.TokenHash, ExpiresAt: model.ExpiresAt,
+		RevokedAt: model.RevokedAt, ReplacedBy: model.ReplacedBy, IpAddress: model.IPAddress, UserAgent: model.UserAgent,
 	}
-	token.BaseModel = m.BaseModel.ToDomain()
-	return token
+	entity.BaseModel = model.BaseModel.ToDomain()
+	return entity
 }

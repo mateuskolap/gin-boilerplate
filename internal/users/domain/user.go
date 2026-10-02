@@ -4,6 +4,7 @@ import (
 	"context"
 	activitylogdomain "gin-boilerplate/internal/activity_logs/domain"
 	"gin-boilerplate/internal/domain/shared"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	roledomain "gin-boilerplate/internal/roles/domain"
 	"io"
 	"uuid"
@@ -11,12 +12,14 @@ import (
 
 type User struct {
 	shared.BaseSoftDeleteModel
-	Name      string `json:"name" activity:"track"`
-	Email     string `json:"email" activity:"track"`
-	Password  string `json:"-" activity:"-"`
-	AvatarKey string `json:"avatar_key,omitempty"`
+	Name           string    `json:"name" activity:"track"`
+	Email          string    `json:"email" activity:"track"`
+	Password       string    `json:"-" activity:"-"`
+	AvatarKey      string    `json:"avatar_key,omitempty"`
+	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
 
-	Roles []roledomain.Role `json:"roles,omitempty"`
+	Organization *organizationdomain.Organization `json:"organization,omitempty"`
+	Roles        []roledomain.Role                `json:"roles,omitempty"`
 }
 
 func (u User) ActivityLogSubjectType() activitylogdomain.ActivitySubjectType {

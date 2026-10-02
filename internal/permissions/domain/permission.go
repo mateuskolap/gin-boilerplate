@@ -27,6 +27,12 @@ const (
 	PermissionRemoveUserRole PermissionName = "remove_user_role"
 	PermissionDeleteUser     PermissionName = "delete_user"
 	PermissionUpdateUser     PermissionName = "update_user"
+
+	// Organizations
+	PermissionViewOrganization   PermissionName = "view_organization"
+	PermissionCreateOrganization PermissionName = "create_organization"
+	PermissionUpdateOrganization PermissionName = "update_organization"
+	PermissionDeleteOrganization PermissionName = "delete_organization"
 )
 
 var AllPermissions = []PermissionName{

@@ -27,6 +27,9 @@ import (
 	securityinfra "gin-boilerplate/internal/infra/security"
 	"gin-boilerplate/internal/infra/seeder"
 	"gin-boilerplate/internal/infra/storage"
+	organizationhttp "gin-boilerplate/internal/organizations/adapters/http"
+	organizationpostgres "gin-boilerplate/internal/organizations/adapters/postgres"
+	organizationapp "gin-boilerplate/internal/organizations/application"
 	permissionhttp "gin-boilerplate/internal/permissions/adapters/http"
 	permissionpostgres "gin-boilerplate/internal/permissions/adapters/postgres"
 	permissionapp "gin-boilerplate/internal/permissions/application"
@@ -110,6 +113,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	permissionRepo := permissionpostgres.NewPermissionRepository(db)
 	refreshTokenRepo := refreshpostgres.NewRefreshTokenRepository(db)
 	authorizationRepo := permissionpostgres.NewAuthorizationRepository(db)
+	organizationRepo := organizationpostgres.NewOrganizationRepository(db, activityLogRepo)
 	txManager := postgresinfra.NewGormTransactionManagerRepository(db)
 	rateLimiter := ratelimit.NewRedisLimiter(redisClient)
 	passwordChecker := securityinfra.NewPwnedPasswordChecker()
@@ -143,6 +147,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	permissionUseCase := permissionapp.NewPermissionUseCase(permissionRepo)
 	activityLogUseCase := activitylogapp.NewActivityLogUseCase(activityLogRepo)
 	permissionCheckerUseCase := permissionapp.NewPermissionCheckerUseCase(authorizationRepo)
+	organizationUseCase := organizationapp.NewOrganizationUseCase(organizationRepo, txManager, activityLogRepo)
 
 	cookieSameSite := http.SameSiteLaxMode
 	switch cfg.AuthCookieSameSite {
@@ -158,6 +163,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 		PermissionHandler:   permissionhttp.NewPermissionHandler(permissionUseCase),
 		ActivityLogHandler:  activityloghttp.NewActivityLogHandler(activityLogUseCase),
 		RefreshTokenHandler: refreshhttp.NewRefreshTokenHandler(refreshTokenUseCase, cfg.AuthTokenTransport == "cookie"),
+		OrganizationHandler: organizationhttp.NewOrganizationHandler(organizationUseCase),
 		HealthHandler:       v1.NewHealthHandler(health.NewChecker(sqlDB, redisClient)),
 		AuthUseCase:         authUseCase,
 		PermissionChecker:   permissionCheckerUseCase,

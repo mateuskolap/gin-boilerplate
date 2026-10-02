@@ -13,18 +13,18 @@ type BaseModel struct {
 	UpdatedAt time.Time
 }
 
-func BaseModelFromDomain(domainModel shared.BaseModel) BaseModel {
+func BaseModelFromDomain(entity shared.BaseModel) BaseModel {
 	return BaseModel{
-		ID:        domainModel.ID,
-		CreatedAt: domainModel.CreatedAt,
-		UpdatedAt: domainModel.UpdatedAt,
+		ID:        entity.ID,
+		CreatedAt: entity.CreatedAt,
+		UpdatedAt: entity.UpdatedAt,
 	}
 }
 
-func (m BaseModel) ToDomain() shared.BaseModel {
+func (model BaseModel) ToDomain() shared.BaseModel {
 	return shared.BaseModel{
-		ID:        m.ID,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
+		ID:        model.ID,
+		CreatedAt: model.CreatedAt,
+		UpdatedAt: model.UpdatedAt,
 	}
 }

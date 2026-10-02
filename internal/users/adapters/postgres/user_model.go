@@ -21,15 +21,15 @@ type UserModel struct {
 
 func (UserModel) TableName() string { return "users" }
 
-func userModelFromDomain(user *userdomain.User) *UserModel {
+func userModelFromDomain(entity *userdomain.User) *UserModel {
 	model := &UserModel{
-		BaseModel: postgres.BaseModelFromDomain(user.BaseSoftDeleteModel.BaseModel),
-		Name:      user.Name, Email: user.Email, Password: user.Password, AvatarKey: user.AvatarKey,
+		BaseModel: postgres.BaseModelFromDomain(entity.BaseSoftDeleteModel.BaseModel),
+		Name:      entity.Name, Email: entity.Email, Password: entity.Password, AvatarKey: entity.AvatarKey,
 	}
-	if user.DeletedAt != nil {
-		model.DeletedAt = gorm.DeletedAt{Time: *user.DeletedAt, Valid: true}
+	if entity.DeletedAt != nil {
+		model.DeletedAt = gorm.DeletedAt{Time: *entity.DeletedAt, Valid: true}
 	}
-	for _, role := range user.Roles {
+	for _, role := range entity.Roles {
 		roleModel := rolespostgres.RoleModel{
 			BaseModel: postgres.BaseModelFromDomain(role.BaseModel),
 			Name:      role.Name,
@@ -39,21 +39,21 @@ func userModelFromDomain(user *userdomain.User) *UserModel {
 	return model
 }
 
-func userDomainFromModel(m *UserModel) *userdomain.User {
-	user := &userdomain.User{
-		BaseModel: m.BaseModel.ToDomain(),
-		Name:      m.Name, Email: m.Email, Password: m.Password, AvatarKey: m.AvatarKey,
+func userDomainFromModel(model *UserModel) *userdomain.User {
+	entity := &userdomain.User{
+		BaseModel: model.BaseModel.ToDomain(),
+		Name:      model.Name, Email: model.Email, Password: model.Password, AvatarKey: model.AvatarKey,
 	}
-	if m.DeletedAt.Valid {
-		deletedAt := m.DeletedAt.Time
-		user.DeletedAt = &deletedAt
+	if model.DeletedAt.Valid {
+		deletedAt := model.DeletedAt.Time
+		entity.DeletedAt = &deletedAt
 	}
-	for _, role := range m.Roles {
-		domainRole := roledomain.Role{
-			BaseModel: role.BaseModel.ToDomain(),
-			Name:      role.Name,
+	for _, roleModel := range model.Roles {
+		role := roledomain.Role{
+			BaseModel: roleModel.BaseModel.ToDomain(),
+			Name:      roleModel.Name,
 		}
-		user.Roles = append(user.Roles, domainRole)
+		entity.Roles = append(entity.Roles, role)
 	}
-	return user
+	return entity
 }

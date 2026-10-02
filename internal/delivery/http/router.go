@@ -7,6 +7,7 @@ import (
 	"gin-boilerplate/internal/delivery/http/middleware"
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain/port"
+	organizationhttp "gin-boilerplate/internal/organizations/adapters/http"
 	permissionhttp "gin-boilerplate/internal/permissions/adapters/http"
 	permissiondomain "gin-boilerplate/internal/permissions/domain"
 	refreshhttp "gin-boilerplate/internal/refresh_tokens/adapters/http"
@@ -28,6 +29,7 @@ type RouterConfig struct {
 	PermissionHandler   *permissionhttp.PermissionHandler
 	ActivityLogHandler  *activityloghttp.ActivityLogHandler
 	RefreshTokenHandler *refreshhttp.RefreshTokenHandler
+	OrganizationHandler *organizationhttp.OrganizationHandler
 	HealthHandler       *v1.HealthHandler
 	AuthUseCase         userdomain.AuthUseCase
 	PermissionChecker   permissiondomain.PermissionCheckerUseCase
@@ -135,6 +137,15 @@ func SetupRouter(cfg RouterConfig) (*gin.Engine, error) {
 			permissions := protected.Group("/permissions")
 			{
 				permissions.GET("", requirePermission(permissiondomain.PermissionViewPermission), cfg.PermissionHandler.ListPermissions)
+			}
+
+			organizations := protected.Group("/organizations")
+			{
+				organizations.GET("", requirePermission(permissiondomain.PermissionViewOrganization), cfg.OrganizationHandler.ListOrganizations)
+				organizations.POST("", requirePermission(permissiondomain.PermissionCreateOrganization), cfg.OrganizationHandler.CreateOrganization)
+				organizations.GET("/:id", requirePermission(permissiondomain.PermissionViewOrganization), cfg.OrganizationHandler.FindOrganization)
+				organizations.PUT("/:id", requirePermission(permissiondomain.PermissionUpdateOrganization), cfg.OrganizationHandler.UpdateOrganization)
+				organizations.DELETE("/:id", requirePermission(permissiondomain.PermissionDeleteOrganization), cfg.OrganizationHandler.DeleteOrganization)
 			}
 
 			protected.GET("/activity-logs", requirePermission(permissiondomain.PermissionViewActivityLog), cfg.ActivityLogHandler.ListActivityLogs)
