@@ -45,10 +45,7 @@ func TestAuthenticationE2E(t *testing.T) {
 					t.Fatalf("apply %s: %v", migration, err)
 				}
 			}
-			var organizationID uuid.UUID
-			if err := db.Raw("INSERT INTO organizations (name) VALUES (?) RETURNING id", "E2E Organization").Scan(&organizationID).Error; err != nil {
-				t.Fatalf("create E2E organization: %v", err)
-			}
+			organizationID := createTestOrganization(t, db, "E2E Organization")
 			cfg.AuthTokenTransport = transport
 			const frontendOrigin = "https://frontend.example.com"
 			if transport == "cookie" {
