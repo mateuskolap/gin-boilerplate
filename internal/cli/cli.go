@@ -32,8 +32,8 @@ var commands = []command{
 	{"db:seed", "db:seed", "Run transactional database seeders", 0, 0, seed},
 	{
 		"make:domain",
-		"make:domain [--soft-delete] Domain",
-		"Generate domain, application, PostgreSQL adapter and migration; --soft-delete adds deleted_at",
+		"make:domain [--soft-delete] [--activity-logs] Domain",
+		"Generate domain, application, PostgreSQL adapter and migration; optional flags add soft deletes and activity logging",
 		1,
 		-1,
 		generateDomain,
@@ -122,6 +122,7 @@ func generateDomain(_ context.Context, args []string) error {
 	flags := flag.NewFlagSet("make:domain", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	softDelete := flags.Bool("soft-delete", false, "Add soft-delete support")
+	activityLogs := flags.Bool("activity-logs", false, "Add activity log support")
 	flagArgs := make([]string, 0, len(args))
 	domainArgs := make([]string, 0, 1)
 	for _, arg := range args {
@@ -135,12 +136,12 @@ func generateDomain(_ context.Context, args []string) error {
 		return err
 	}
 	if len(domainArgs) != 1 {
-		return invalidArguments("usage: app make:domain [--soft-delete] Domain")
+		return invalidArguments("usage: app make:domain [--soft-delete] [--activity-logs] Domain")
 	}
 	if _, _, _, _, err := domainNames(domainArgs[0]); err != nil {
 		return argumentError{err}
 	}
-	folder, err := makeDomainWithSoftDelete(".", domainArgs[0], *softDelete)
+	folder, err := makeDomainWithOptions(".", domainArgs[0], *softDelete, *activityLogs)
 	if err == nil {
 		fmt.Printf("Created internal/%s and its migration\n", folder)
 	}

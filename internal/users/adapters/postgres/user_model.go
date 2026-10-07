@@ -2,34 +2,44 @@ package postgres
 
 import (
 	"gin-boilerplate/internal/infra/postgres"
+	organizationpostgres "gin-boilerplate/internal/organizations/adapters/postgres"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	rolespostgres "gin-boilerplate/internal/roles/adapters/postgres"
 	roledomain "gin-boilerplate/internal/roles/domain"
 	userdomain "gin-boilerplate/internal/users/domain"
+	"uuid"
 
 	"gorm.io/gorm"
 )
 
 type UserModel struct {
 	postgres.BaseModel
-	Name      string `gorm:"not null"`
-	Email     string `gorm:"not null;uniqueIndex:idx_users_email_active,expression:LOWER(email),where:deleted_at IS NULL"`
-	Password  string `gorm:"not null"`
-	AvatarKey string
-	DeletedAt gorm.DeletedAt            `gorm:"index"`
-	Roles     []rolespostgres.RoleModel `gorm:"many2many:user_roles;joinForeignKey:UserID;joinReferences:RoleID;constraint:OnDelete:CASCADE;"`
+	Name           string `gorm:"not null"`
+	Email          string `gorm:"not null;uniqueIndex:idx_users_email_active,expression:LOWER(email),where:deleted_at IS NULL"`
+	Password       string `gorm:"not null"`
+	AvatarKey      string
+	OrganizationID *uuid.UUID     `gorm:"type:uuid;index"`
+	DeletedAt      gorm.DeletedAt `gorm:"index"`
+
+	Organization *organizationpostgres.OrganizationModel `gorm:"foreignKey:OrganizationID"`
+	Roles        []rolespostgres.RoleModel               `gorm:"many2many:user_roles;joinForeignKey:UserID;joinReferences:RoleID;constraint:OnDelete:CASCADE;"`
 }
 
 func (UserModel) TableName() string { return "users" }
 
-func userModelFromDomain(user *userdomain.User) *UserModel {
+func userModelFromDomain(entity *userdomain.User) *UserModel {
 	model := &UserModel{
-		BaseModel: postgres.BaseModelFromDomain(user.BaseSoftDeleteModel.BaseModel),
-		Name:      user.Name, Email: user.Email, Password: user.Password, AvatarKey: user.AvatarKey,
+		BaseModel: postgres.BaseModelFromDomain(entity.BaseSoftDeleteModel.BaseModel),
+		Name:      entity.Name, Email: entity.Email, Password: entity.Password, AvatarKey: entity.AvatarKey,
 	}
-	if user.DeletedAt != nil {
-		model.DeletedAt = gorm.DeletedAt{Time: *user.DeletedAt, Valid: true}
+	if entity.OrganizationID != uuid.Nil() {
+		organizationID := entity.OrganizationID
+		model.OrganizationID = &organizationID
 	}
-	for _, role := range user.Roles {
+	if entity.DeletedAt != nil {
+		model.DeletedAt = gorm.DeletedAt{Time: *entity.DeletedAt, Valid: true}
+	}
+	for _, role := range entity.Roles {
 		roleModel := rolespostgres.RoleModel{
 			BaseModel: postgres.BaseModelFromDomain(role.BaseModel),
 			Name:      role.Name,
@@ -39,21 +49,35 @@ func userModelFromDomain(user *userdomain.User) *UserModel {
 	return model
 }
 
-func userDomainFromModel(m *UserModel) *userdomain.User {
-	user := &userdomain.User{
-		BaseModel: m.BaseModel.ToDomain(),
-		Name:      m.Name, Email: m.Email, Password: m.Password, AvatarKey: m.AvatarKey,
+func userDomainFromModel(model *UserModel) *userdomain.User {
+	entity := &userdomain.User{
+		BaseModel: model.BaseModel.ToDomain(),
+		Name:      model.Name, Email: model.Email, Password: model.Password, AvatarKey: model.AvatarKey,
 	}
-	if m.DeletedAt.Valid {
-		deletedAt := m.DeletedAt.Time
-		user.DeletedAt = &deletedAt
+	if model.OrganizationID != nil {
+		entity.OrganizationID = *model.OrganizationID
 	}
-	for _, role := range m.Roles {
-		domainRole := roledomain.Role{
-			BaseModel: role.BaseModel.ToDomain(),
-			Name:      role.Name,
+	if model.Organization != nil {
+		organization := &organizationdomain.Organization{
+			BaseModel: model.Organization.BaseModel.ToDomain(),
+			Name:      model.Organization.Name,
 		}
-		user.Roles = append(user.Roles, domainRole)
+		if model.Organization.DeletedAt.Valid {
+			deletedAt := model.Organization.DeletedAt.Time
+			organization.DeletedAt = &deletedAt
+		}
+		entity.Organization = organization
 	}
-	return user
+	if model.DeletedAt.Valid {
+		deletedAt := model.DeletedAt.Time
+		entity.DeletedAt = &deletedAt
+	}
+	for _, roleModel := range model.Roles {
+		role := roledomain.Role{
+			BaseModel: roleModel.BaseModel.ToDomain(),
+			Name:      roleModel.Name,
+		}
+		entity.Roles = append(entity.Roles, role)
+	}
+	return entity
 }

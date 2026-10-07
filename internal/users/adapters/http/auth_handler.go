@@ -37,7 +37,7 @@ func NewAuthHandler(authUseCase userdomain.AuthUseCase, useCookies, secureCookie
 
 // Register godoc
 // @Summary      Register a new user
-// @Description  Create a new user account with name, email and password. Assigns default User role.
+// @Description  Create a new user account with name, email and password. An organization UUID is optional. Assigns the default User role.
 // @Tags         Auth
 // @Accept       json
 // @Produce      json
@@ -59,6 +59,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: req.Password,
+	}
+	if req.OrganizationID != nil {
+		user.OrganizationID = *req.OrganizationID
 	}
 
 	if err := h.authUseCase.Register(c.Request.Context(), user); err != nil {

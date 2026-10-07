@@ -21,13 +21,17 @@ const (
 	ActivityRoleDeleted            ActivityEvent = "role.deleted"
 	ActivityRolePermissionsAdded   ActivityEvent = "role.permissions_added"
 	ActivityRolePermissionsRemoved ActivityEvent = "role.permissions_removed"
+	ActivityOrganizationCreated    ActivityEvent = "organization.created"
+	ActivityOrganizationUpdated    ActivityEvent = "organization.updated"
+	ActivityOrganizationDeleted    ActivityEvent = "organization.deleted"
 )
 
 type ActivitySubjectType string
 
 const (
-	ActivitySubjectUser ActivitySubjectType = "user"
-	ActivitySubjectRole ActivitySubjectType = "role"
+	ActivitySubjectUser         ActivitySubjectType = "user"
+	ActivitySubjectRole         ActivitySubjectType = "role"
+	ActivitySubjectOrganization ActivitySubjectType = "organization"
 )
 
 // ActivityLoggable marks an entity whose CRUD changes are automatically audited.

@@ -19,7 +19,7 @@ import (
 func TestRegisterNormalizesHashesAndAssignsDefaultRole(t *testing.T) {
 	auth, userRepo, roleRepo, _, _, _ := newTestAuthUseCase()
 	roleRepo.byName = &roledomain.Role{Name: roledomain.RoleUser}
-	user := &userdomain.User{Name: "  Alice Example ", Email: " Alice@Example.COM ", Password: "valid-password"}
+	user := &userdomain.User{Name: "  Alice Example ", Email: " Alice@Example.COM ", Password: "valid-password", OrganizationID: uuid.New()}
 
 	if err := auth.Register(context.Background(), user); err != nil {
 		t.Fatalf("Register() error = %v", err)
@@ -32,6 +32,19 @@ func TestRegisterNormalizesHashesAndAssignsDefaultRole(t *testing.T) {
 	}
 	if userRepo.lastEmail != "alice@example.com" || len(user.Roles) != 1 || user.Roles[0].Name != roledomain.RoleUser {
 		t.Fatalf("Register() used wrong lookup or default role: email=%q roles=%+v", userRepo.lastEmail, user.Roles)
+	}
+}
+
+func TestRegisterAllowsUserWithoutOrganization(t *testing.T) {
+	auth, _, roleRepo, _, _, _ := newTestAuthUseCase()
+	roleRepo.byName = &roledomain.Role{Name: roledomain.RoleUser}
+	user := &userdomain.User{Name: "Alice Example", Email: "alice@example.com", Password: "valid-password"}
+
+	if err := auth.Register(context.Background(), user); err != nil {
+		t.Fatalf("Register() without organization error = %v", err)
+	}
+	if user.OrganizationID != uuid.Nil() {
+		t.Fatalf("Register() organization ID = %s, want no organization", user.OrganizationID)
 	}
 }
 
@@ -248,7 +261,7 @@ func TestRegisterEnforcesPasswordBounds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			auth, _, roleRepo, _, _, _ := newTestAuthUseCase()
 			roleRepo.byName = &roledomain.Role{Name: roledomain.RoleUser}
-			err := auth.Register(context.Background(), &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: tc.pw})
+			err := auth.Register(context.Background(), &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: tc.pw, OrganizationID: uuid.New()})
 			if tc.wantErr && appErrorType(err) != shared.ErrTypeValidation {
 				t.Fatalf("Register() error = %v, want validation", err)
 			}
@@ -275,7 +288,7 @@ func TestRegisterAppliesConfiguredPasswordLevel(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			auth, _, roleRepo, _, _, _, _ := newTestAuthUseCaseWithPasswordLevel(tc.level)
 			roleRepo.byName = &roledomain.Role{Name: roledomain.RoleUser}
-			err := auth.Register(context.Background(), &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: tc.pw})
+			err := auth.Register(context.Background(), &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: tc.pw, OrganizationID: uuid.New()})
 			if tc.wantErr && appErrorType(err) != shared.ErrTypeValidation {
 				t.Fatalf("Register() error = %v, want validation", err)
 			}
@@ -290,14 +303,14 @@ func TestRegisterChecksPwnedPasswordsAtLevelThree(t *testing.T) {
 	auth, _, roleRepo, _, _, _, checker := newTestAuthUseCaseWithPasswordLevel(3)
 	roleRepo.byName = &roledomain.Role{Name: roledomain.RoleUser}
 	checker.compromised = true
-	user := &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: "Passw0rd!"}
+	user := &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: "Passw0rd!", OrganizationID: uuid.New()}
 	if err := auth.Register(context.Background(), user); appErrorType(err) != shared.ErrTypeValidation {
 		t.Fatalf("Register() error = %v, want validation for compromised password", err)
 	}
 
 	checker.compromised = false
 	checker.err = errors.New("checker unavailable")
-	user = &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: "Passw0rd!"}
+	user = &userdomain.User{Name: "Alice", Email: "alice@example.com", Password: "Passw0rd!", OrganizationID: uuid.New()}
 	if err := auth.Register(context.Background(), user); err != nil {
 		t.Fatalf("Register() error = %v, want fail-open when checker is unavailable", err)
 	}

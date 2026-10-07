@@ -14,6 +14,8 @@ import (
 	v1 "gin-boilerplate/internal/delivery/http/v1"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
+	organizationhttp "gin-boilerplate/internal/organizations/adapters/http"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	permissionhttp "gin-boilerplate/internal/permissions/adapters/http"
 	permissiondomain "gin-boilerplate/internal/permissions/domain"
 	refreshhttp "gin-boilerplate/internal/refresh_tokens/adapters/http"
@@ -46,6 +48,14 @@ type routerActivityLogUseCase struct {
 	activitylogdomain.ActivityLogUseCase
 	params  shared.PaginationParams
 	filters []shared.Filter
+}
+
+type routerOrganizationUseCase struct {
+	organizationdomain.OrganizationUseCase
+}
+
+func (routerOrganizationUseCase) List(_ context.Context, params shared.PaginationParams, _ []shared.Filter) (*shared.PaginatedResult[organizationdomain.Organization], error) {
+	return &shared.PaginatedResult[organizationdomain.Organization]{Page: params.Page, Limit: params.Limit}, nil
 }
 
 func (f *routerActivityLogUseCase) List(_ context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[activitylogdomain.ActivityLog], error) {
@@ -103,6 +113,7 @@ func routerForTest(t *testing.T, auth *routerAuthUseCase, refresh *routerRefresh
 		PermissionHandler:   permissionhttp.NewPermissionHandler(nil),
 		ActivityLogHandler:  activityloghttp.NewActivityLogHandler(&routerActivityLogUseCase{}),
 		RefreshTokenHandler: refreshhttp.NewRefreshTokenHandler(refresh, false),
+		OrganizationHandler: organizationhttp.NewOrganizationHandler(routerOrganizationUseCase{}),
 		HealthHandler:       v1.NewHealthHandler(routerHealthChecker{}),
 		AuthUseCase:         auth,
 		PermissionChecker:   permissions,
@@ -190,6 +201,24 @@ func TestSetupRouterProtectsActivityLogs(t *testing.T) {
 	allowed := serveRouter(router, nethttp.MethodGet, "/api/v1/activity-logs", "", "token")
 	if allowed.Code != nethttp.StatusOK {
 		t.Fatalf("activity logs allowed status=%d body=%s", allowed.Code, allowed.Body.String())
+	}
+}
+
+func TestSetupRouterProtectsOrganizations(t *testing.T) {
+	userID := uuid.New()
+	auth := &routerAuthUseCase{claims: &userdomain.TokenClaims{Subject: userID.String()}}
+	permissions := &routerPermissionChecker{}
+	router := routerForTest(t, auth, &routerRefreshUseCase{}, &routerUserUseCase{}, permissions)
+
+	denied := serveRouter(router, nethttp.MethodGet, "/api/v1/organizations", "", "token")
+	if denied.Code != nethttp.StatusForbidden || permissions.name != permissiondomain.PermissionViewOrganization || permissions.userID != userID {
+		t.Fatalf("organizations denial status=%d checker=%+v", denied.Code, permissions)
+	}
+
+	permissions.allowed = true
+	allowed := serveRouter(router, nethttp.MethodGet, "/api/v1/organizations", "", "token")
+	if allowed.Code != nethttp.StatusOK {
+		t.Fatalf("organizations allowed status=%d body=%s", allowed.Code, allowed.Body.String())
 	}
 }
 

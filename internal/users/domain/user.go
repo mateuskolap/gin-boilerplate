@@ -4,6 +4,7 @@ import (
 	"context"
 	activitylogdomain "gin-boilerplate/internal/activity_logs/domain"
 	"gin-boilerplate/internal/domain/shared"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	roledomain "gin-boilerplate/internal/roles/domain"
 	"io"
 	"uuid"
@@ -11,12 +12,14 @@ import (
 
 type User struct {
 	shared.BaseSoftDeleteModel
-	Name      string `json:"name" activity:"track"`
-	Email     string `json:"email" activity:"track"`
-	Password  string `json:"-" activity:"-"`
-	AvatarKey string `json:"avatar_key,omitempty"`
+	Name           string    `json:"name" activity:"track"`
+	Email          string    `json:"email" activity:"track"`
+	Password       string    `json:"-" activity:"-"`
+	AvatarKey      string    `json:"avatar_key,omitempty"`
+	OrganizationID uuid.UUID `json:"organization_id,omitempty" activity:"track"`
 
-	Roles []roledomain.Role `json:"roles,omitempty"`
+	Organization *organizationdomain.Organization `json:"organization,omitempty"`
+	Roles        []roledomain.Role                `json:"roles,omitempty"`
 }
 
 func (u User) ActivityLogSubjectType() activitylogdomain.ActivitySubjectType {
@@ -29,6 +32,7 @@ type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByIDWithRoles(ctx context.Context, id uuid.UUID) (*User, error)
+	GetByIDWithOrganization(ctx context.Context, id uuid.UUID) (*User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[User], error)
@@ -54,6 +58,8 @@ type UserUseCase interface {
 
 	// UpdateProfile updates editable user profile fields.
 	UpdateProfile(ctx context.Context, user *User) error
+	UpdateUser(ctx context.Context, user *User) error
+	FindWithOrganization(ctx context.Context, id uuid.UUID) (*User, error)
 
 	// AddRoles associates roles with a user.
 	AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error

@@ -186,11 +186,22 @@ func TestAuthLoginReturnsTokensInConfiguredTransport(t *testing.T) {
 
 func TestAuthRegisterCreatesUserAndReturnsCreated(t *testing.T) {
 	fake := &httpAuthUseCase{}
+	organizationID := uuid.New()
+	handler := userhttp.NewAuthHandler(fake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode)
+	body := `{"name":"Alice","email":"alice@example.com","password":"password-123","organization_id":"` + organizationID.String() + `"}`
+	recorder := serveHTTPHandler(t, http.MethodPost, "/register", "/register", body, handler.Register)
+	result := decodeResponse(t, recorder)
+	if recorder.Code != http.StatusCreated || !result.Success || fake.registeredUser == nil || fake.registeredUser.Name != "Alice" || fake.registeredUser.Email != "alice@example.com" || fake.registeredUser.Password != "password-123" || fake.registeredUser.OrganizationID != organizationID {
+		t.Fatalf("Register() status=%d user=%+v response=%+v", recorder.Code, fake.registeredUser, result)
+	}
+}
+
+func TestAuthRegisterAllowsNoOrganization(t *testing.T) {
+	fake := &httpAuthUseCase{}
 	handler := userhttp.NewAuthHandler(fake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode)
 	recorder := serveHTTPHandler(t, http.MethodPost, "/register", "/register", `{"name":"Alice","email":"alice@example.com","password":"password-123"}`, handler.Register)
-	result := decodeResponse(t, recorder)
-	if recorder.Code != http.StatusCreated || !result.Success || fake.registeredUser == nil || fake.registeredUser.Name != "Alice" || fake.registeredUser.Email != "alice@example.com" || fake.registeredUser.Password != "password-123" {
-		t.Fatalf("Register() status=%d user=%+v response=%+v", recorder.Code, fake.registeredUser, result)
+	if recorder.Code != http.StatusCreated || fake.registeredUser == nil || fake.registeredUser.OrganizationID != uuid.Nil() {
+		t.Fatalf("Register() without organization status=%d user=%+v body=%s", recorder.Code, fake.registeredUser, recorder.Body.String())
 	}
 }
 
@@ -277,7 +288,8 @@ func TestAuthMutationHandlersPropagateUseCaseErrors(t *testing.T) {
 	unauthorized := shared.NewAppError(shared.ErrTypeUnauthorized, "credentials are invalid", nil)
 
 	registerFake := &httpAuthUseCase{registerErr: conflict}
-	register := serveHTTPHandler(t, http.MethodPost, "/register", "/register", `{"name":"Alice","email":"alice@example.com","password":"password-123"}`, userhttp.NewAuthHandler(registerFake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode).Register)
+	registerBody := `{"name":"Alice","email":"alice@example.com","password":"password-123","organization_id":"` + userID.String() + `"}`
+	register := serveHTTPHandler(t, http.MethodPost, "/register", "/register", registerBody, userhttp.NewAuthHandler(registerFake, false, false, time.Minute, time.Hour, http.SameSiteLaxMode).Register)
 	if register.Code != http.StatusConflict || decodeResponse(t, register).Error != "request conflicts with existing data" {
 		t.Fatalf("Register() status=%d body=%s", register.Code, register.Body.String())
 	}

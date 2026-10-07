@@ -58,7 +58,7 @@ CREATE TABLE refresh_tokens (
     expires_at TIMESTAMPTZ NOT NULL,
     revoked_at TIMESTAMPTZ DEFAULT NULL,
     replaced_by UUID DEFAULT NULL,
-    ip_address VARCHAR(45) NOT NULL,
+    ip_address INET NOT NULL,
     user_agent TEXT NOT NULL,
     CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );

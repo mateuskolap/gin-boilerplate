@@ -12,14 +12,14 @@ type PermissionModel struct {
 
 func (PermissionModel) TableName() string { return "permissions" }
 
-func permissionModelFromDomain(permission *permissiondomain.Permission) *PermissionModel {
-	model := &PermissionModel{Name: permission.Name}
-	model.BaseModel = postgres.BaseModelFromDomain(permission.BaseModel)
+func permissionModelFromDomain(entity *permissiondomain.Permission) *PermissionModel {
+	model := &PermissionModel{Name: entity.Name}
+	model.BaseModel = postgres.BaseModelFromDomain(entity.BaseModel)
 	return model
 }
 
-func permissionDomainFromModel(m *PermissionModel) *permissiondomain.Permission {
-	permission := &permissiondomain.Permission{Name: m.Name}
-	permission.BaseModel = m.BaseModel.ToDomain()
-	return permission
+func permissionDomainFromModel(model *PermissionModel) *permissiondomain.Permission {
+	entity := &permissiondomain.Permission{Name: model.Name}
+	entity.BaseModel = model.BaseModel.ToDomain()
+	return entity
 }

@@ -20,18 +20,18 @@ type ActivityLogModel struct {
 
 func (ActivityLogModel) TableName() string { return "activity_logs" }
 
-func activityLogModelFromDomain(activity *domain.ActivityLog) *ActivityLogModel {
+func activityLogModelFromDomain(entity *domain.ActivityLog) *ActivityLogModel {
 	return &ActivityLogModel{
-		ID: activity.ID, Event: string(activity.Event), ActorID: activity.ActorID,
-		SubjectType: string(activity.SubjectType), SubjectID: activity.SubjectID,
-		Changes: activity.Changes, IPAddress: activity.IPAddress, CreatedAt: activity.CreatedAt,
+		ID: entity.ID, Event: string(entity.Event), ActorID: entity.ActorID,
+		SubjectType: string(entity.SubjectType), SubjectID: entity.SubjectID,
+		Changes: entity.Changes, IPAddress: entity.IPAddress, CreatedAt: entity.CreatedAt,
 	}
 }
 
-func activityLogDomainFromModel(m *ActivityLogModel) *domain.ActivityLog {
+func activityLogDomainFromModel(model *ActivityLogModel) *domain.ActivityLog {
 	return &domain.ActivityLog{
-		ID: m.ID, Event: domain.ActivityEvent(m.Event), ActorID: m.ActorID,
-		SubjectType: domain.ActivitySubjectType(m.SubjectType), SubjectID: m.SubjectID,
-		Changes: m.Changes, IPAddress: m.IPAddress, CreatedAt: m.CreatedAt,
+		ID: model.ID, Event: domain.ActivityEvent(model.Event), ActorID: model.ActorID,
+		SubjectType: domain.ActivitySubjectType(model.SubjectType), SubjectID: model.SubjectID,
+		Changes: model.Changes, IPAddress: model.IPAddress, CreatedAt: model.CreatedAt,
 	}
 }

@@ -146,6 +146,56 @@ func TestMakeDomainWithSoftDeleteGeneratesColumnAndMappings(t *testing.T) {
 	}
 }
 
+func TestMakeDomainWithActivityLogsGeneratesAuditScaffold(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "internal"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	feature, err := makeDomainWithOptions(root, "Invoice", true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := filepath.Join(root, "internal", feature)
+	paths := []string{
+		filepath.Join(base, "domain", "invoice.go"),
+		filepath.Join(base, "adapters", "postgres", "invoice_model.go"),
+		filepath.Join(base, "adapters", "postgres", "invoice_repository.go"),
+	}
+	contents := make([]string, len(paths))
+	for i, path := range paths {
+		source, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents[i] = string(source)
+		if _, err := parser.ParseFile(token.NewFileSet(), path, source, parser.AllErrors); err != nil {
+			t.Fatalf("generated invalid Go file %s: %v", path, err)
+		}
+	}
+	for _, fragment := range []string{
+		"shared.BaseSoftDeleteModel",
+		"ActivityLogSubjectType() activitylogdomain.ActivitySubjectType",
+		"ActivityLogID()",
+		"activity:\"track\"",
+	} {
+		if !strings.Contains(contents[0], fragment) {
+			t.Fatalf("generated domain missing %q: %s", fragment, contents[0])
+		}
+	}
+	if !strings.Contains(contents[1], "DeletedAt gorm.DeletedAt") {
+		t.Fatalf("generated model missing soft-delete support: %s", contents[1])
+	}
+	for _, fragment := range []string{
+		"activitylogdomain.ActivityLogRepository",
+		"postgresinfra.NewActivityLoggingRepository",
+	} {
+		if !strings.Contains(contents[2], fragment) {
+			t.Fatalf("generated repository missing %q: %s", fragment, contents[2])
+		}
+	}
+}
+
 func TestMakeDomainRejectsInvalidAndExistingDomains(t *testing.T) {
 	root := t.TempDir()
 	internal := filepath.Join(root, "internal")

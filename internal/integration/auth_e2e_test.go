@@ -45,6 +45,10 @@ func TestAuthenticationE2E(t *testing.T) {
 					t.Fatalf("apply %s: %v", migration, err)
 				}
 			}
+			var organizationID uuid.UUID
+			if err := db.Raw("INSERT INTO organizations (name) VALUES (?) RETURNING id", "E2E Organization").Scan(&organizationID).Error; err != nil {
+				t.Fatalf("create E2E organization: %v", err)
+			}
 			cfg.AuthTokenTransport = transport
 			const frontendOrigin = "https://frontend.example.com"
 			if transport == "cookie" {
@@ -186,10 +190,10 @@ func TestAuthenticationE2E(t *testing.T) {
 			credentials := dto.LoginRequest{Email: email, Password: "e2e-user-password"}
 			request(http.MethodGet, "/users/profile", nil, "", http.StatusUnauthorized)
 			registered := request(http.MethodPost, "/auth/register", dto.RegisterRequest{
-				Name: "E2E User", Email: email, Password: credentials.Password,
+				Name: "E2E User", Email: email, Password: credentials.Password, OrganizationID: &organizationID,
 			}, "", http.StatusCreated)
 			var user dto.UserResponse
-			if err := json.Unmarshal(registered, &user); err != nil || user.ID == uuid.Nil() || user.Email != email {
+			if err := json.Unmarshal(registered, &user); err != nil || user.ID == uuid.Nil() || user.Email != email || user.OrganizationID == nil || *user.OrganizationID != organizationID {
 				t.Fatalf("registration returned an invalid user: %v", err)
 			}
 			pair := tokens(request(http.MethodPost, "/auth/login", credentials, "", http.StatusOK))
