@@ -69,6 +69,15 @@ func (f *httpUserUseCase) UpdateProfile(_ context.Context, user *userdomain.User
 	f.updatedUser = user
 	if f.profileErr == nil && f.user != nil {
 		user.Email = f.user.Email
+		user.OrganizationID = f.user.OrganizationID
+	}
+	return f.profileErr
+}
+
+func (f *httpUserUseCase) UpdateUser(_ context.Context, user *userdomain.User) error {
+	f.updatedUser = user
+	if f.profileErr == nil && f.user != nil {
+		user.Email = f.user.Email
 	}
 	return f.profileErr
 }
@@ -196,8 +205,9 @@ func (f *httpPermissionUseCase) List(_ context.Context, params shared.Pagination
 
 func TestUserProfileAndListRoutesForwardIDsAndFilters(t *testing.T) {
 	userID := uuid.New()
+	organizationID := uuid.New()
 	fake := &httpUserUseCase{
-		user:       &userdomain.User{ID: userID, Name: "Alice", Email: "alice@example.com", Password: "must-not-be-returned"},
+		user:       &userdomain.User{ID: userID, Name: "Alice", Email: "alice@example.com", Password: "must-not-be-returned", OrganizationID: organizationID},
 		listResult: &shared.PaginatedResult[userdomain.User]{Page: 2, Limit: 5, Total: 1, Items: []*userdomain.User{{ID: userID, Name: "Alice", Email: "alice@example.com"}}},
 	}
 	handler := userhttp.NewUserHandler(fake)
@@ -209,35 +219,46 @@ func TestUserProfileAndListRoutesForwardIDsAndFilters(t *testing.T) {
 	if strings.Contains(profile.Body.String(), "must-not-be-returned") || strings.Contains(profile.Body.String(), "password") {
 		t.Fatalf("profile response exposed a password field: %s", profile.Body.String())
 	}
-	updated := serveHTTPHandler(t, http.MethodPut, "/profile", "/profile", `{"name":"Alice Updated"}`, handler.UpdateProfile, withAuthenticatedUser(userID))
-	if updated.Code != http.StatusOK || fake.updatedUser == nil || fake.updatedUser.ID != userID || fake.updatedUser.Name != "Alice Updated" {
+	profileBody := `{"name":"Alice Updated"}`
+	updated := serveHTTPHandler(t, http.MethodPut, "/profile", "/profile", profileBody, handler.UpdateProfile, withAuthenticatedUser(userID))
+	if updated.Code != http.StatusOK || fake.updatedUser == nil || fake.updatedUser.ID != userID || fake.updatedUser.Name != "Alice Updated" || fake.updatedUser.OrganizationID != organizationID {
 		t.Fatalf("UpdateProfile() status=%d user=%+v body=%s", updated.Code, fake.updatedUser, updated.Body.String())
 	}
 
-	list := serveHTTPHandler(t, http.MethodGet, "/users", "/users?page=2&limit=5&sort=name:desc&name=Ali&email=example.com", "", handler.ListUsers)
-	if list.Code != http.StatusOK || fake.listParams.Page != 2 || fake.listParams.Limit != 5 || len(fake.listParams.Sort) != 1 || fake.listParams.Sort[0].Direction != shared.SortDesc || len(fake.listFilters) != 2 {
+	list := serveHTTPHandler(t, http.MethodGet, "/users", "/users?page=2&limit=5&sort=name:desc&name=Ali&email=example.com&organization_id="+organizationID.String(), "", handler.ListUsers)
+	if list.Code != http.StatusOK || fake.listParams.Page != 2 || fake.listParams.Limit != 5 || len(fake.listParams.Sort) != 1 || fake.listParams.Sort[0].Direction != shared.SortDesc || len(fake.listFilters) != 3 {
 		t.Fatalf("ListUsers() status=%d params=%+v filters=%+v", list.Code, fake.listParams, fake.listFilters)
 	}
-	if fake.listFilters[0].Value != "%Ali%" || fake.listFilters[1].Value != "%example.com%" {
+	if fake.listFilters[0].Value != "%Ali%" || fake.listFilters[1].Value != "%example.com%" || fake.listFilters[2].Field != "organization_id" || fake.listFilters[2].Value != organizationID {
 		t.Fatalf("ListUsers() filters = %+v", fake.listFilters)
 	}
 	invalid := serveHTTPHandler(t, http.MethodGet, "/users", "/users?page=0", "", handler.ListUsers)
 	if invalid.Code != http.StatusUnprocessableEntity || fake.listCalls != 1 {
 		t.Fatalf("ListUsers() invalid pagination status=%d calls=%d", invalid.Code, fake.listCalls)
 	}
+	invalidOrganization := serveHTTPHandler(t, http.MethodGet, "/users", "/users?organization_id=not-a-uuid", "", handler.ListUsers)
+	if invalidOrganization.Code != http.StatusUnprocessableEntity || fake.listCalls != 1 {
+		t.Fatalf("ListUsers() invalid organization ID status=%d calls=%d body=%s", invalidOrganization.Code, fake.listCalls, invalidOrganization.Body.String())
+	}
 }
 
 func TestUserFindAndAdminUpdateRoutesUsePathID(t *testing.T) {
 	userID := uuid.New()
+	organizationID := uuid.New()
 	fake := &httpUserUseCase{user: &userdomain.User{ID: userID, Name: "Alice", Email: "alice@example.com"}}
 	handler := userhttp.NewUserHandler(fake)
 	find := serveHTTPHandler(t, http.MethodGet, "/users/:id", "/users/"+userID.String(), "", handler.FindUser)
 	if find.Code != http.StatusOK || fake.findID != userID {
 		t.Fatalf("FindUser() status=%d ID=%v body=%s", find.Code, fake.findID, find.Body.String())
 	}
-	update := serveHTTPHandler(t, http.MethodPut, "/users/:id", "/users/"+userID.String(), `{"name":"Admin Update"}`, handler.UpdateUser)
-	if update.Code != http.StatusOK || fake.updatedUser == nil || fake.updatedUser.ID != userID || fake.updatedUser.Name != "Admin Update" {
+	updateBody := `{"name":"Admin Update","organization_id":"` + organizationID.String() + `"}`
+	update := serveHTTPHandler(t, http.MethodPut, "/users/:id", "/users/"+userID.String(), updateBody, handler.UpdateUser)
+	if update.Code != http.StatusOK || fake.updatedUser == nil || fake.updatedUser.ID != userID || fake.updatedUser.Name != "Admin Update" || fake.updatedUser.OrganizationID != organizationID {
 		t.Fatalf("UpdateUser() status=%d user=%+v body=%s", update.Code, fake.updatedUser, update.Body.String())
+	}
+	unlinked := serveHTTPHandler(t, http.MethodPut, "/users/:id", "/users/"+userID.String(), `{"name":"Admin Update"}`, handler.UpdateUser)
+	if unlinked.Code != http.StatusOK || fake.updatedUser == nil || fake.updatedUser.OrganizationID != uuid.Nil() || !strings.Contains(unlinked.Body.String(), `"organization_id":null`) {
+		t.Fatalf("UpdateUser() unlink status=%d user=%+v body=%s", unlinked.Code, fake.updatedUser, unlinked.Body.String())
 	}
 }
 
@@ -351,11 +372,11 @@ func TestUserHandlersReturnUseCaseErrors(t *testing.T) {
 		}},
 		{name: "profile update", run: func(fake *httpUserUseCase, handler *userhttp.UserHandler) *httptest.ResponseRecorder {
 			fake.profileErr = notFound
-			return serveHTTPHandler(t, http.MethodPut, "/profile", "/profile", `{"name":"Updated"}`, handler.UpdateProfile, withAuthenticatedUser(userID))
+			return serveHTTPHandler(t, http.MethodPut, "/profile", "/profile", `{"name":"Updated","organization_id":"`+uuid.New().String()+`"}`, handler.UpdateProfile, withAuthenticatedUser(userID))
 		}},
 		{name: "admin update", run: func(fake *httpUserUseCase, handler *userhttp.UserHandler) *httptest.ResponseRecorder {
 			fake.profileErr = notFound
-			return serveHTTPHandler(t, http.MethodPut, "/users/:id", "/users/"+userID.String(), `{"name":"Updated"}`, handler.UpdateUser)
+			return serveHTTPHandler(t, http.MethodPut, "/users/:id", "/users/"+userID.String(), `{"name":"Updated","organization_id":"`+uuid.New().String()+`"}`, handler.UpdateUser)
 		}},
 		{name: "delete", run: func(fake *httpUserUseCase, handler *userhttp.UserHandler) *httptest.ResponseRecorder {
 			fake.deleteErr = notFound

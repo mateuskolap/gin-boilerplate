@@ -10,6 +10,7 @@ import (
 
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	permissiondomain "gin-boilerplate/internal/permissions/domain"
 	roleapp "gin-boilerplate/internal/roles/application"
 	roledomain "gin-boilerplate/internal/roles/domain"
@@ -19,24 +20,25 @@ import (
 
 type rbacUserRepo struct {
 	userdomain.UserRepository
-	users          map[uuid.UUID]*userdomain.User
-	getErr         error
-	updateErr      error
-	deleteErr      error
-	addRolesErr    error
-	removeRolesErr error
-	listErr        error
-	listResult     *shared.PaginatedResult[userdomain.User]
-	updated        *userdomain.User
-	deletedID      uuid.UUID
-	addedUser      userdomain.User
-	addedRoleIDs   []uuid.UUID
-	removedUser    userdomain.User
-	removedRoleIDs []uuid.UUID
-	listParams     shared.PaginationParams
-	listFilters    []shared.Filter
-	listCalls      int
-	loadedRoles    bool
+	users              map[uuid.UUID]*userdomain.User
+	getErr             error
+	updateErr          error
+	deleteErr          error
+	addRolesErr        error
+	removeRolesErr     error
+	listErr            error
+	listResult         *shared.PaginatedResult[userdomain.User]
+	updated            *userdomain.User
+	deletedID          uuid.UUID
+	addedUser          userdomain.User
+	addedRoleIDs       []uuid.UUID
+	removedUser        userdomain.User
+	removedRoleIDs     []uuid.UUID
+	listParams         shared.PaginationParams
+	listFilters        []shared.Filter
+	listCalls          int
+	loadedRoles        bool
+	loadedOrganization bool
 }
 
 func (r *rbacUserRepo) GetByID(_ context.Context, id uuid.UUID) (*userdomain.User, error) {
@@ -48,6 +50,11 @@ func (r *rbacUserRepo) GetByID(_ context.Context, id uuid.UUID) (*userdomain.Use
 
 func (r *rbacUserRepo) GetByIDWithRoles(ctx context.Context, id uuid.UUID) (*userdomain.User, error) {
 	r.loadedRoles = true
+	return r.GetByID(ctx, id)
+}
+
+func (r *rbacUserRepo) GetByIDWithOrganization(ctx context.Context, id uuid.UUID) (*userdomain.User, error) {
+	r.loadedOrganization = true
 	return r.GetByID(ctx, id)
 }
 
@@ -202,14 +209,15 @@ func (i *userTestImageInspector) Inspect(context.Context, io.Reader) (port.Inspe
 }
 
 func newUserUseCaseForTest(repo *rbacUserRepo, refresh *testRefreshUseCase, storage port.Storage, inspector port.ImageInspector, blacklist *testBlacklist, tx *testTransaction) userdomain.UserUseCase {
-	return userapp.NewUserUseCase(repo, refresh, storage, inspector, blacklist, tx, time.Hour, &testActivityLogRepo{})
+	return userapp.NewUserUseCase(repo, refresh, &testOrganizationUseCase{}, storage, inspector, blacklist, tx, time.Hour, &testActivityLogRepo{})
 }
 
 func TestUserUpdateProfileTrimsNameAndValidatesRunes(t *testing.T) {
 	id := uuid.New()
-	repo := &rbacUserRepo{users: map[uuid.UUID]*userdomain.User{id: {ID: id, Name: "Old name"}}}
+	organizationID := uuid.New()
+	repo := &rbacUserRepo{users: map[uuid.UUID]*userdomain.User{id: {ID: id, Name: "Old name", OrganizationID: organizationID}}}
 	useCase := newUserUseCaseForTest(repo, &testRefreshUseCase{}, &userTestStorage{}, &userTestImageInspector{}, &testBlacklist{}, &testTransaction{})
-	user := &userdomain.User{ID: id, Name: "  New name  "}
+	user := &userdomain.User{ID: id, Name: "  New name  ", OrganizationID: organizationID}
 
 	if err := useCase.UpdateProfile(context.Background(), user); err != nil {
 		t.Fatalf("UpdateProfile() error = %v", err)
@@ -219,6 +227,37 @@ func TestUserUpdateProfileTrimsNameAndValidatesRunes(t *testing.T) {
 	}
 	if err := useCase.UpdateProfile(context.Background(), &userdomain.User{ID: id, Name: "é"}); appErrorType(err) != shared.ErrTypeValidation {
 		t.Fatalf("UpdateProfile() accepted a one-rune name: %v", err)
+	}
+}
+
+func TestUserFindWithOrganizationLoadsRelation(t *testing.T) {
+	id, organizationID := uuid.New(), uuid.New()
+	organization := &organizationdomain.Organization{Name: "Example organization"}
+	organization.ID = organizationID
+	repo := &rbacUserRepo{users: map[uuid.UUID]*userdomain.User{
+		id: {ID: id, OrganizationID: organizationID, Organization: organization},
+	}}
+	useCase := newUserUseCaseForTest(repo, &testRefreshUseCase{}, &userTestStorage{}, &userTestImageInspector{}, &testBlacklist{}, &testTransaction{})
+
+	user, err := useCase.FindWithOrganization(context.Background(), id)
+	if err != nil || !repo.loadedOrganization || user == nil || user.Organization == nil || user.Organization.ID != organizationID {
+		t.Fatalf("FindWithOrganization() = %+v, loaded=%t, err=%v", user, repo.loadedOrganization, err)
+	}
+}
+
+func TestUserUpdateCanRemoveOrganization(t *testing.T) {
+	id, organizationID := uuid.New(), uuid.New()
+	repo := &rbacUserRepo{users: map[uuid.UUID]*userdomain.User{
+		id: {ID: id, Name: "Alice", OrganizationID: organizationID},
+	}}
+	useCase := newUserUseCaseForTest(repo, &testRefreshUseCase{}, &userTestStorage{}, &userTestImageInspector{}, &testBlacklist{}, &testTransaction{})
+	user := &userdomain.User{ID: id, Name: "Alice"}
+
+	if err := useCase.UpdateUser(context.Background(), user); err != nil {
+		t.Fatalf("UpdateUser() unlink error = %v", err)
+	}
+	if repo.updated == nil || repo.updated.OrganizationID != uuid.Nil() || user.OrganizationID != uuid.Nil() {
+		t.Fatalf("UpdateUser() persisted=%+v result=%+v, want no organization", repo.updated, user)
 	}
 }
 

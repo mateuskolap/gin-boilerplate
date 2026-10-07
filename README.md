@@ -222,7 +222,7 @@ Em Windows, substitua `./app` por `.\app.cmd` nos exemplos. O launcher compila `
 | `./app schedule:work` | Inicia o scheduler contínuo. |
 | `./app dev` | Supervisiona API, worker e scheduler; flags `--services --swagger --migrate --seed` preparam o ambiente. |
 | `./app docs:generate` | Regenera o Swagger a partir dos handlers por feature. |
-| `./app make:domain Order` | Cria entidade/contratos, aplicação CRUD básica, model e repositório PostgreSQL em arquivos separados. |
+| `./app make:domain [--soft-delete] [--activity-logs] Order` | Cria entidade/contratos, aplicação CRUD básica, model e repositório PostgreSQL; as flags habilitam soft delete e integração com activity logs. |
 | `./app make:migration nome` | Cria o par SQL `up` e `down`. |
 | `./app migrate` | Aplica migrations pendentes. |
 | `./app migrate:rollback [steps]` | Reverte uma migration por padrão; `./app migrate:rollback 2` reverte duas. |
@@ -231,6 +231,8 @@ Em Windows, substitua `./app` por `.\app.cmd` nos exemplos. O launcher compila `
 | `./app test` | Executa toda a suíte com serviços descartáveis e limpeza automática. |
 | `./app test:e2e` | Executa o fluxo HTTP E2E com serviços descartáveis. |
 | `./app vulncheck` | Executa a ferramenta versionada `govulncheck`. |
+
+Com `--activity-logs`, o repositório gerado recebe `activityLogRepo` no construtor; marque com a tag `activity:"track"` os campos cujas alterações devem ser registradas.
 
 Os launchers compilam `cmd/app` usando o cache do Go e executam o binário em `tmp/`, preservando códigos de saída. A lógica e o catálogo ficam em `internal/cli`. Os comandos de ferramentas exigem Go ou Docker; os subcomandos de execução funcionam no binário de produção. A supervisão pede encerramento pelo canal padrão e, se necessário, mata o processo direto após o prazo.
 

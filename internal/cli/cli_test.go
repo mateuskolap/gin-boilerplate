@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"errors"
+	"go/parser"
+	"go/token"
 	"io"
 	"os"
 	"os/exec"
@@ -57,6 +59,50 @@ func TestMakeDomainCLIParsesSoftDeleteFlagAfterDomain(t *testing.T) {
 	}
 	if !strings.Contains(string(upSQL), "deleted_at TIMESTAMPTZ") {
 		t.Fatalf("soft-delete migration does not include deleted_at: %s", upSQL)
+	}
+}
+
+func TestMakeDomainCLIParsesActivityLogsFlagAfterDomain(t *testing.T) {
+	root := t.TempDir()
+	t.Chdir(root)
+	if err := os.Mkdir("internal", 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Run(context.Background(), []string{"make:domain", "Invoice", "--soft-delete", "--activity-logs"}); err != nil {
+		t.Fatalf("make:domain with activity-logs: %v", err)
+	}
+
+	feature := filepath.Join(root, "internal", "invoices")
+	domain, err := os.ReadFile(filepath.Join(feature, "domain", "invoice.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository, err := os.ReadFile(filepath.Join(feature, "adapters", "postgres", "invoice_repository.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range [][]byte{domain, repository} {
+		if _, err := parser.ParseFile(token.NewFileSet(), "generated.go", source, parser.AllErrors); err != nil {
+			t.Fatalf("generated invalid activity-log Go file: %v", err)
+		}
+	}
+	for _, fragment := range []string{
+		"ActivityLogSubjectType() activitylogdomain.ActivitySubjectType",
+		"ActivityLogID()",
+		"activity:\"track\"",
+	} {
+		if !strings.Contains(string(domain), fragment) {
+			t.Fatalf("generated domain missing %q: %s", fragment, domain)
+		}
+	}
+	for _, fragment := range []string{
+		"activitylogdomain.ActivityLogRepository",
+		"postgresinfra.NewActivityLoggingRepository",
+	} {
+		if !strings.Contains(string(repository), fragment) {
+			t.Fatalf("generated repository missing %q: %s", fragment, repository)
+		}
 	}
 }
 

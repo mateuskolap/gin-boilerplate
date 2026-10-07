@@ -49,6 +49,10 @@ var AllPermissions = []PermissionName{
 	PermissionRemoveUserRole,
 	PermissionDeleteUser,
 	PermissionUpdateUser,
+	PermissionViewOrganization,
+	PermissionCreateOrganization,
+	PermissionUpdateOrganization,
+	PermissionDeleteOrganization,
 }
 
 type Permission struct {

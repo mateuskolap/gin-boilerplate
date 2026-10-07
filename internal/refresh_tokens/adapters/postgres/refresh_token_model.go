@@ -16,7 +16,7 @@ type RefreshTokenModel struct {
 	ExpiresAt  time.Time `gorm:"not null;index"`
 	RevokedAt  *time.Time
 	ReplacedBy *uuid.UUID             `gorm:"type:uuid"`
-	IPAddress  string                 `gorm:"not null"`
+	IPAddress  string                 `gorm:"type:inet;not null"`
 	UserAgent  string                 `gorm:"not null"`
 	User       userpostgres.UserModel `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }

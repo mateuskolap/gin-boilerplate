@@ -9,6 +9,7 @@ import (
 	"gin-boilerplate/internal/domain/shared"
 	userdto "gin-boilerplate/internal/users/adapters/http/dto"
 	userdomain "gin-boilerplate/internal/users/domain"
+	"uuid"
 
 	"github.com/gin-gonic/gin"
 )
@@ -57,7 +58,7 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 
 // ListUsers godoc
 // @Summary      List users
-// @Description  Get paginated list of users with optional filtering and sorting. Requires 'view_user' permission.
+// @Description  Get paginated list of users with optional name, email and organization filters. Requires 'view_user' permission.
 // @Tags         Users
 // @Produce      json
 // @Security     BearerAuth
@@ -66,6 +67,7 @@ func (h *UserHandler) FindUser(c *gin.Context) {
 // @Param        sort   query     string  false  "Sorting criteria (e.g. name:asc, created_at:desc or -created_at)"
 // @Param        name   query     string  false  "Filter by user name (partial match)"
 // @Param        email  query     string  false  "Filter by user email (partial match)"
+// @Param        organization_id query string false "Filter by organization UUID" format(uuid)
 // @Success      200    {object}  response.ApiResponse{data=dto.PaginatedResponse[userdto.UserResponse]} "Users retrieved successfully"
 // @Failure      401    {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403    {object}  response.ApiResponse "Forbidden - Requires view_user permission"
@@ -93,6 +95,18 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 			Field:    "email",
 			Operator: shared.OperatorILike,
 			Value:    "%" + email + "%",
+		})
+	}
+	if organizationID := c.Query("organization_id"); organizationID != "" {
+		id, err := uuid.Parse(organizationID)
+		if err != nil {
+			_ = c.Error(shared.NewAppError(shared.ErrTypeValidation, "Invalid organization_id format", err))
+			return
+		}
+		filters = append(filters, shared.Filter{
+			Field:    "organization_id",
+			Operator: shared.OperatorEquals,
+			Value:    id,
 		})
 	}
 
@@ -135,7 +149,7 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 // UpdateProfile godoc
 // @Summary      Update user profile
-// @Description  Update current authenticated user profile details (e.g. name)
+// @Description  Update the current user's name.
 // @Tags         Users
 // @Accept       json
 // @Produce      json
@@ -175,13 +189,13 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 
 // UpdateUser godoc
 // @Summary      Update user
-// @Description  Update user information by UUID. Requires 'update_user' permission.
+// @Description  Update a user's name and organization by UUID. Omit organization_id or set it to null to unlink the user. Requires 'update_user' permission.
 // @Tags         Users
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id       path      string                    true  "User UUID" format(uuid)
-// @Param        request  body      userdto.UpdateProfileRequest  true  "User update details"
+// @Param        request  body      userdto.UpdateUserRequest  true  "User update details"
 // @Success      200      {object}  response.ApiResponse{data=userdto.UserResponse} "User updated successfully"
 // @Failure      401      {object}  response.ApiResponse "Unauthorized - Missing or invalid token"
 // @Failure      403      {object}  response.ApiResponse "Forbidden - Requires update_user permission"
@@ -196,23 +210,27 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	req, err := common.BindJSON[userdto.UpdateProfileRequest](c)
+	req, err := common.BindJSON[userdto.UpdateUserRequest](c)
 	if err != nil {
 		_ = c.Error(err)
 		return
 	}
 
-	user := &userdomain.User{
-		ID:   userID,
-		Name: req.Name,
-	}
+	user := &userdomain.User{ID: userID, Name: req.Name, OrganizationID: organizationIDFromRequest(req.OrganizationID)}
 
-	if err := h.userUseCase.UpdateProfile(c.Request.Context(), user); err != nil {
+	if err := h.userUseCase.UpdateUser(c.Request.Context(), user); err != nil {
 		_ = c.Error(err)
 		return
 	}
 
 	response.Success(c, http.StatusOK, "User updated successfully", userdto.ToUserResponse(user))
+}
+
+func organizationIDFromRequest(id *uuid.UUID) uuid.UUID {
+	if id == nil {
+		return uuid.Nil()
+	}
+	return *id
 }
 
 // DeleteUser godoc

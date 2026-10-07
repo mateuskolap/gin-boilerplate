@@ -10,6 +10,7 @@ import (
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
 	"gin-boilerplate/internal/infra/security"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	refreshtokendomain "gin-boilerplate/internal/refresh_tokens/domain"
 	roledomain "gin-boilerplate/internal/roles/domain"
 	userapp "gin-boilerplate/internal/users/application"
@@ -294,8 +295,23 @@ func newTestAuthUseCaseWithPasswordLevel(level int) (userdomain.AuthUseCase, *te
 	blacklist := &testBlacklist{}
 	tx := &testTransaction{}
 	checker := &testPasswordChecker{}
-	auth := userapp.NewAuthUseCase(userRepo, roleRepo, refresh, blacklist, tx, "test-secret-with-at-least-32-characters", "issuer", "audience", time.Hour, level, checker, allowAllRateLimiter{})
+	auth := userapp.NewAuthUseCase(userRepo, roleRepo, refresh, &testOrganizationUseCase{}, blacklist, tx, "test-secret-with-at-least-32-characters", "issuer", "audience", time.Hour, level, checker, allowAllRateLimiter{})
 	return auth, userRepo, roleRepo, refresh, blacklist, tx, checker
+}
+
+type testOrganizationUseCase struct {
+	organizationdomain.OrganizationUseCase
+	err error
+}
+
+func (f *testOrganizationUseCase) Find(_ context.Context, id uuid.UUID) (*organizationdomain.Organization, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	if id == uuid.Nil() {
+		return nil, shared.NewAppError(shared.ErrTypeNotFound, "organization not found", nil)
+	}
+	return &organizationdomain.Organization{BaseSoftDeleteModel: shared.BaseSoftDeleteModel{BaseModel: shared.BaseModel{ID: id}}}, nil
 }
 
 type testPasswordChecker struct {

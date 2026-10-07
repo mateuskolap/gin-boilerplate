@@ -25,6 +25,7 @@ import (
 	"gin-boilerplate/internal/infra/queue"
 	"gin-boilerplate/internal/infra/ratelimit"
 	"gin-boilerplate/internal/infra/repository"
+	organizationpostgres "gin-boilerplate/internal/organizations/adapters/postgres"
 	permissionpostgres "gin-boilerplate/internal/permissions/adapters/postgres"
 	permissiondomain "gin-boilerplate/internal/permissions/domain"
 	refreshpostgres "gin-boilerplate/internal/refresh_tokens/adapters/postgres"
@@ -46,10 +47,19 @@ import (
 func testPostgres(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := testPostgresSchema(t)
-	if err := db.AutoMigrate(&userpostgres.UserModel{}, &rolepostgres.RoleModel{}, &permissionpostgres.PermissionModel{}, &refreshpostgres.RefreshTokenModel{}, &activitylogpostgres.ActivityLogModel{}); err != nil {
+	if err := db.AutoMigrate(&organizationpostgres.OrganizationModel{}, &userpostgres.UserModel{}, &rolepostgres.RoleModel{}, &permissionpostgres.PermissionModel{}, &refreshpostgres.RefreshTokenModel{}, &activitylogpostgres.ActivityLogModel{}); err != nil {
 		t.Fatalf("migrate isolated schema: %v", err)
 	}
 	return db
+}
+
+func createTestOrganization(t *testing.T, db *gorm.DB, name string) uuid.UUID {
+	t.Helper()
+	organization := &organizationpostgres.OrganizationModel{Name: name}
+	if err := db.Create(organization).Error; err != nil {
+		t.Fatalf("create test organization: %v", err)
+	}
+	return organization.ID
 }
 
 func testPostgresSchema(t *testing.T) *gorm.DB {
@@ -158,13 +168,18 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 	users := userpostgres.NewUserRepository(db, activityLogs)
 	roles := rolepostgres.NewRoleRepository(db, activityLogs)
 	authorization := permissionpostgres.NewAuthorizationRepository(db)
+	organizationID := createTestOrganization(t, db, "integration")
 
-	alice := &userdomain.User{Name: "Alice", Email: "alice@example.test", Password: "hash"}
-	bob := &userdomain.User{Name: "Bob", Email: "bob@example.test", Password: "hash"}
+	alice := &userdomain.User{Name: "Alice", Email: "alice@example.test", Password: "hash", OrganizationID: organizationID}
+	bob := &userdomain.User{Name: "Bob", Email: "bob@example.test", Password: "hash", OrganizationID: organizationID}
 	for _, user := range []*userdomain.User{alice, bob} {
 		if err := users.Create(ctx, user); err != nil {
 			t.Fatalf("create user: %v", err)
 		}
+	}
+	loadedAlice, err := users.GetByIDWithOrganization(ctx, alice.ID)
+	if err != nil || loadedAlice == nil || loadedAlice.Organization == nil || loadedAlice.Organization.ID != organizationID {
+		t.Fatalf("GetByIDWithOrganization() = %+v, %v", loadedAlice, err)
 	}
 
 	role := &roledomain.Role{Name: "operator"}
@@ -245,7 +260,7 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 	}
 
 	transactions := postgresinfra.NewGormTransactionManagerRepository(db)
-	rollbackUser := &userdomain.User{Name: "Rolled Back", Email: "rollback@example.test", Password: "hash"}
+	rollbackUser := &userdomain.User{Name: "Rolled Back", Email: "rollback@example.test", Password: "hash", OrganizationID: organizationID}
 	rollbackErr := errors.New("abort transaction")
 	if err := transactions.Do(ctx, func(txCtx context.Context) error {
 		if err := users.Create(txCtx, rollbackUser); err != nil {
@@ -258,7 +273,7 @@ func TestRepositoriesAndTransactionsAgainstPostgres(t *testing.T) {
 	if rolledBack, err := users.GetByEmail(ctx, rollbackUser.Email); err != nil || rolledBack != nil {
 		t.Fatalf("rolled back user = %#v, %v; want nil, nil", rolledBack, err)
 	}
-	committedUser := &userdomain.User{Name: "Committed", Email: "committed@example.test", Password: "hash"}
+	committedUser := &userdomain.User{Name: "Committed", Email: "committed@example.test", Password: "hash", OrganizationID: organizationID}
 	if err := transactions.Do(ctx, func(txCtx context.Context) error { return users.Create(txCtx, committedUser) }); err != nil {
 		t.Fatalf("commit transaction: %v", err)
 	}
@@ -272,8 +287,9 @@ func TestRefreshTokenRepositoryStateTransitionsAgainstPostgres(t *testing.T) {
 	ctx := context.Background()
 	users := userpostgres.NewUserRepository(db, activitylogpostgres.NewActivityLogRepository(db))
 	tokens := refreshpostgres.NewRefreshTokenRepository(db)
-	owner := &userdomain.User{Name: "Owner", Email: "owner@example.test", Password: "hash"}
-	other := &userdomain.User{Name: "Other", Email: "other@example.test", Password: "hash"}
+	organizationID := createTestOrganization(t, db, "token-test")
+	owner := &userdomain.User{Name: "Owner", Email: "owner@example.test", Password: "hash", OrganizationID: organizationID}
+	other := &userdomain.User{Name: "Other", Email: "other@example.test", Password: "hash", OrganizationID: organizationID}
 	if err := users.Create(ctx, owner); err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +390,7 @@ func TestDatabaseSeederIsRepeatableAndTransactional(t *testing.T) {
 		t.Fatalf("obsolete permission count = %d, %v; want zero", obsoleteCount, err)
 	}
 	admin, err := userpostgres.NewUserRepository(db, activitylogpostgres.NewActivityLogRepository(db)).GetByEmailWithRoles(context.Background(), cfg.AdminEmail)
-	if err != nil || admin == nil || len(admin.Roles) != 1 || admin.Roles[0].Name != roledomain.RoleAdmin {
+	if err != nil || admin == nil || admin.OrganizationID != uuid.Nil() || len(admin.Roles) != 1 || admin.Roles[0].Name != roledomain.RoleAdmin {
 		t.Fatalf("seeded admin = %#v, %v", admin, err)
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(cfg.AdminPassword)); err != nil {
@@ -386,6 +402,7 @@ func TestDatabaseSeederIsRepeatableAndTransactional(t *testing.T) {
 	}
 
 	rollbackDB := testPostgres(t)
+	createTestOrganization(t, rollbackDB, "seeder-rollback-test")
 	invalid := &config.Config{AdminName: "Invalid Admin", AdminEmail: "bad@example.test", AdminPassword: strings.Repeat("x", 73)}
 	if err := (&bootstrap.Application{Config: invalid, DB: rollbackDB}).Seed(context.Background()); err == nil {
 		t.Fatal("Application.Seed() succeeded despite an invalid admin password")

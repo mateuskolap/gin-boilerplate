@@ -20,20 +20,29 @@ import (
 )
 
 func TestEntityResponseMappersExposeOnlyPublicFields(t *testing.T) {
-	userID, roleID, permissionID, tokenID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	userID, organizationID, roleID, permissionID, tokenID := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	created := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
 	user := &userdomain.User{
-		ID:        userID,
-		CreatedAt: created,
-		UpdatedAt: created,
-		Name:      "Alice",
-		Email:     "alice@example.com",
-		Password:  "secret-hash",
-		Roles:     []roledomain.Role{{ID: roleID, Name: "Admin"}},
+		ID:             userID,
+		CreatedAt:      created,
+		UpdatedAt:      created,
+		Name:           "Alice",
+		Email:          "alice@example.com",
+		Password:       "secret-hash",
+		OrganizationID: organizationID,
+		Roles:          []roledomain.Role{{ID: roleID, Name: "Admin"}},
 	}
 	userResponse := userdto.ToUserResponse(user)
-	if userResponse.ID != userID || userResponse.Name != "Alice" || userResponse.Email != "alice@example.com" || userResponse.CreatedAt != created {
+	if userResponse.ID != userID || userResponse.Name != "Alice" || userResponse.Email != "alice@example.com" || userResponse.OrganizationID == nil || *userResponse.OrganizationID != organizationID || userResponse.CreatedAt != created {
 		t.Fatalf("userdto.ToUserResponse() = %+v", userResponse)
+	}
+	withoutOrganization := userdto.ToUserResponse(&userdomain.User{})
+	if withoutOrganization.OrganizationID != nil {
+		t.Fatalf("userdto.ToUserResponse() organization ID = %v, want nil", withoutOrganization.OrganizationID)
+	}
+	withoutOrganizationJSON, err := json.Marshal(withoutOrganization)
+	if err != nil || !strings.Contains(string(withoutOrganizationJSON), `"organization_id":null`) {
+		t.Fatalf("user without organization JSON = %s, error = %v", withoutOrganizationJSON, err)
 	}
 	userWithRole := userdto.ToUserWithRoleResponse(user)
 	if userWithRole.ID != userID || len(userWithRole.Roles) != 1 || userWithRole.Roles[0].ID != roleID {

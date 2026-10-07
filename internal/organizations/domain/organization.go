@@ -2,14 +2,23 @@ package domain
 
 import (
 	"context"
+	activitylogdomain "gin-boilerplate/internal/activity_logs/domain"
 	"gin-boilerplate/internal/domain/shared"
 	"uuid"
 )
 
 type Organization struct {
 	shared.BaseSoftDeleteModel
-	Name string `json:"name"`
+	Name string `json:"name" activity:"track"`
 }
+
+var _ activitylogdomain.ActivityLoggable = Organization{}
+
+func (o Organization) ActivityLogSubjectType() activitylogdomain.ActivitySubjectType {
+	return activitylogdomain.ActivitySubjectOrganization
+}
+
+func (o Organization) ActivityLogID() uuid.UUID { return o.ID }
 
 type OrganizationRepository interface {
 	Create(context.Context, *Organization) error

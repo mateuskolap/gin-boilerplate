@@ -1,9 +1,12 @@
 package dto
 
+import "uuid"
+
 type RegisterRequest struct {
-	Name     string `json:"name" binding:"required,min=2,max=100" example:"John Doe"`
-	Email    string `json:"email" binding:"required,email" example:"john.doe@example.com"`
-	Password string `json:"password" binding:"required,min=8,max=72" example:"secret12345"`
+	Name           string     `json:"name" binding:"required,min=2,max=100" example:"John Doe"`
+	Email          string     `json:"email" binding:"required,email" example:"john.doe@example.com"`
+	Password       string     `json:"password" binding:"required,min=8,max=72" example:"secret12345"`
+	OrganizationID *uuid.UUID `json:"organization_id,omitempty" example:"a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d" extensions:"x-nullable"`
 }
 
 type LoginRequest struct {

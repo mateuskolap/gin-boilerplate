@@ -3,7 +3,7 @@ CREATE TABLE organizations (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMPTZ,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL
 );
 
 CREATE INDEX idx_organizations_deleted_at ON organizations (deleted_at);

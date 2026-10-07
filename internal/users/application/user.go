@@ -15,6 +15,7 @@ import (
 	sharedapp "gin-boilerplate/internal/application"
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	refreshtokendomain "gin-boilerplate/internal/refresh_tokens/domain"
 	userdomain "gin-boilerplate/internal/users/domain"
 
@@ -24,11 +25,12 @@ import (
 const maxAvatarSizeBytes int64 = 3 * 1024 * 1024
 
 var allowedUserFilterFields = map[string]bool{
-	"name":       true,
-	"email":      true,
-	"created_at": true,
-	"updated_at": true,
-	"id":         true,
+	"name":            true,
+	"email":           true,
+	"organization_id": true,
+	"created_at":      true,
+	"updated_at":      true,
+	"id":              true,
 }
 
 type userUseCase struct {
@@ -41,11 +43,13 @@ type userUseCase struct {
 	tx                  port.TransactionManager
 	jwtExpiration       time.Duration
 	activityLogRepo     activitylogdomain.ActivityLogRepository
+	organizationUseCase organizationdomain.OrganizationUseCase
 }
 
 func NewUserUseCase(
 	userRepo userdomain.UserRepository,
 	refreshTokenUseCase refreshtokendomain.RefreshTokenUseCase,
+	organizationUseCase organizationdomain.OrganizationUseCase,
 	storage port.Storage,
 	imageInspector port.ImageInspector,
 	tokenBlacklist userdomain.TokenBlackListRepository,
@@ -66,6 +70,7 @@ func NewUserUseCase(
 		tx:                  tx,
 		jwtExpiration:       jwtExpiration,
 		activityLogRepo:     activityLogRepo,
+		organizationUseCase: organizationUseCase,
 	}
 }
 
@@ -73,7 +78,19 @@ func (u *userUseCase) Find(ctx context.Context, id uuid.UUID) (*userdomain.User,
 	return sharedapp.FindByIDUsing(ctx, id, u.userRepo.GetByIDWithRoles)
 }
 
+func (u *userUseCase) FindWithOrganization(ctx context.Context, id uuid.UUID) (*userdomain.User, error) {
+	return sharedapp.FindByIDUsing(ctx, id, u.userRepo.GetByIDWithOrganization)
+}
+
 func (u *userUseCase) UpdateProfile(ctx context.Context, user *userdomain.User) error {
+	return u.update(ctx, user, false)
+}
+
+func (u *userUseCase) UpdateUser(ctx context.Context, user *userdomain.User) error {
+	return u.update(ctx, user, true)
+}
+
+func (u *userUseCase) update(ctx context.Context, user *userdomain.User, updateOrganization bool) error {
 	user.Name = strings.TrimSpace(user.Name)
 	if nameLength := utf8.RuneCountInString(user.Name); nameLength < 2 || nameLength > 100 {
 		return shared.NewAppError(
@@ -87,8 +104,20 @@ func (u *userUseCase) UpdateProfile(ctx context.Context, user *userdomain.User) 
 		return err
 	}
 
-	if existingUser.Name != user.Name {
+	organizationID := existingUser.OrganizationID
+	if updateOrganization {
+		organizationID = user.OrganizationID
+	}
+	if updateOrganization && organizationID != uuid.Nil() && organizationID != existingUser.OrganizationID {
+		if _, err := u.organizationUseCase.Find(ctx, organizationID); err != nil {
+			return err
+		}
+	}
+
+	changed := existingUser.Name != user.Name || existingUser.OrganizationID != organizationID
+	if changed {
 		existingUser.Name = user.Name
+		existingUser.OrganizationID = organizationID
 		if err := u.userRepo.Update(ctx, existingUser); err != nil {
 			return shared.NewAppError(shared.ErrTypeInternal, "Failed to update profile", err)
 		}

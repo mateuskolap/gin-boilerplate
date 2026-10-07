@@ -16,7 +16,7 @@ type User struct {
 	Email          string    `json:"email" activity:"track"`
 	Password       string    `json:"-" activity:"-"`
 	AvatarKey      string    `json:"avatar_key,omitempty"`
-	OrganizationID uuid.UUID `json:"organization_id,omitempty"`
+	OrganizationID uuid.UUID `json:"organization_id,omitempty" activity:"track"`
 
 	Organization *organizationdomain.Organization `json:"organization,omitempty"`
 	Roles        []roledomain.Role                `json:"roles,omitempty"`
@@ -32,6 +32,7 @@ type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByIDWithRoles(ctx context.Context, id uuid.UUID) (*User, error)
+	GetByIDWithOrganization(ctx context.Context, id uuid.UUID) (*User, error)
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, params shared.PaginationParams, filters []shared.Filter) (*shared.PaginatedResult[User], error)
@@ -57,6 +58,8 @@ type UserUseCase interface {
 
 	// UpdateProfile updates editable user profile fields.
 	UpdateProfile(ctx context.Context, user *User) error
+	UpdateUser(ctx context.Context, user *User) error
+	FindWithOrganization(ctx context.Context, id uuid.UUID) (*User, error)
 
 	// AddRoles associates roles with a user.
 	AddRoles(ctx context.Context, userID uuid.UUID, roleIDs []uuid.UUID) error

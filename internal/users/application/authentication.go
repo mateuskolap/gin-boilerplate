@@ -6,6 +6,7 @@ import (
 	"gin-boilerplate/internal/domain/port"
 	"gin-boilerplate/internal/domain/shared"
 	"gin-boilerplate/internal/infra/security"
+	organizationdomain "gin-boilerplate/internal/organizations/domain"
 	refreshtokendomain "gin-boilerplate/internal/refresh_tokens/domain"
 	roledomain "gin-boilerplate/internal/roles/domain"
 	userdomain "gin-boilerplate/internal/users/domain"
@@ -34,6 +35,7 @@ type authUseCase struct {
 	userRepo                userdomain.UserRepository
 	roleRepo                roledomain.RoleRepository
 	refreshTokenUseCase     refreshtokendomain.RefreshTokenUseCase
+	organizationUseCase     organizationdomain.OrganizationUseCase
 	tokenBlacklist          userdomain.TokenBlackListRepository
 	rateLimiter             port.RateLimiter
 	tx                      port.TransactionManager
@@ -49,6 +51,7 @@ func NewAuthUseCase(
 	userRepo userdomain.UserRepository,
 	roleRepo roledomain.RoleRepository,
 	refreshTokenUseCase refreshtokendomain.RefreshTokenUseCase,
+	organizationUseCase organizationdomain.OrganizationUseCase,
 	tokenBlacklist userdomain.TokenBlackListRepository,
 	tx port.TransactionManager,
 	jwtSecret, jwtIssuer, jwtAudience string,
@@ -61,6 +64,7 @@ func NewAuthUseCase(
 		userRepo:                userRepo,
 		roleRepo:                roleRepo,
 		refreshTokenUseCase:     refreshTokenUseCase,
+		organizationUseCase:     organizationUseCase,
 		tokenBlacklist:          tokenBlacklist,
 		rateLimiter:             rateLimiter,
 		tx:                      tx,
@@ -105,6 +109,13 @@ func (a *authUseCase) Register(ctx context.Context, user *userdomain.User) error
 			nil,
 		)
 	}
+
+	if user.OrganizationID != uuid.Nil() {
+		if _, err := a.organizationUseCase.Find(ctx, user.OrganizationID); err != nil {
+			return err
+		}
+	}
+
 	if err := a.rejectPwnedPassword(ctx, user.Password); err != nil {
 		return err
 	}

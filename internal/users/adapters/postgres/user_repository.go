@@ -33,6 +33,10 @@ func (r *userRepository) GetByIDWithRoles(ctx context.Context, id uuid.UUID) (*u
 	return r.FindOneBy(ctx, "id = ?", []any{id}, "Roles")
 }
 
+func (r *userRepository) GetByIDWithOrganization(ctx context.Context, id uuid.UUID) (*userdomain.User, error) {
+	return r.FindOneBy(ctx, "id = ?", []any{id}, "Organization")
+}
+
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userdomain.User, error) {
 	return r.FindOneBy(ctx, "email = ?", []any{email})
 }

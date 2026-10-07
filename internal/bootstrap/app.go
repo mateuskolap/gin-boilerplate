@@ -119,10 +119,12 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	passwordChecker := securityinfra.NewPwnedPasswordChecker()
 
 	refreshTokenUseCase := refreshapp.NewRefreshTokenUseCase(refreshTokenRepo, txManager, cfg.RefreshExpiration)
+	organizationUseCase := organizationapp.NewOrganizationUseCase(organizationRepo)
 	authUseCase := userapp.NewAuthUseCase(
 		userRepo,
 		roleRepo,
 		refreshTokenUseCase,
+		organizationUseCase,
 		tokenBlacklistRepo,
 		txManager,
 		cfg.JWTSecret,
@@ -136,6 +138,7 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	userUseCase := userapp.NewUserUseCase(
 		userRepo,
 		refreshTokenUseCase,
+		organizationUseCase,
 		localStore,
 		imageInspector,
 		tokenBlacklistRepo,
@@ -147,7 +150,6 @@ func NewApplication(cfg *config.Config) (*Application, error) {
 	permissionUseCase := permissionapp.NewPermissionUseCase(permissionRepo)
 	activityLogUseCase := activitylogapp.NewActivityLogUseCase(activityLogRepo)
 	permissionCheckerUseCase := permissionapp.NewPermissionCheckerUseCase(authorizationRepo)
-	organizationUseCase := organizationapp.NewOrganizationUseCase(organizationRepo, txManager, activityLogRepo)
 
 	cookieSameSite := http.SameSiteLaxMode
 	switch cfg.AuthCookieSameSite {

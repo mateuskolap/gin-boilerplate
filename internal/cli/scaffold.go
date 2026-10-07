@@ -15,10 +15,14 @@ type generatedFile struct {
 }
 
 func makeDomain(root, name string) (string, error) {
-	return makeDomainWithSoftDelete(root, name, false)
+	return makeDomainWithOptions(root, name, false, false)
 }
 
 func makeDomainWithSoftDelete(root, name string, softDelete bool) (string, error) {
+	return makeDomainWithOptions(root, name, softDelete, false)
+}
+
+func makeDomainWithOptions(root, name string, softDelete, activityLogs bool) (string, error) {
 	entity, stem, fileStem, feature, err := domainNames(name)
 	if err != nil {
 		return "", err
@@ -33,6 +37,9 @@ func makeDomainWithSoftDelete(root, name string, softDelete bool) (string, error
 	modelFields := "postgresinfra.BaseModel"
 	modelFromDomainBody := ""
 	domainFromModelBody := ""
+	domainImports := ""
+	activityLogMethods := ""
+	activityLogGuidance := ""
 	if softDelete {
 		domainBaseModel = "shared.BaseSoftDeleteModel"
 		modelImports += "\n\t\"gorm.io/gorm\""
@@ -47,16 +54,50 @@ func makeDomainWithSoftDelete(root, name string, softDelete bool) (string, error
 		entity.DeletedAt = &deletedAt
 	}`
 	}
+	if activityLogs {
+		domainImports = `activitylogdomain "gin-boilerplate/internal/activity_logs/domain"`
+		activityLogGuidance = "// Mark fields with `activity:\"track\"` to include their values in activity logs."
+		activityLogMethods = fmt.Sprintf(`
+func (e %s) ActivityLogSubjectType() activitylogdomain.ActivitySubjectType {
+	return activitylogdomain.ActivitySubjectType(%q)
+}
+
+func (e %s) ActivityLogID() uuid.UUID { return e.ID }
+`, entity, fileStem, entity)
+	}
+
+	activityLogRepositoryImport := ""
+	repositoryType := fmt.Sprintf("*postgresinfra.BaseRepository[%s, *%sModel]", stem+"domain."+entity, entity)
+	repositoryArgs := "db *gorm.DB"
+	baseRepository := fmt.Sprintf(`postgresinfra.NewBaseRepository(db,
+			func() *%sModel { return &%sModel{} },
+			func(entity *%s) *%sModel { return %sModelFromDomain(entity) },
+			%sDomainFromModel,
+		)`, entity, entity, stem+"domain."+entity, entity, stem, stem)
+	repositoryInitializer := "BaseRepository: " + baseRepository
+	if activityLogs {
+		activityLogRepositoryImport = `activitylogdomain "gin-boilerplate/internal/activity_logs/domain"`
+		repositoryType = fmt.Sprintf("*postgresinfra.ActivityLoggingRepository[%s]", stem+"domain."+entity)
+		repositoryArgs += ", activityLogRepo activitylogdomain.ActivityLogRepository"
+		repositoryInitializer = fmt.Sprintf("ActivityLoggingRepository: postgresinfra.NewActivityLoggingRepository(db, %s, activityLogRepo)", baseRepository)
+	}
 
 	replacer := strings.NewReplacer(
 		"{{Entity}}", entity,
 		"{{Stem}}", stem,
 		"{{Feature}}", feature,
 		"{{DomainBaseModel}}", domainBaseModel,
+		"{{DomainImports}}", domainImports,
+		"{{ActivityLogGuidance}}", activityLogGuidance,
+		"{{ActivityLogMethods}}", activityLogMethods,
 		"{{ModelImports}}", modelImports,
 		"{{ModelFields}}", modelFields,
 		"{{ModelFromDomainBody}}", modelFromDomainBody,
 		"{{DomainFromModelBody}}", domainFromModelBody,
+		"{{ActivityLogRepositoryImport}}", activityLogRepositoryImport,
+		"{{RepositoryType}}", repositoryType,
+		"{{RepositoryArgs}}", repositoryArgs,
+		"{{RepositoryInitializer}}", repositoryInitializer,
 	)
 	files := []generatedFile{
 		{filepath.Join("domain", fileStem+".go"), []byte(domainSource)},
@@ -191,13 +232,17 @@ const domainSource = `package domain
 
 import (
 	"context"
+	{{DomainImports}}
 	"gin-boilerplate/internal/domain/shared"
 	"uuid"
 )
 
 type {{Entity}} struct {
 	{{DomainBaseModel}}
+	{{ActivityLogGuidance}}
 }
+
+{{ActivityLogMethods}}
 
 type {{Entity}}Repository interface {
 	Create(context.Context, *{{Entity}}) error
@@ -286,24 +331,21 @@ func {{Stem}}DomainFromModel(model *{{Entity}}Model) *{{Stem}}domain.{{Entity}} 
 const repositorySource = `package postgres
 
 import (
+	{{ActivityLogRepositoryImport}}
 	postgresinfra "gin-boilerplate/internal/infra/postgres"
 	{{Stem}}domain "gin-boilerplate/internal/{{Feature}}/domain"
 	"gorm.io/gorm"
 )
 
 type {{Stem}}Repository struct {
-	*postgresinfra.BaseRepository[{{Stem}}domain.{{Entity}}, *{{Entity}}Model]
+	{{RepositoryType}}
 }
 
 var _ {{Stem}}domain.{{Entity}}Repository = (*{{Stem}}Repository)(nil)
 
-func New{{Entity}}Repository(db *gorm.DB) {{Stem}}domain.{{Entity}}Repository {
+func New{{Entity}}Repository({{RepositoryArgs}}) {{Stem}}domain.{{Entity}}Repository {
 	return &{{Stem}}Repository{
-		BaseRepository: postgresinfra.NewBaseRepository(db,
-			func() *{{Entity}}Model { return &{{Entity}}Model{} },
-			func(entity *{{Stem}}domain.{{Entity}}) *{{Entity}}Model { return {{Stem}}ModelFromDomain(entity) },
-			{{Stem}}DomainFromModel,
-		),
+		{{RepositoryInitializer}},
 	}
 }
 `
